@@ -35,10 +35,10 @@ Ghi chú:
 | Đối tượng | Ghi chú |
 | --- | --- |
 | Khách hàng | Chỉ khách hàng cá nhân, định danh bằng số CCCD/Căn cước 12 chữ số. Một CCCD là một khách hàng. |
-| Tài khoản | Thuộc 1 khách hàng, 1 loại tài khoản, 1 chi nhánh mở. Có 5 trạng thái (mục 2.1). Số tài khoản sinh bằng Sequence. |
+| Tài khoản | Thuộc 1 khách hàng (chỉ 1 chủ), 1 loại tài khoản, 1 chi nhánh mở. Có 5 trạng thái (mục 2.1). Số tài khoản sinh bằng Sequence. Có ngày giao dịch gần nhất: ngoài đời do core banking cung cấp; trong bài lấy từ dữ liệu mẫu, tài khoản mới mở thì lấy ngày mở. App không cập nhật ngày này vì không có giao dịch tiền. |
 | Phiếu yêu cầu | Mọi thay đổi trạng thái tài khoản do người làm đều đi qua phiếu. Mỗi phiếu chạy 1 quy trình Camunda. Mã phiếu dạng `PYC-2026-0001`, sinh bằng Sequence. |
 | Giấy tờ đính kèm | File đính kèm phiếu, lưu ở Supabase Storage (bucket `giay-to`). |
-| Lô import | 1 file Excel mở tài khoản theo lô. Lưu ở bảng `import_batch` (thông tin lô) và `import_batch_row` (từng dòng). File gốc lưu ở bucket `import`. |
+| Lô import | 1 file Excel mở tài khoản theo lô. Lưu ở bảng `import_batch` (thông tin lô, đơn vị đề nghị) và `import_batch_row` (từng dòng, đánh dấu đã gửi mail). File gốc lưu ở bucket `import`. |
 | Loại tài khoản | Danh mục. Mỗi loại có cài đặt "Chuyển ngủ đông sau (tháng không giao dịch)": tài khoản loại này không giao dịch quá số tháng đó thì job ban đêm chuyển sang Ngủ đông. Đây không phải thời hạn của tài khoản. |
 | Chi nhánh | Danh mục. Nơi mở tài khoản và nơi nhân viên làm việc. |
 | Nhân viên | Tài khoản đăng nhập và role nằm ở KeyCloak; hồ sơ và chi nhánh nằm ở Supabase, nối bằng `keycloak_id`. DB của app không giữ bản sao role. |
@@ -142,33 +142,33 @@ Phần này do KeyCloak làm, app không tự viết trang đăng nhập hay lư
 
 | Mã | Chức năng | Ai | Ghi chú |
 | --- | --- | --- | --- |
-| CN-06 | Xem tổng quan | Mọi role | Giao dịch viên và Kiểm soát viên thấy số tài khoản theo 5 trạng thái; bấm một thẻ thì mở danh sách Tài khoản đã lọc theo trạng thái đó. Khối giữa đổi theo role: Kiểm soát viên thấy "Phiếu chờ tôi duyệt" (đã loại phiếu do mình tạo); Giao dịch viên thấy "Phiếu của tôi" (phiếu bị từ chối luôn ở trên cùng); Admin thấy "Nhân viên chờ cấp quyền". Khối "Hoạt động gần đây" lấy 6 dòng mới nhất của Audit log. Số liệu tính bằng Function trong DB. |
+| CN-06 | Xem tổng quan | Mọi role | Giao dịch viên và Kiểm soát viên thấy số tài khoản theo 5 trạng thái; bấm một thẻ thì mở danh sách Tài khoản đã lọc theo trạng thái đó. Khối giữa đổi theo role: Kiểm soát viên thấy "Phiếu chờ tôi duyệt" (phiếu của chi nhánh mình, đã loại phiếu do mình tạo); Giao dịch viên thấy "Phiếu của tôi" (phiếu bị từ chối luôn ở trên cùng); Admin thấy "Nhân viên chờ cấp quyền". Khối "Hoạt động gần đây" lấy 6 dòng mới nhất của Audit log. Số liệu tính bằng Function trong DB. |
 
 ### 4.3 Khách hàng và tài khoản
 
 | Mã | Chức năng | Ai | Ghi chú |
 | --- | --- | --- | --- |
-| CN-07 | Tra cứu khách hàng | Giao dịch viên, Kiểm soát viên | Tìm theo họ tên (gần đúng, gõ không dấu cũng được) hoặc theo số CCCD (đủ 12 số, khớp tuyệt đối). Bảng có phân trang; cột Tài khoản hiện mỗi tài khoản của khách bằng một Tag trạng thái. |
+| CN-07 | Tra cứu khách hàng | Giao dịch viên, Kiểm soát viên | Xem được khách hàng của mọi chi nhánh. Tìm theo họ tên (gần đúng, gõ không dấu cũng được) hoặc theo số CCCD (đủ 12 số, khớp tuyệt đối). Bảng có phân trang; cột Tài khoản hiện mỗi tài khoản của khách bằng một Tag trạng thái. |
 | CN-08 | Xem chi tiết khách hàng | Giao dịch viên, Kiểm soát viên | Thông tin khách (CCCD, điện thoại, email đã che từ backend), tab Tài khoản và tab Phiếu yêu cầu. Giao dịch viên có nút "Mở thêm tài khoản": sang Tạo phiếu với khách hàng đã điền sẵn. |
-| CN-09 | Tra cứu tài khoản | Giao dịch viên, Kiểm soát viên | Tìm theo số tài khoản; lọc theo trạng thái (chọn nhiều), loại tài khoản, chi nhánh. Tài khoản đang có phiếu chờ duyệt có dấu hiệu riêng, Tooltip ghi mã phiếu. |
-| CN-10 | Xem chi tiết tài khoản | Giao dịch viên, Kiểm soát viên | Thông tin tài khoản, lịch sử phiếu, Timeline vòng đời. Nút thao tác chỉ hiện với Giao dịch viên và đổi theo trạng thái (mục 2.1); bấm nút thì sang Tạo phiếu với loại phiếu và tài khoản đã điền sẵn. Tài khoản đang có phiếu chờ duyệt thì khóa mọi nút. Tài khoản Đã đóng không còn nút nào. |
+| CN-09 | Tra cứu tài khoản | Giao dịch viên, Kiểm soát viên | Xem được tài khoản của mọi chi nhánh. Tìm theo số tài khoản; lọc theo trạng thái (chọn nhiều), loại tài khoản, chi nhánh. Tài khoản đang có phiếu Chờ duyệt hoặc Bị từ chối có dấu hiệu riêng, Tooltip ghi mã phiếu. |
+| CN-10 | Xem chi tiết tài khoản | Giao dịch viên, Kiểm soát viên | Thông tin tài khoản, lịch sử phiếu, Timeline vòng đời. Nút thao tác chỉ hiện với Giao dịch viên và đổi theo trạng thái (mục 2.1); bấm nút thì sang Tạo phiếu với loại phiếu và tài khoản đã điền sẵn. Tài khoản đang có phiếu Chờ duyệt hoặc Bị từ chối thì khóa mọi nút; muốn làm phiếu khác thì hủy phiếu cũ trước. Tài khoản Đã đóng không còn nút nào. |
 
 ### 4.4 Phiếu yêu cầu
 
 | Mã | Chức năng | Ai | Ghi chú |
 | --- | --- | --- | --- |
 | CN-11 | Tạo phiếu | Giao dịch viên | 4 bước: chọn loại phiếu → khách hàng hoặc tài khoản → lý do và giấy tờ → xác nhận. Chi tiết ở dưới bảng. |
-| CN-12 | Sửa và gửi lại phiếu bị từ chối | Giao dịch viên (người tạo) | Sửa theo lý do từ chối rồi gửi lại; phiếu quay về Chờ duyệt, số lần gửi tăng thêm 1. |
+| CN-12 | Sửa và gửi lại phiếu bị từ chối | Giao dịch viên (người tạo) | Sửa theo lý do từ chối rồi gửi lại; phiếu quay về Chờ duyệt, số lần gửi tăng thêm 1. Phiếu lô chỉ được bỏ dòng, không sửa dòng (xem CN-18). |
 | CN-13 | Hủy phiếu | Giao dịch viên (người tạo) | Chỉ khi phiếu Chờ duyệt hoặc Bị từ chối. Phiếu sang Đã hủy, backend dừng quy trình Camunda. Phiếu Mở tài khoản bị hủy thì tài khoản Chờ mở sang Đã đóng. Phiếu bị từ chối mà người tạo không sửa, không hủy thì tài khoản giữ nguyên Chờ mở; hệ thống không tự hủy. |
-| CN-14 | Xem danh sách phiếu | Giao dịch viên, Kiểm soát viên | Tab theo trạng thái (Tất cả, Chờ duyệt, Đã duyệt, Bị từ chối, Hoàn tất, Đã hủy); lọc theo mã phiếu, loại phiếu, chi nhánh, khoảng ngày. Danh sách Chờ duyệt của Kiểm soát viên: không gồm phiếu do mình tạo, phiếu gửi sớm nhất ở trên, chờ quá 24 giờ thì tô màu cảnh báo, không có nút duyệt nhanh. |
+| CN-14 | Xem danh sách phiếu | Giao dịch viên, Kiểm soát viên | Tab theo trạng thái (Tất cả, Chờ duyệt, Đã duyệt, Bị từ chối, Hoàn tất, Đã hủy); lọc theo mã phiếu, loại phiếu, chi nhánh, khoảng ngày. "Tất cả phiếu" xem được phiếu của mọi chi nhánh. Danh sách Chờ duyệt của Kiểm soát viên: chỉ phiếu thuộc chi nhánh mình (không có bộ lọc chi nhánh), không gồm phiếu do mình tạo, phiếu gửi sớm nhất ở trên, chờ quá 24 giờ thì tô màu cảnh báo, không có nút duyệt nhanh. |
 | CN-15 | Xem chi tiết phiếu | Giao dịch viên, Kiểm soát viên | Steps cho biết phiếu đang ở bước nào; nội dung yêu cầu (trạng thái trước → sau); giấy tờ đính kèm (xem và tải, không xóa); Timeline lịch sử xử lý. Phiếu lô có thêm bảng khách trong lô, phân trang ở backend. |
-| CN-16 | Duyệt phiếu | Kiểm soát viên | Hỏi xác nhận trước khi duyệt. Backend kiểm tra người duyệt khác người tạo rồi mới báo Camunda hoàn thành task. Phiếu lô: xem CN-18. |
-| CN-17 | Từ chối phiếu | Kiểm soát viên | Bắt buộc nhập lý do (tối đa 500 ký tự). Phiếu về Bị từ chối, giao dịch viên thấy lý do. Trạng thái tài khoản không đổi. |
+| CN-16 | Duyệt phiếu | Kiểm soát viên | Hỏi xác nhận trước khi duyệt. Backend kiểm tra người duyệt khác người tạo và cùng chi nhánh với phiếu rồi mới báo Camunda hoàn thành task. Phiếu lô: xem CN-18. |
+| CN-17 | Từ chối phiếu | Kiểm soát viên | Bắt buộc nhập lý do (tối đa 500 ký tự). Phiếu về Bị từ chối; hệ thống gửi mail cho người tạo kèm lý do (CN-24). Trạng thái tài khoản không đổi. Cùng kiểm tra như CN-16. |
 
 Chi tiết CN-11 (Tạo phiếu):
 
 1. Chọn 1 trong 4 loại phiếu ở mục 2.2 (trừ phiếu lô, phiếu lô tạo từ màn Import).
-2. Phiếu Mở tài khoản: chọn "Khách hàng mới" thì nhập hồ sơ (họ tên, ngày sinh, giới tính, số CCCD, ngày cấp, nơi cấp, điện thoại, email nhận thông báo, địa chỉ thường trú, loại tài khoản); chọn "Khách hàng đã có" thì tìm theo đủ 12 số CCCD rồi chọn loại tài khoản mở thêm. Ô CCCD kiểm tra ngay: số đã có hồ sơ thì báo. Các phiếu khác: tìm tài khoản theo số; tài khoản phải đang ở trạng thái cho phép và không có phiếu nào đang chờ, nếu không thì báo lỗi dưới ô tìm và khóa nút Tiếp tục.
+2. Phiếu Mở tài khoản: chọn "Khách hàng mới" thì nhập hồ sơ (họ tên, ngày sinh, giới tính, số CCCD, ngày cấp, nơi cấp, điện thoại, email nhận thông báo, địa chỉ thường trú, loại tài khoản); chọn "Khách hàng đã có" thì tìm theo đủ 12 số CCCD rồi chọn loại tài khoản mở thêm. Ô CCCD kiểm tra ngay: số đã có hồ sơ thì báo. Các phiếu khác: tìm tài khoản theo số; tài khoản phải đang ở trạng thái cho phép và không có phiếu nào đang Chờ duyệt hoặc Bị từ chối, nếu không thì báo lỗi dưới ô tìm và khóa nút Tiếp tục.
 3. Nhập lý do (tối đa 500 ký tự) và đính kèm giấy tờ: PDF, JPG, PNG; tối đa 5 file, mỗi file tối đa 5 MB.
 4. Xem lại toàn bộ, tick "Tôi đã đối chiếu thông tin với giấy tờ gốc của khách hàng" rồi gửi.
 
@@ -188,7 +188,7 @@ Chi tiết CN-18 (Import theo lô):
 3. Tải file lên. Trong request, backend chỉ kiểm tra nhanh cả file: đúng `.xlsx`, tối đa 5 MB, đúng dòng tiêu đề của file mẫu, tối đa 1.000 dòng. Sai thì báo lỗi ngay, không tạo lô. Đúng thì lưu file gốc vào bucket `import`, tạo lô ở trạng thái "Đang kiểm tra" và trả mã lô về ngay.
 4. Kiểm tra từng dòng chạy nền (`@Async` với thread pool giới hạn số lô kiểm tra cùng lúc). Mỗi dòng ghi kết quả Hợp lệ hoặc Lỗi kèm lý do vào `import_batch_row`, cập nhật tiến độ; xong thì lô sang "Kiểm tra xong". React hỏi tiến độ qua `GET /api/imports/{id}` 2 giây một lần. Lỗi thường gặp: số CCCD không đủ 12 chữ số; CCCD đã có hồ sơ khách hàng (khách cũ thì dùng Mở thêm tài khoản); CCCD lặp trong cùng file; CCCD đang nằm trong một lô khác đang chờ duyệt; mã loại tài khoản không tồn tại; email không hợp lệ; ngày sinh không ở quá khứ.
 5. Sửa dòng lỗi: bấm "Tải file lỗi" để lấy file Excel cùng cột với file mẫu, thêm cột "Lý do lỗi". Sửa trong Excel rồi tải lên thành một lô mới; lô mới đi lại từ bước 3. Dòng lỗi của lô cũ không bao giờ được gửi.
-6. Gửi: các dòng hợp lệ gộp thành 1 phiếu Mở tài khoản theo lô (`POST /api/imports/{id}/submit`), dù file có 1 dòng hay nhiều dòng. Dòng lỗi không được gửi.
+6. Gửi: các dòng hợp lệ gộp thành 1 phiếu Mở tài khoản theo lô (`POST /api/imports/{id}/submit`), dù file có 1 dòng hay nhiều dòng. Dòng lỗi không được gửi. Có thể điền "Đơn vị đề nghị" (không bắt buộc, chỉ là chữ, ví dụ tên công ty hay trường gửi danh sách) để ghi nhận và lọc; khách trong lô vẫn là khách hàng cá nhân.
 
 Quy tắc của phiếu lô:
 
@@ -196,7 +196,8 @@ Quy tắc của phiếu lô:
 - Phần chạy nền chỉ ghi vào `import_batch` và `import_batch_row`. Bảng khách hàng và tài khoản chỉ được ghi một lần, lúc kiểm soát viên duyệt.
 - Lúc gửi chưa tạo tài khoản nào. Kiểm soát viên duyệt xong mới tạo khách hàng và tài khoản (trạng thái Hoạt động), trong 1 transaction: tạo hết hoặc không tạo gì.
 - Trước khi tạo, kiểm tra lại CCCD một lần nữa. Có dòng hỏng thì phiếu quay về người tạo kèm danh sách dòng hỏng.
-- Cả lô chỉ gửi 1 mail và phát 1 sự kiện Kafka.
+- Phiếu lô bị trả về (bị từ chối hoặc có dòng hỏng): người tạo chỉ được bỏ các dòng có vấn đề rồi gửi lại; người bị bỏ ra đưa vào một lô mới. Không sửa từng dòng trên màn hình. Người tạo cũng có thể hủy phiếu.
+- Cả lô phát 1 sự kiện Kafka. Phần đọc sự kiện gửi 1 mail tổng kết cho người tạo lô và 1 mail cho từng khách (số tài khoản của khách đó). Mỗi dòng đánh dấu đã gửi mail ngay khi gửi xong, chạy lại thì chỉ gửi cho người chưa nhận. Gửi đủ thì phiếu sang Hoàn tất.
 
 ### 4.6 Quản trị
 
@@ -211,8 +212,8 @@ Quy tắc của phiếu lô:
 
 | Mã | Chức năng | Chạy khi | Ghi chú |
 | --- | --- | --- | --- |
-| CN-24 | Gửi mail kết quả | Phiếu được duyệt | Service task của Camunda; sự kiện đi qua Kafka theo Outbox pattern; mail gửi tới khách hàng và giao dịch viên qua Mailpit. Gửi xong thì phiếu sang Hoàn tất. |
-| CN-25 | Chuyển tài khoản sang Ngủ đông | Mỗi đêm | pg_cron gọi Stored Procedure: tài khoản Hoạt động không giao dịch quá số tháng "Chuyển ngủ đông sau" của loại tài khoản thì chuyển sang Ngủ đông. Ghi Audit log với người thực hiện là "Hệ thống (job)". |
+| CN-24 | Gửi mail kết quả | Phiếu được duyệt hoặc bị từ chối | Service task của Camunda; sự kiện đi qua Kafka theo Outbox pattern; mail gửi qua Mailpit. Duyệt phiếu lẻ: mail tới khách hàng và giao dịch viên, gửi xong thì phiếu sang Hoàn tất. Duyệt phiếu lô: xem quy tắc phiếu lô ở CN-18. Từ chối: mail tới người tạo kèm lý do. |
+| CN-25 | Chuyển tài khoản sang Ngủ đông | Mỗi đêm | pg_cron gọi Stored Procedure: tài khoản Hoạt động không giao dịch quá số tháng "Chuyển ngủ đông sau" của loại tài khoản thì chuyển sang Ngủ đông. Số tháng tính từ ngày giao dịch gần nhất của tài khoản (mục 2). Ghi Audit log với người thực hiện là "Hệ thống (job)". |
 | CN-26 | Ghi Audit log | Mỗi thao tác ghi dữ liệu | Dùng AOP. Ghi cho mọi API ghi, mỗi lần xuất báo cáo và các bước Camunda. Lưu người làm, thời gian, hành động, đối tượng, mô tả, IP, giá trị trước và sau. |
 
 ## 5. Quy tắc chung
@@ -221,8 +222,8 @@ Quy tắc của phiếu lô:
 | --- | --- |
 | QT-01 | Người duyệt phải khác người tạo phiếu. Backend so `keycloak_id` của hai người trước khi báo Camunda; giao diện khóa nút Duyệt, Từ chối và hiện Tooltip "Bạn không thể duyệt phiếu do chính mình tạo" chỉ là lớp chặn thứ hai. |
 | QT-02 | Mọi thay đổi trạng thái tài khoản do người làm đều đi qua phiếu. Ngoại lệ duy nhất là job chuyển Ngủ đông. |
-| QT-03 | Một tài khoản chỉ có tối đa 1 phiếu đang chờ duyệt. |
-| QT-04 | Chi nhánh mở tài khoản là chi nhánh của giao dịch viên. Backend lấy từ hồ sơ của người trong session, không nhận chi nhánh do frontend gửi lên. |
+| QT-03 | Một tài khoản chỉ có tối đa 1 phiếu đang mở, tức là đang Chờ duyệt hoặc Bị từ chối. Muốn tạo phiếu khác thì hủy phiếu cũ trước. |
+| QT-04 | Chi nhánh mở tài khoản là chi nhánh của giao dịch viên. Phiếu thuộc chi nhánh của người tạo, và chỉ kiểm soát viên cùng chi nhánh được duyệt hoặc từ chối. Xem khách hàng, tài khoản và phiếu thì được mọi chi nhánh. Backend lấy chi nhánh từ hồ sơ của người trong session, không nhận chi nhánh do frontend gửi lên. |
 | QT-05 | Số CCCD chỉ kiểm tra đủ 12 chữ số, không phân tích gì thêm để hạn chế xử lý thông tin cá nhân. Lưu dạng chuỗi. Màn hình hiện che phần giữa (ví dụ `0790****1234`); ô nhập hiện đủ khi đang gõ, che lại khi rời ô. |
 | QT-06 | CCCD, điện thoại, email của khách hàng che từ backend, không gửi bản đầy đủ xuống trình duyệt khi chỉ để xem. |
 | QT-07 | Phân quyền kiểm tra ở backend cho mọi API. React chỉ ẩn menu và chặn route để người dùng không thấy những gì không dùng được. |
@@ -235,7 +236,8 @@ Quy tắc của phiếu lô:
 
 ## 6. Ngoài phạm vi
 
-- Tài khoản doanh nghiệp.
+- Tài khoản doanh nghiệp và hồ sơ khách hàng doanh nghiệp. "Đơn vị đề nghị" của phiếu lô chỉ là một ô chữ.
+- Tài khoản đồng sở hữu (một tài khoản nhiều chủ).
 - Giao dịch tiền: nạp, rút, chuyển khoản, số dư.
 - Nút đổi người dùng ngay trong app.
 - Sơ đồ quy trình BPMN trong app. Sơ đồ vẽ bằng Camunda Modeler, chỉ đặt trong tài liệu và báo cáo.
@@ -245,13 +247,4 @@ Quy tắc của phiếu lô:
 
 ## 7. Điểm còn mở
 
-Các điểm dưới đây chưa có trong phiếu chốt, hoặc bản thiết kế chưa thống nhất. Cần chốt trước khi vẽ ERD và viết code phần liên quan.
-
-1. **Phạm vi chi nhánh khi duyệt và xem.** Màn 3.9 ghi phiếu chuyển tới "kiểm soát viên Chi nhánh Tân Phú", nhưng ở màn 3.10, danh sách chờ duyệt của Trần Minh Khoa (Chi nhánh Tân Phú) có cả phiếu của Chi nhánh Quận 1 và Quận 3. Cần chốt: kiểm soát viên duyệt phiếu của mọi chi nhánh hay chỉ chi nhánh mình; giao dịch viên và kiểm soát viên xem khách hàng, tài khoản của mọi chi nhánh hay chỉ chi nhánh mình.
-2. **Ngày giao dịch gần nhất lấy từ đâu.** App không có chức năng giao dịch, nên job Ngủ đông (CN-25) chỉ có dữ liệu để chạy nếu dữ liệu mẫu điền sẵn cột này.
-3. **Phiếu Bị từ chối có chặn phiếu mới không.** QT-03 hiện chỉ nói phiếu Chờ duyệt. Nếu tài khoản có phiếu Bị từ chối (chưa gửi lại, chưa hủy) mà vẫn cho tạo phiếu mới, thì khi phiếu cũ được gửi lại sẽ có 2 phiếu chồng nhau.
-4. **Mail khi phiếu bị từ chối.** Luồng đã chốt chỉ gửi mail sau khi duyệt. Giao dịch viên hiện chỉ thấy phiếu bị từ chối ở Tổng quan và danh sách phiếu.
-5. **Ghi bên gửi danh sách của lô.** Lô chỉ là cách nhập nhiều khách cá nhân cùng lúc; tài khoản lương vẫn là tài khoản cá nhân. Ba mức: A. giữ nguyên; B. thêm ô "Đơn vị đề nghị" (chỉ là chữ, ví dụ "Công ty ABC") vào phiếu lô; C. quản lý khách hàng doanh nghiệp (trái tên đề tài, phải xin duyệt lại). Đề xuất: B.
-6. **Gửi lại phiếu lô bị trả về.** Đề xuất: người tạo chỉ được bỏ các dòng hỏng rồi gửi lại; người bị bỏ ra đưa vào lô mới. Cho sửa từng dòng trên màn hình thì phải làm thêm một màn.
-7. **Mail của phiếu lô gửi cho ai.** Đã chốt 1 mail cho cả lô; đề xuất gửi cho người tạo lô.
-8. **Loại "Thanh toán đồng sở hữu" trong danh mục mẫu.** Mỗi tài khoản trong app chỉ có 1 chủ, nên loại này lệch phạm vi. Đề xuất: bỏ khỏi dữ liệu mẫu.
+Hiện không còn điểm nào cần chốt. Các quyết định ngày 20/10/2026 đã ghi vào đúng mục ở trên.
