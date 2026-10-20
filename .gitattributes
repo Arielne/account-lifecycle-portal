@@ -1,0 +1,14 @@
+# Mặc định xuống dòng kiểu LF cho mọi file văn bản
+* text=auto eol=lf
+
+# Script Windows cần CRLF
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# File nhị phân
+*.png binary
+*.jpg binary
+*.pdf binary
+*.xlsx binary
+*.jar binary

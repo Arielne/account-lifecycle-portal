@@ -1,0 +1,19 @@
+# Java / Maven
+target/
+*.class
+*.log
+# Node / React
+node_modules/
+dist/
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.env
+.env.*
+!.env.example
+*.drawio.bkp
+*.drawio.dtmp
+# Hệ điều hành
+.DS_Store
+Thumbs.db
