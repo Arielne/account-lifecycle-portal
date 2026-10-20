@@ -12,6 +12,7 @@ Tuần 1 (21–24/10/2026): làm tài liệu và sơ đồ. Chưa có code.
 
 | Thư mục | Nội dung |
 | --- | --- |
+| `docs/` | Tài liệu dự án. `01-chuc-nang.md`: danh sách chức năng theo vai trò |
 | `docs/diagrams/` | Sơ đồ draw.io: Use Case, ERD |
 
 ## Công nghệ
