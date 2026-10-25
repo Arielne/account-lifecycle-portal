@@ -1,0 +1,443 @@
+<mxfile host="65bd71144e">
+    <diagram name="1. Tổng quát" id="uc1">
+        <mxGraphModel dx="1095" dy="827" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="uc1-v1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;verticalAlign=top;fontStyle=1;align=center;spacingTop=6;" value="Account Lifecycle Portal" vertex="1">
+                    <mxGeometry height="630" width="420" x="440" y="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v2" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="Đăng nhập và đăng kí tài khoản cá nhân&lt;br&gt;(CN-01 đến CN-05)" vertex="1">
+                    <mxGeometry height="56" width="280" x="510" y="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v3" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="Tra cứu khách hàng, tài khoản&lt;br&gt;(CN-07 đến CN-10)" vertex="1">
+                    <mxGeometry height="56" width="280" x="510" y="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v4" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="Quản lý phiếu yêu cầu&lt;br&gt;(CN-11 đến CN-17)" vertex="1">
+                    <mxGeometry height="56" width="280" x="510" y="220" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v5" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="Import theo lô và xuất báo cáo&lt;br&gt;(CN-18, CN-19)" vertex="1">
+                    <mxGeometry height="56" width="280" x="510" y="300" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v6" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="Xem tổng quan&lt;br&gt;(CN-06)" vertex="1">
+                    <mxGeometry height="56" width="280" x="510" y="380" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v7" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="Quản trị danh mục, nhân viên, audit log&lt;br&gt;(CN-20 đến CN-23)" vertex="1">
+                    <mxGeometry height="56" width="280" x="510" y="460" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v8" parent="1" style="ellipse;whiteSpace=wrap;html=1;dashed=1;" value="Tác vụ tự động&lt;br&gt;(CN-24 đến CN-26)" vertex="1">
+                    <mxGeometry height="56" width="280" x="510" y="540" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v9" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Người dùng" vertex="1">
+                    <mxGeometry height="60" width="30" x="250" y="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v10" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Người chưa có tài khoản" vertex="1">
+                    <mxGeometry height="60" width="30" x="250" y="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v11" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Giao dịch viên" vertex="1">
+                    <mxGeometry height="60" width="30" x="250" y="230" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v12" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Admin" vertex="1">
+                    <mxGeometry height="60" width="30" x="250" y="430" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v13" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="KeyCloak" vertex="1">
+                    <mxGeometry height="60" width="30" x="1010" y="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v14" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Kiểm soát viên" vertex="1">
+                    <mxGeometry height="60" width="30" x="1010" y="230" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v15" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Hệ thống" vertex="1">
+                    <mxGeometry height="60" width="30" x="1010" y="440" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v16" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Khách hàng" vertex="1">
+                    <mxGeometry height="60" width="30" x="1010" y="590" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-e17" edge="1" parent="1" source="uc1-v9" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc1-v2" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-e18" edge="1" parent="1" source="uc1-v10" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc1-v2" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-e19" edge="1" parent="1" source="uc1-v11" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc1-v3" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-e20" edge="1" parent="1" source="uc1-v14" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc1-v3" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-e21" edge="1" parent="1" source="uc1-v11" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc1-v4" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-e22" edge="1" parent="1" source="uc1-v14" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc1-v4" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-e23" edge="1" parent="1" source="uc1-v11" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc1-v5" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-e24" edge="1" parent="1" source="uc1-v14" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc1-v5" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-e25" edge="1" parent="1" source="uc1-v11" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc1-v6" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-e26" edge="1" parent="1" source="uc1-v14" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc1-v6" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-e27" edge="1" parent="1" source="uc1-v12" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc1-v6" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-e28" edge="1" parent="1" source="uc1-v12" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc1-v7" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-e29" edge="1" parent="1" source="uc1-v13" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc1-v2" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-e30" edge="1" parent="1" source="uc1-v15" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc1-v8" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-e31" edge="1" parent="1" source="uc1-v16" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc1-v8" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc1-v32" parent="1" style="shape=note;whiteSpace=wrap;html=1;size=14;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;" value="Giao dịch viên, Kiểm soát viên, Admin, Nhân viên chờ cấp quyền đều là Người dùng (đã có tài khoản đăng nhập), xem trang 5.&lt;br&gt;Một người có thể giữ cả Giao dịch viên và Kiểm soát viên nhưng không duyệt phiếu do chính mình tạo.&lt;br&gt;Ca sử dụng nét đứt do hệ thống tự chạy." vertex="1">
+                    <mxGeometry height="130" width="400" x="20" y="560" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram name="2. Giao dịch viên" id="uc2">
+        <mxGraphModel dx="1398" dy="1055" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="uc2-v1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;verticalAlign=top;fontStyle=1;align=center;spacingTop=6;" value="Account Lifecycle Portal" vertex="1">
+                    <mxGeometry height="1006" width="400" x="260" y="10" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-v2" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Giao dịch viên" vertex="1">
+                    <mxGeometry height="60" width="30" x="60" y="478" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-v3" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-06&lt;br&gt;Xem tổng quan" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-e4" edge="1" parent="1" source="uc2-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc2-v3" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-v5" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-07&lt;br&gt;Tra cứu khách hàng" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-e6" edge="1" parent="1" source="uc2-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc2-v5" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-v7" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-08&lt;br&gt;Xem chi tiết khách hàng" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-e8" edge="1" parent="1" source="uc2-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc2-v7" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-v9" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-09&lt;br&gt;Tra cứu tài khoản" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-e10" edge="1" parent="1" source="uc2-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc2-v9" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-v11" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-10&lt;br&gt;Xem chi tiết tài khoản" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-e12" edge="1" parent="1" source="uc2-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc2-v11" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-v13" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-11&lt;br&gt;Tạo phiếu" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="440" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-e14" edge="1" parent="1" source="uc2-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc2-v13" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-v15" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-12&lt;br&gt;Sửa và gửi lại phiếu bị từ chối" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="520" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-e16" edge="1" parent="1" source="uc2-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc2-v15" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-v17" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-13&lt;br&gt;Hủy phiếu" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="600" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-e18" edge="1" parent="1" source="uc2-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc2-v17" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-v19" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-14&lt;br&gt;Xem danh sách phiếu" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="680" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-e20" edge="1" parent="1" source="uc2-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc2-v19" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-v21" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-15&lt;br&gt;Xem chi tiết phiếu" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="760" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-e22" edge="1" parent="1" source="uc2-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc2-v21" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-v23" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-18&lt;br&gt;Import mở tài khoản theo lô" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="840" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-e24" edge="1" parent="1" source="uc2-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc2-v23" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-v25" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-19&lt;br&gt;Xuất báo cáo" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="920" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-e26" edge="1" parent="1" source="uc2-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc2-v25" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc2-v27" parent="1" style="shape=note;whiteSpace=wrap;html=1;size=14;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;" value="Chi nhánh mở tài khoản là chi nhánh của giao dịch viên (QT-04).&lt;br&gt;Tài khoản đang có phiếu Chờ duyệt hoặc Bị từ chối thì không tạo phiếu mới (QT-03).&lt;br&gt;Phiếu lô bị trả về: chỉ bỏ dòng hỏng rồi gửi lại." vertex="1">
+                    <mxGeometry height="150" width="320" x="700" y="40" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram name="3. Kiểm soát viên" id="uc3">
+        <mxGraphModel dx="1460" dy="1102" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="uc3-v1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;verticalAlign=top;fontStyle=1;align=center;spacingTop=6;" value="Account Lifecycle Portal" vertex="1">
+                    <mxGeometry height="846" width="820" x="260" y="10" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-v2" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Kiểm soát viên" vertex="1">
+                    <mxGeometry height="60" width="30" x="60" y="398" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-v3" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-06&lt;br&gt;Xem tổng quan" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-e4" edge="1" parent="1" source="uc3-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc3-v3" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-v5" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-07&lt;br&gt;Tra cứu khách hàng" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-e6" edge="1" parent="1" source="uc3-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc3-v5" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-v7" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-08&lt;br&gt;Xem chi tiết khách hàng" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-e8" edge="1" parent="1" source="uc3-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc3-v7" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-v9" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-09&lt;br&gt;Tra cứu tài khoản" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-e10" edge="1" parent="1" source="uc3-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc3-v9" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-v11" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-10&lt;br&gt;Xem chi tiết tài khoản" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-e12" edge="1" parent="1" source="uc3-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc3-v11" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-v13" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-14&lt;br&gt;Xem danh sách phiếu" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="440" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-e14" edge="1" parent="1" source="uc3-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc3-v13" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-v15" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-15&lt;br&gt;Xem chi tiết phiếu" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="520" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-e16" edge="1" parent="1" source="uc3-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc3-v15" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-v17" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-16&lt;br&gt;Duyệt phiếu" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="600" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-e18" edge="1" parent="1" source="uc3-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc3-v17" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-v19" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-17&lt;br&gt;Từ chối phiếu" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="680" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-e20" edge="1" parent="1" source="uc3-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc3-v19" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-v21" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-19&lt;br&gt;Xuất báo cáo" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="760" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-e22" edge="1" parent="1" source="uc3-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc3-v21" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-v23" parent="1" style="ellipse;whiteSpace=wrap;html=1;dashed=1;" value="CN-24&lt;br&gt;Gửi mail kết quả" vertex="1">
+                    <mxGeometry height="56" width="280" x="720" y="640" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-e24" edge="1" parent="1" source="uc3-v17" style="endArrow=open;dashed=1;html=1;rounded=0;endSize=10;labelBackgroundColor=default;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;" target="uc3-v23" value="«include»">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-e25" edge="1" parent="1" source="uc3-v19" style="endArrow=open;dashed=1;html=1;rounded=0;endSize=10;labelBackgroundColor=default;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;" target="uc3-v23" value="«include»">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-v26" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Hệ thống" vertex="1">
+                    <mxGeometry height="60" width="30" x="1180" y="638" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-e27" edge="1" parent="1" source="uc3-v26" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc3-v23" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc3-v28" parent="1" style="shape=note;whiteSpace=wrap;html=1;size=14;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;" value="Không duyệt hoặc từ chối phiếu do chính mình tạo (QT-01).&lt;br&gt;Chỉ duyệt phiếu thuộc chi nhánh của mình (QT-04).&lt;br&gt;Từ chối bắt buộc nhập lý do." vertex="1">
+                    <mxGeometry height="150" width="320" x="1120" y="40" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram name="4. Admin" id="uc4">
+        <mxGraphModel dx="1428" dy="1078" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="uc4-v1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;verticalAlign=top;fontStyle=1;align=center;spacingTop=6;" value="Account Lifecycle Portal" vertex="1">
+                    <mxGeometry height="446" width="820" x="260" y="10" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc4-v2" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Admin" vertex="1">
+                    <mxGeometry height="60" width="30" x="60" y="198" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc4-v3" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-06&lt;br&gt;Xem tổng quan" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc4-e4" edge="1" parent="1" source="uc4-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc4-v3" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc4-v5" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-20&lt;br&gt;Quản lý loại tài khoản" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc4-e6" edge="1" parent="1" source="uc4-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc4-v5" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc4-v7" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-21&lt;br&gt;Quản lý chi nhánh" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc4-e8" edge="1" parent="1" source="uc4-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc4-v7" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc4-v9" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-22&lt;br&gt;Quản lý nhân viên" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc4-e10" edge="1" parent="1" source="uc4-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc4-v9" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc4-v11" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-23&lt;br&gt;Xem Audit log" vertex="1">
+                    <mxGeometry height="56" width="280" x="300" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc4-e12" edge="1" parent="1" source="uc4-v2" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc4-v11" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc4-v13" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="KeyCloak" vertex="1">
+                    <mxGeometry height="60" width="30" x="780" y="278" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc4-e14" edge="1" parent="1" source="uc4-v13" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc4-v9" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc4-v15" parent="1" style="shape=note;whiteSpace=wrap;html=1;size=14;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;" value="Thêm nhân viên, gán role, khóa: gọi Admin API của KeyCloak. Role chỉ lưu ở KeyCloak.&lt;br&gt;Chỉ gán Giao dịch viên hoặc Kiểm soát viên khi nhân viên đã có chi nhánh.&lt;br&gt;Danh mục đang được dùng thì không xóa được (QT-08)." vertex="1">
+                    <mxGeometry height="150" width="320" x="1120" y="40" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram name="5. Đăng nhập và hệ thống" id="uc5">
+        <mxGraphModel dx="1217" dy="919" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="uc5-v1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;verticalAlign=top;fontStyle=1;align=center;spacingTop=6;" value="Account Lifecycle Portal" vertex="1">
+                    <mxGeometry height="730" width="380" x="280" y="10" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-v2" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-01&lt;br&gt;Đăng nhập" vertex="1">
+                    <mxGeometry height="56" width="280" x="320" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-v3" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-02&lt;br&gt;Đăng xuất" vertex="1">
+                    <mxGeometry height="56" width="280" x="320" y="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-v4" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-04&lt;br&gt;Quên mật khẩu" vertex="1">
+                    <mxGeometry height="56" width="280" x="320" y="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-v5" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-05&lt;br&gt;Xem trang chờ cấp quyền" vertex="1">
+                    <mxGeometry height="56" width="280" x="320" y="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-v6" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="CN-03&lt;br&gt;Đăng ký" vertex="1">
+                    <mxGeometry height="56" width="280" x="320" y="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-v7" parent="1" style="ellipse;whiteSpace=wrap;html=1;dashed=1;" value="CN-24&lt;br&gt;Gửi mail kết quả" vertex="1">
+                    <mxGeometry height="56" width="280" x="320" y="480" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-v8" parent="1" style="ellipse;whiteSpace=wrap;html=1;dashed=1;" value="CN-25&lt;br&gt;Chuyển tài khoản sang Ngủ đông" vertex="1">
+                    <mxGeometry height="56" width="280" x="320" y="560" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-v9" parent="1" style="ellipse;whiteSpace=wrap;html=1;dashed=1;" value="CN-26&lt;br&gt;Ghi Audit log" vertex="1">
+                    <mxGeometry height="56" width="280" x="320" y="640" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-v10" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Người dùng" vertex="1">
+                    <mxGeometry height="60" width="30" x="80" y="118" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-v11" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Nhân viên chờ cấp quyền" vertex="1">
+                    <mxGeometry height="60" width="30" x="80" y="278" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-v12" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Người chưa có tài khoản" vertex="1">
+                    <mxGeometry height="60" width="30" x="80" y="390" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-e13" edge="1" parent="1" source="uc5-v11" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;endFill=0;html=1;rounded=0;endSize=12;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc5-v10" value="">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="45" y="308"/>
+                            <mxPoint x="45" y="148"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="uc5-e14" edge="1" parent="1" source="uc5-v10" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc5-v2" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-e15" edge="1" parent="1" source="uc5-v10" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc5-v3" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-e16" edge="1" parent="1" source="uc5-v10" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc5-v4" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-e17" edge="1" parent="1" source="uc5-v11" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc5-v5" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-e18" edge="1" parent="1" source="uc5-v12" style="endArrow=none;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="uc5-v6" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-v19" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="KeyCloak" vertex="1">
+                    <mxGeometry height="60" width="30" x="860" y="190" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-e20" edge="1" parent="1" source="uc5-v19" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc5-v2" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-e21" edge="1" parent="1" source="uc5-v19" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc5-v3" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-e22" edge="1" parent="1" source="uc5-v19" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc5-v4" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-e23" edge="1" parent="1" source="uc5-v19" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc5-v6" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-v24" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Khách hàng" vertex="1">
+                    <mxGeometry height="60" width="30" x="1000" y="450" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-v25" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Hệ thống" vertex="1">
+                    <mxGeometry height="60" width="30" x="860" y="560" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-e26" edge="1" parent="1" source="uc5-v24" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc5-v7" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-e27" edge="1" parent="1" source="uc5-v25" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc5-v7" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-e28" edge="1" parent="1" source="uc5-v25" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc5-v8" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-e29" edge="1" parent="1" source="uc5-v25" style="endArrow=none;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="uc5-v9" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="uc5-v30" parent="1" style="shape=note;whiteSpace=wrap;html=1;size=14;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;" value="Đăng nhập, đăng ký, quên mật khẩu dùng trang có sẵn của KeyCloak. Nhân viên chờ cấp quyền đăng nhập, đăng xuất được nhưng chỉ thấy trang chờ.&lt;br&gt;CN-24 đi qua Kafka (Outbox): duyệt phiếu lẻ gửi khách hàng và giao dịch viên; duyệt phiếu lô gửi 1 mail tổng kết cho người tạo và 1 mail cho từng khách; từ chối gửi người tạo kèm lý do.&lt;br&gt;CN-25 do pg_cron gọi mỗi đêm; CN-26 ghi bằng AOP." vertex="1">
+                    <mxGeometry height="110" width="700" x="280" y="770" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

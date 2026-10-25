@@ -12,6 +12,7 @@ Tuần 1 (21–24/10/2026): làm tài liệu và sơ đồ. Chưa có code.
 
 | Thư mục | Nội dung |
 | --- | --- |
+| `docs/` | Tài liệu dự án. `01-chuc-nang.md`: danh sách chức năng theo vai trò |
 | `docs/diagrams/` | Sơ đồ draw.io: Use Case, ERD |
 
 ## Công nghệ
@@ -27,5 +28,6 @@ Tuần 1 (21–24/10/2026): làm tài liệu và sơ đồ. Chưa có code.
 - `main`: bản ổn định, chỉ nhận merge từ `develop` khi chốt bản
 - `develop`: nhánh tích hợp, mọi Pull Request vào đây
 - `feature/*`, `fix/*`, `hotfix/*`: nhánh làm việc
+- `add/*`: nhánh thêm tài liệu và sơ đồ, ví dụ `add/docs`
 
 Commit theo Conventional Commits, ví dụ `feat: thêm màn danh mục chi nhánh`.
