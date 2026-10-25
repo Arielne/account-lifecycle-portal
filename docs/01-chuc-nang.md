@@ -34,7 +34,7 @@ Ghi chú:
 
 | Đối tượng | Ghi chú |
 | --- | --- |
-| Khách hàng | Chỉ khách hàng cá nhân, định danh bằng số CCCD/Căn cước 12 chữ số. Một CCCD là một khách hàng. |
+| Khách hàng | Chỉ khách hàng cá nhân, định danh bằng số CCCD/Căn cước 12 chữ số. Một CCCD là một khách hàng. Hồ sơ luôn đủ thông tin như màn Tạo phiếu (chỉ giới tính không bắt buộc), dù mở lẻ hay theo lô. |
 | Tài khoản | Thuộc 1 khách hàng (chỉ 1 chủ), 1 loại tài khoản, 1 chi nhánh mở. Có 5 trạng thái (mục 2.1). Số tài khoản sinh bằng Sequence. Có ngày giao dịch gần nhất: ngoài đời do core banking cung cấp; trong bài lấy từ dữ liệu mẫu, tài khoản mới mở thì lấy ngày mở. App không cập nhật ngày này vì không có giao dịch tiền. |
 | Phiếu yêu cầu | Mọi thay đổi trạng thái tài khoản do người làm đều đi qua phiếu. Mỗi phiếu chạy 1 quy trình Camunda. Mã phiếu dạng `PYC-2026-0001`, sinh bằng Sequence. |
 | Giấy tờ đính kèm | File đính kèm phiếu, lưu ở Supabase Storage (bucket `giay-to`). |
@@ -183,10 +183,10 @@ Sau khi gửi: phiếu Chờ duyệt, quy trình Camunda bắt đầu. Phiếu M
 
 Chi tiết CN-18 (Import theo lô):
 
-1. Tải file Excel mẫu. Cột CCCD trong file mẫu để kiểu Text để không mất số 0 ở đầu.
-2. Điền mỗi dòng một khách hàng mới.
+1. Tải file Excel mẫu. File mẫu có đủ các cột như màn Tạo phiếu: Họ tên, Ngày sinh, Giới tính (không bắt buộc), Số CCCD, Ngày cấp, Nơi cấp, Điện thoại, Email nhận thông báo, Địa chỉ thường trú, Mã loại tài khoản. Cột CCCD và Điện thoại để kiểu Text để không mất số 0 ở đầu.
+2. Điền mỗi dòng một khách hàng mới, đủ các cột bắt buộc.
 3. Tải file lên. Trong request, backend chỉ kiểm tra nhanh cả file: đúng `.xlsx`, tối đa 5 MB, đúng dòng tiêu đề của file mẫu, tối đa 1.000 dòng. Sai thì báo lỗi ngay, không tạo lô. Đúng thì lưu file gốc vào bucket `import`, tạo lô ở trạng thái "Đang kiểm tra" và trả mã lô về ngay.
-4. Kiểm tra từng dòng chạy nền (`@Async` với thread pool giới hạn số lô kiểm tra cùng lúc). Mỗi dòng ghi kết quả Hợp lệ hoặc Lỗi kèm lý do vào `import_batch_row`, cập nhật tiến độ; xong thì lô sang "Kiểm tra xong". React hỏi tiến độ qua `GET /api/imports/{id}` 2 giây một lần. Lỗi thường gặp: số CCCD không đủ 12 chữ số; CCCD đã có hồ sơ khách hàng (khách cũ thì dùng Mở thêm tài khoản); CCCD lặp trong cùng file; CCCD đang nằm trong một lô khác đang chờ duyệt; mã loại tài khoản không tồn tại; email không hợp lệ; ngày sinh không ở quá khứ.
+4. Kiểm tra từng dòng chạy nền (`@Async` với thread pool giới hạn số lô kiểm tra cùng lúc). Mỗi dòng ghi kết quả Hợp lệ hoặc Lỗi kèm lý do vào `import_batch_row`, cập nhật tiến độ; xong thì lô sang "Kiểm tra xong". React hỏi tiến độ qua `GET /api/imports/{id}` 2 giây một lần. Lỗi thường gặp: thiếu cột bắt buộc (ví dụ thiếu nơi cấp CCCD); số CCCD không đủ 12 chữ số; điện thoại sai định dạng; CCCD đã có hồ sơ khách hàng (khách cũ thì dùng Mở thêm tài khoản); CCCD lặp trong cùng file; CCCD đang nằm trong một lô khác đang chờ duyệt; mã loại tài khoản không tồn tại; email không hợp lệ; ngày sinh không ở quá khứ.
 5. Sửa dòng lỗi: bấm "Tải file lỗi" để lấy file Excel cùng cột với file mẫu, thêm cột "Lý do lỗi". Sửa trong Excel rồi tải lên thành một lô mới; lô mới đi lại từ bước 3. Dòng lỗi của lô cũ không bao giờ được gửi.
 6. Gửi: các dòng hợp lệ gộp thành 1 phiếu Mở tài khoản theo lô (`POST /api/imports/{id}/submit`), dù file có 1 dòng hay nhiều dòng. Dòng lỗi không được gửi. Có thể điền "Đơn vị đề nghị" (không bắt buộc, chỉ là chữ, ví dụ tên công ty hay trường gửi danh sách) để ghi nhận và lọc; khách trong lô vẫn là khách hàng cá nhân.
 
