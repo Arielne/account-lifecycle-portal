@@ -1,0 +1,10 @@
+# Những thứ không gửi vào Docker khi build image (compose.yaml build ở gốc repo).
+# .env chứa mật khẩu; node_modules, dist, target là kết quả build, trong image sẽ tạo lại.
+.env
+.env.*
+.git
+.claude
+docs
+**/node_modules
+**/dist
+**/target
