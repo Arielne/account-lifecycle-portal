@@ -19,5 +19,7 @@ FROM eclipse-temurin:21.0.12_8-jre-alpine
 WORKDIR /app/backend
 COPY --from=build /build/target/*.jar app.jar
 COPY db/migrations /app/db/migrations
+# Dữ liệu mẫu giả, chỉ được nạp khi chạy profile demo (compose.yaml bật profile này cho container backend).
+COPY db/seeds /app/db/seeds
 EXPOSE 8081
 ENTRYPOINT ["java", "-jar", "app.jar"]

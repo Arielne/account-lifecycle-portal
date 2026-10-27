@@ -7,7 +7,26 @@ spring:
     # Đường dẫn ../.env tính từ thư mục backend/, nơi chạy mvnw.
     # optional: không có file thì vẫn chạy; trong Docker, Compose truyền biến môi trường vào sẵn.
     import: optional:file:../.env[.properties]
+  # Database Supabase (Session pooler). Giá trị lấy từ .env khi chạy trên máy, từ biến môi trường khi chạy trong Docker.
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  flyway:
+    # Flyway chỉ quản lý schema app và tự tạo schema nếu chưa có; bảng lịch sử của Flyway cũng nằm trong app.
+    schemas: app
+    # Script ở db/migrations/ (gốc repo), tính từ thư mục backend/ nơi chạy app.
+    locations: filesystem:../db/migrations
 
 server:
   # Cổng 8080 đã dành cho KeyCloak.
   port: 8081
+
+mybatis:
+  # File SQL (XML) nằm trong resources, cùng đường dẫn package với Mapper của module.
+  mapper-locations: classpath*:io/github/arielne/alp/**/*Mapper.xml
+  # Cho phép ghi tên class ngắn (ví dụ Branch) trong file XML thay vì ghi đủ package.
+  type-aliases-package: io.github.arielne.alp
+  configuration:
+    # Cột branch_id tự gán vào thuộc tính branchId.
+    map-underscore-to-camel-case: true

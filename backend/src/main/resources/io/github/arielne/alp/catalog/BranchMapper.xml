@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- SQL cho BranchMapper (CN-21). namespace là tên đầy đủ của interface, id là tên hàm. -->
+<mapper namespace="io.github.arielne.alp.catalog.BranchMapper">
+
+    <!-- resultType Branch: tên ngắn nhờ type-aliases-package; mỗi dòng kết quả thành một object Branch. -->
+    <select id="findAll" resultType="Branch">
+        SELECT id, code, name, address, phone, created_at, updated_at
+        FROM app.branch
+        ORDER BY code
+    </select>
+</mapper>
