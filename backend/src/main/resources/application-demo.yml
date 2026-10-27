@@ -1,0 +1,5 @@
+# Profile demo: chạy thêm dữ liệu mẫu giả trong db/seeds/.
+# File seed đặt tên R__ (repeatable): Flyway chạy lại mỗi khi nội dung file đổi.
+spring:
+  flyway:
+    locations: filesystem:../db/migrations,filesystem:../db/seeds

@@ -9,17 +9,21 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 /**
- * Test mẫu (test nhanh, không cần Docker) cho /actuator/health.
+ * Test chậm (cần Docker) cho /actuator/health.
  * Docker Compose dựa vào đường dẫn này để biết backend đã sẵn sàng (healthcheck trong compose.yaml).
+ * Backend nối database ngay khi khởi động, nên test chạy trên Postgres của Testcontainers;
+ * health trả UP nghĩa là app lên được và nối được database.
  * MockMvc gửi request giả thẳng vào Spring MVC, không mở cổng mạng thật.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-class HealthEndpointTest {
+@Import(PostgresTestcontainersConfiguration.class)
+class HealthEndpointIT {
 
     @Autowired
     private MockMvc mockMvc;

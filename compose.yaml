@@ -81,6 +81,13 @@ services:
       dockerfile: backend/Dockerfile
     ports:
       - "8081:8081"
+    environment:
+      # Trong container không có file .env, nên Compose lấy giá trị từ .env truyền vào thành biến môi trường.
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      # Bản chạy demo bật profile demo: Flyway nạp thêm dữ liệu mẫu giả trong db/seeds/.
+      SPRING_PROFILES_ACTIVE: demo
     healthcheck:
       # Gọi /actuator/health bên trong container; trả về UP thì Compose đánh dấu backend là healthy.
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/actuator/health"]
