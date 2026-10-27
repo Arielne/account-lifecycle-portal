@@ -1,0 +1,13 @@
+# Cấu hình của profile mặc định: backend chạy trên máy (IDE hoặc mvnw).
+spring:
+  application:
+    name: alp
+  config:
+    # Nạp file .env ở gốc repo, đọc như file .properties (phần [.properties] báo cho Spring kiểu file).
+    # Đường dẫn ../.env tính từ thư mục backend/, nơi chạy mvnw.
+    # optional: không có file thì vẫn chạy; trong Docker, Compose truyền biến môi trường vào sẵn.
+    import: optional:file:../.env[.properties]
+
+server:
+  # Cổng 8080 đã dành cho KeyCloak.
+  port: 8081

@@ -1,0 +1,106 @@
+# Docker Compose cho Account Lifecycle Portal.
+# Compose tự đọc file .env ở cùng thư mục để thay các biến ${...}.
+# Hằng ngày: `docker compose up -d` chỉ chạy 5 dịch vụ hạ tầng bên dưới.
+# Chạy đủ bộ như lúc demo (thêm backend và web): `docker compose --profile app up -d`.
+# Không chạy `docker compose down -v`: lệnh này xóa volume, mất user tạo thêm trong KeyCloak.
+
+services:
+  # Máy chủ đăng nhập (OIDC). start-dev: chế độ phát triển, dữ liệu lưu trong database H2 dạng file.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    command: start-dev
+    ports:
+      - "8080:8080"
+    environment:
+      # Tài khoản admin đầu tiên, chỉ được tạo ở lần chạy đầu khi database H2 còn trống.
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
+    volumes:
+      # File H2 nằm trong /opt/keycloak/data/h2. Gắn volume cho cả thư mục data vì thư mục h2
+      # chưa có sẵn trong image; gắn thẳng vào h2 thì Docker tạo thư mục của root, KeyCloak không ghi được.
+      - keycloak-data:/opt/keycloak/data
+
+  # Lưu session đăng nhập (Spring Session) và cache danh mục.
+  redis:
+    image: redis:8.10.3-alpine
+    ports:
+      - "6379:6379"
+
+  # Kafka chế độ KRaft: 1 container vừa là broker vừa là controller, không cần ZooKeeper.
+  kafka:
+    image: apache/kafka:4.3.2
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      # Kafka mở 3 cổng, mỗi cổng có một tên:
+      # - HOST (9092): app chạy trên máy (IDE, mvnw) gọi localhost:9092.
+      # - DOCKER (19092): container khác trong Compose (kafka-ui, backend) gọi kafka:19092.
+      # - CONTROLLER (29093): KRaft dùng nội bộ, không mở ra ngoài.
+      KAFKA_LISTENERS: HOST://:9092,DOCKER://:19092,CONTROLLER://:29093
+      # Địa chỉ Kafka trả về cho client để gọi tiếp; mỗi loại client nhận đúng địa chỉ nó gọi được.
+      KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,DOCKER://kafka:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: HOST:PLAINTEXT,DOCKER:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      # Chỉ có 1 broker nên topic nội bộ của Kafka chỉ giữ 1 bản sao (mặc định là 3, sẽ lỗi).
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1
+
+  # Giao diện web xem topic và message của Kafka.
+  # Image provectuslabs/kafka-ui đã ngừng cập nhật; kafbat/kafka-ui là bản tiếp nối còn được duy trì.
+  kafka-ui:
+    image: ghcr.io/kafbat/kafka-ui:v1.5.0
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:19092
+    depends_on:
+      - kafka
+
+  # SMTP giả: giữ lại mọi email app gửi đi để xem trên web (cổng 8025), không gửi ra ngoài thật.
+  mailpit:
+    image: axllent/mailpit:v1.31.6
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  # Backend Spring Boot. Thuộc profile app nên chỉ chạy khi có --profile app;
+  # hằng ngày backend chạy từ IDE hoặc mvnw.
+  backend:
+    profiles: [app]
+    build:
+      # Build ở gốc repo vì image cần cả backend/ và db/migrations/.
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8081:8081"
+    healthcheck:
+      # Gọi /actuator/health bên trong container; trả về UP thì Compose đánh dấu backend là healthy.
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  # Nginx: trả bản build React và chuyển /api/, /oauth2/, /login/oauth2/, /logout sang backend.
+  web:
+    profiles: [app]
+    build:
+      # Build ở gốc repo vì image cần cả frontend/ và docker/nginx/.
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      # Chờ backend healthy rồi mới chạy web, để request đầu tiên không bị lỗi.
+      backend:
+        condition: service_healthy
+
+volumes:
+  keycloak-data:
