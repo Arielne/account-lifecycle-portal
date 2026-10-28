@@ -1,6 +1,6 @@
 # Module setup: nền móng (tuần 2)
 
-Mục tiêu là mốc M1 ngày 31/10/2026: `docker compose` lên đủ dịch vụ, GitHub Actions xanh, bảng được tạo bằng Flyway. Module này không làm chức năng `CN-xx` nào; nó dựng khung để các module sau chỉ việc thêm code vào đúng chỗ.
+Mục tiêu là mốc M1 ngày 31/10/2026 (mốc đầu tiên trong roadmap của dự án; roadmap không nằm trong repo): đạt đủ điều kiện ở mục 12. Module này không làm chức năng `CN-xx` nào; nó dựng khung để các module sau chỉ việc thêm code vào đúng chỗ.
 
 ## 1. Làm và không làm
 
@@ -77,13 +77,14 @@ Package của các module khác (bảng module trong `CLAUDE.md`) tạo khi bắ
 
 | Script | Tạo |
 | --- | --- |
-| `V1__danh_muc.sql` | schema `app`, `branch`, `account_type` |
+| `V1__danh_muc.sql` | `branch`, `account_type` |
 | `V2__nhan_vien.sql` | `employee` |
 | `V3__khach_hang_tai_khoan.sql` | `customer`, `account`, sequence số tài khoản |
 | `V4__import_theo_lo.sql` | `import_batch`, `import_batch_row` |
 | `V5__phieu_yeu_cau.sql` | `ticket`, `attachment`, `ticket_history`, sequence mã phiếu, index UNIQUE có điều kiện cho QT-03 |
 | `V6__audit_outbox.sql` | `audit_log`, `outbox_event` |
 
+- Schema `app` do Flyway tạo trước khi chạy V1 (bảng lịch sử của Flyway cần có chỗ nằm trước), nên không script nào viết `CREATE SCHEMA`.
 - Cột, kiểu, khóa, cột được rỗng: đúng như `erd.drawio`. Cột trạng thái có ràng buộc CHECK theo danh sách giá trị ghi trong ERD.
 - Index: `account.status`, `ticket.status`; `cccd`, `account_number` đã có index nhờ UNIQUE.
 - Không sửa script đã chạy; muốn đổi bảng thì thêm script mới.
@@ -92,6 +93,7 @@ Package của các module khác (bảng module trong `CLAUDE.md`) tạo khi bắ
 ## 6. Dữ liệu mẫu
 
 - Tách khỏi migration, chỉ chạy ở profile `demo`. Profile này thêm `db/seeds/` vào `spring.flyway.locations`; file đặt tên `R__<mô_tả>.sql` (repeatable: Flyway chạy lại khi nội dung file đổi). Viết bằng `INSERT ... ON CONFLICT DO NOTHING`, chạy lại nhiều lần không trùng.
+- Supabase là một database dùng cho cả chạy thường và demo. Đặt `spring.flyway.ignore-migration-patterns: "*:future,repeatable:missing"` để database đã chạy seed ở `demo`, khi chạy lại profile thường (không có `db/seeds/`), Flyway không báo lỗi "Detected applied migration not resolved locally".
 - Tuần này có:
   - Chi nhánh và loại tài khoản lấy theo bản thiết kế (màn 3.2, 3.3).
   - 4 nhân viên demo (`lan.nt`, `khoa.tm`, `anh.vd`, `phuc.lh`) với `keycloak_id` cố định. Tuần 3 dùng lại đúng các id này trong realm JSON. Role không lưu ở đây.
