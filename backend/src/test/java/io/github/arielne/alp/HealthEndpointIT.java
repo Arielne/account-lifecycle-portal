@@ -16,13 +16,13 @@ import org.springframework.test.web.servlet.ResultActions;
 /**
  * Test chậm (cần Docker) cho /actuator/health.
  * Docker Compose dựa vào đường dẫn này để biết backend đã sẵn sàng (healthcheck trong compose.yaml).
- * Backend nối database ngay khi khởi động, nên test chạy trên Postgres của Testcontainers;
- * health trả UP nghĩa là app lên được và nối được database.
+ * Backend nối database ngay khi khởi động, nên test chạy trên Postgres và Redis của Testcontainers;
+ * health trả UP nghĩa là app lên được, nối được database và Redis.
  * MockMvc gửi request giả thẳng vào Spring MVC, không mở cổng mạng thật.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(PostgresTestcontainersConfiguration.class)
+@Import({PostgresTestcontainersConfiguration.class, RedisTestcontainersConfiguration.class})
 class HealthEndpointIT {
 
     @Autowired
