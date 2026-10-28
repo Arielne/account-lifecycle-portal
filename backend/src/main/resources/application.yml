@@ -17,6 +17,10 @@ spring:
     schemas: app
     # Script ở db/migrations/ (gốc repo), tính từ thư mục backend/ nơi chạy app.
     locations: filesystem:../db/migrations
+    # Supabase dùng chung cho chạy thường và demo. Profile demo đã chạy các file seed R__ trong db/seeds/;
+    # profile thường không đọc thư mục đó nên Flyway coi các seed là "missing" và chặn app khởi động.
+    # repeatable:missing bỏ qua trường hợp này; *:future là giá trị mặc định của Flyway, phải ghi lại vì bị thay.
+    ignore-migration-patterns: "*:future,repeatable:missing"
 
 server:
   # Cổng 8080 đã dành cho KeyCloak.
