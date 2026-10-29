@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- SQL cho EmployeeMapper. namespace là tên đầy đủ của interface, id là tên hàm. -->
+<mapper namespace="io.github.arielne.alp.employee.EmployeeMapper">
+
+    <!-- Chạy sau mỗi lần đăng nhập. Chưa có dòng nào cùng keycloak_id thì thêm mới (status ACTIVE, branch_id rỗng).
+         Đã có thì ON CONFLICT ... DO UPDATE: EXCLUDED là dòng vừa định thêm, lấy email và họ tên của nó để cập nhật.
+         Không đụng branch_id và status, vì hai cột này do Admin quản lý. -->
+    <insert id="upsertFromLogin">
+        INSERT INTO app.employee (keycloak_id, email, full_name, status)
+        VALUES (CAST(#{keycloakId} AS uuid), #{email}, #{fullName}, 'ACTIVE')
+        ON CONFLICT (keycloak_id) DO UPDATE
+        SET email = EXCLUDED.email,
+            full_name = EXCLUDED.full_name,
+            updated_at = now()
+    </insert>
+
+    <!-- LEFT JOIN để nhân viên chưa gán chi nhánh vẫn có kết quả, 3 cột chi nhánh để rỗng. -->
+    <select id="findByKeycloakId" resultType="Employee">
+        SELECT e.id, e.keycloak_id, e.email, e.full_name, e.branch_id,
+               b.code AS branch_code, b.name AS branch_name, e.status
+        FROM app.employee e
+        LEFT JOIN app.branch b ON b.id = e.branch_id
+        WHERE e.keycloak_id = CAST(#{keycloakId} AS uuid)
+    </select>
+</mapper>

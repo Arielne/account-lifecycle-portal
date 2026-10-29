@@ -18,7 +18,7 @@ import org.springframework.test.annotation.DirtiesContext;
  * sau khi chạy xong, để các test khác vẫn dùng database sạch.
  */
 @SpringBootTest
-@Import(PostgresTestcontainersConfiguration.class)
+@Import({PostgresTestcontainersConfiguration.class, RedisTestcontainersConfiguration.class})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class FlywaySeedValidationIT {
 

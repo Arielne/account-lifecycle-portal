@@ -8,17 +8,28 @@ services:
   # Máy chủ đăng nhập (OIDC). start-dev: chế độ phát triển, dữ liệu lưu trong database H2 dạng file.
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.1
-    command: start-dev
+    # --import-realm: lúc khởi động nạp file trong /opt/keycloak/data/import; realm đã có thì bỏ qua file.
+    command: start-dev --import-realm
     ports:
       - "8080:8080"
     environment:
       # Tài khoản admin đầu tiên, chỉ được tạo ở lần chạy đầu khi database H2 còn trống.
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
+      # Trình duyệt luôn mở KeyCloak ở địa chỉ này, nên token luôn ghi cùng một iss.
+      KC_HOSTNAME: http://localhost:8080
+      # Backend trong Docker gọi bằng http://keycloak:8080; KeyCloak tính địa chỉ nội bộ theo địa chỉ đã được gọi.
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      # 3 giá trị dưới được thay vào chỗ ${...} trong alp-realm.json lúc nạp realm.
+      KC_PORTAL_CLIENT_SECRET: ${KC_PORTAL_CLIENT_SECRET}
+      KC_ADMIN_CLIENT_SECRET: ${KC_ADMIN_CLIENT_SECRET}
+      DEMO_PASSWORD: ${DEMO_PASSWORD}
     volumes:
       # File H2 nằm trong /opt/keycloak/data/h2. Gắn volume cho cả thư mục data vì thư mục h2
       # chưa có sẵn trong image; gắn thẳng vào h2 thì Docker tạo thư mục của root, KeyCloak không ghi được.
       - keycloak-data:/opt/keycloak/data
+      # File realm alp; :ro là chỉ đọc, KeyCloak không ghi gì vào thư mục này.
+      - ./docker/keycloak/import:/opt/keycloak/data/import:ro
 
   # Lưu session đăng nhập (Spring Session) và cache danh mục.
   redis:
@@ -88,6 +99,16 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       # Bản chạy demo bật profile demo: Flyway nạp thêm dữ liệu mẫu giả trong db/seeds/.
       SPRING_PROFILES_ACTIVE: demo
+      KC_PORTAL_CLIENT_SECRET: ${KC_PORTAL_CLIENT_SECRET}
+      # Backend gọi KeyCloak qua mạng Docker để đổi mã lấy token; trình duyệt vẫn dùng http://localhost:8080.
+      KEYCLOAK_BACKCHANNEL_URL: http://keycloak:8080
+      # Session lưu ở Redis; trong mạng Docker, Redis có tên là redis.
+      SPRING_DATA_REDIS_HOST: redis
+    depends_on:
+      keycloak:
+        condition: service_started
+      redis:
+        condition: service_started
     healthcheck:
       # Gọi /actuator/health bên trong container; trả về UP thì Compose đánh dấu backend là healthy.
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/actuator/health"]

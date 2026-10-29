@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import io.github.arielne.alp.PostgresTestcontainersConfiguration;
+import io.github.arielne.alp.RedisTestcontainersConfiguration;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Test tự thêm chi nhánh riêng (không dùng db/seeds) và tự rollback sau khi chạy.
  */
 @SpringBootTest
-@Import(PostgresTestcontainersConfiguration.class)
+@Import({PostgresTestcontainersConfiguration.class, RedisTestcontainersConfiguration.class})
 @Transactional
 class BranchMapperIT {
 

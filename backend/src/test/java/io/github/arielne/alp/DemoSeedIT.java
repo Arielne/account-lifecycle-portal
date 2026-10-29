@@ -16,7 +16,7 @@ import org.springframework.test.context.ActiveProfiles;
  * Đây là test của chính file seed; test của các chức năng khác vẫn tự tạo dữ liệu riêng.
  */
 @SpringBootTest
-@Import(PostgresTestcontainersConfiguration.class)
+@Import({PostgresTestcontainersConfiguration.class, RedisTestcontainersConfiguration.class})
 @ActiveProfiles("demo")
 class DemoSeedIT {
 

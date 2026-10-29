@@ -4,7 +4,9 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 // Backend Spring Boot chạy trên máy (IDE hoặc mvnw) ở cổng 8081.
-const backendUrl = 'http://localhost:8081'
+// Phải ghi rõ changeOrigin: false. Nếu viết rút gọn '/api/': 'http://localhost:8081' thì Vite tự bật changeOrigin,
+// đổi Host thành localhost:8081, và backend tạo sai địa chỉ quay về khi đăng nhập.
+const backendProxy = { target: 'http://localhost:8081', changeOrigin: false }
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -12,12 +14,12 @@ export default defineConfig({
   server: {
     // Vite proxy: request tới 4 đường dẫn này được chuyển sang backend, nên trình duyệt thấy React
     // và backend cùng một origin (localhost:5173), giống như khi đi qua Nginx ở cổng 80.
-    // Không bật changeOrigin: giữ nguyên Host localhost:5173 để backend tạo đúng địa chỉ quay về khi đăng nhập.
+    // Giữ nguyên Host localhost:5173 để backend tạo đúng địa chỉ quay về khi đăng nhập.
     proxy: {
-      '/api/': backendUrl,
-      '/oauth2/': backendUrl,
-      '/login/oauth2/': backendUrl,
-      '/logout': backendUrl,
+      '/api/': backendProxy,
+      '/oauth2/': backendProxy,
+      '/login/oauth2/': backendProxy,
+      '/logout': backendProxy,
     },
   },
   // Vitest: chạy test trong jsdom (trình duyệt giả bằng JavaScript), không cần mở trình duyệt thật.

@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Dữ liệu test là dữ liệu giả; CCCD bắt đầu bằng 099 là mã tỉnh không tồn tại (QT-12).
  */
 @SpringBootTest
-@Import(PostgresTestcontainersConfiguration.class)
+@Import({PostgresTestcontainersConfiguration.class, RedisTestcontainersConfiguration.class})
 @Transactional
 class DatabaseMigrationIT {
 

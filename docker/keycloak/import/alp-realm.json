@@ -1,0 +1,141 @@
+{
+  "realm": "alp",
+  "displayName": "Ngân hàng Demo",
+  "enabled": true,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["vi"],
+  "defaultLocale": "vi",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "permanentLockout": false,
+  "ssoSessionIdleTimeout": 1800,
+  "passwordPolicy": "length(8) and upperCase(1) and digits(1)",
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "no-reply@nhdemo.local",
+    "fromDisplayName": "Ngân hàng Demo",
+    "auth": "false",
+    "ssl": "false",
+    "starttls": "false"
+  },
+  "roles": {
+    "realm": [
+      { "name": "MAKER", "description": "Giao dịch viên" },
+      { "name": "CHECKER", "description": "Kiểm soát viên" },
+      { "name": "ADMIN", "description": "Quản trị viên" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "alp-portal",
+      "name": "Account Lifecycle Portal",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KC_PORTAL_CLIENT_SECRET}",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost/login/oauth2/code/keycloak",
+        "http://localhost:5173/login/oauth2/code/keycloak"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost/##http://localhost:5173/"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm roles trong ID token",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "alp-admin",
+      "name": "Account Lifecycle Portal - Admin API",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KC_ADMIN_CLIENT_SECRET}",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "id": "5b30439a-4e15-42ac-bf7d-c4e8dba67784",
+      "username": "lan.nt@nhdemo.local",
+      "email": "lan.nt@nhdemo.local",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Lan",
+      "lastName": "Nguyễn Thị",
+      "credentials": [{ "type": "password", "value": "${DEMO_PASSWORD}", "temporary": false }],
+      "realmRoles": ["default-roles-alp", "MAKER"]
+    },
+    {
+      "id": "f862d39b-b598-4d60-9a20-ae0c70ac22bc",
+      "username": "khoa.tm@nhdemo.local",
+      "email": "khoa.tm@nhdemo.local",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Khoa",
+      "lastName": "Trần Minh",
+      "credentials": [{ "type": "password", "value": "${DEMO_PASSWORD}", "temporary": false }],
+      "realmRoles": ["default-roles-alp", "CHECKER"]
+    },
+    {
+      "id": "6356f260-3832-45bc-bb17-9ce71e0a4407",
+      "username": "anh.vd@nhdemo.local",
+      "email": "anh.vd@nhdemo.local",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Anh",
+      "lastName": "Võ Đức",
+      "credentials": [{ "type": "password", "value": "${DEMO_PASSWORD}", "temporary": false }],
+      "realmRoles": ["default-roles-alp", "MAKER", "CHECKER"]
+    },
+    {
+      "id": "927c941a-3244-4299-8a41-7c78b44d08e6",
+      "username": "phuc.lh@nhdemo.local",
+      "email": "phuc.lh@nhdemo.local",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Phúc",
+      "lastName": "Lê Hoàng",
+      "credentials": [{ "type": "password", "value": "${DEMO_PASSWORD}", "temporary": false }],
+      "realmRoles": ["default-roles-alp", "ADMIN"]
+    },
+    {
+      "username": "service-account-alp-admin",
+      "enabled": true,
+      "serviceAccountClientId": "alp-admin",
+      "clientRoles": {
+        "realm-management": ["manage-users", "view-users"]
+      }
+    }
+  ]
+}

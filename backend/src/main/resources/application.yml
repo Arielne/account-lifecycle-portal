@@ -21,10 +21,55 @@ spring:
     # profile thường không đọc thư mục đó nên Flyway coi các seed là "missing" và chặn app khởi động.
     # repeatable:missing bỏ qua trường hợp này; *:future là giá trị mặc định của Flyway, phải ghi lại vì bị thay.
     ignore-migration-patterns: "*:future,repeatable:missing"
+  # Đăng nhập qua KeyCloak (OAuth2 Login, chuẩn OIDC).
+  security:
+    oauth2:
+      client:
+        registration:
+          # Tên keycloak quyết định đường dẫn /oauth2/authorization/keycloak và /login/oauth2/code/keycloak.
+          keycloak:
+            client-id: alp-portal
+            client-secret: ${KC_PORTAL_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            # KeyCloak trả mã đăng nhập về đây. {baseUrl} là địa chỉ người dùng đang mở (http://localhost hoặc :5173).
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid,profile,email
+        provider:
+          # Khai báo từng endpoint, không dùng issuer-uri: có issuer-uri thì Spring gọi KeyCloak ngay lúc khởi động
+          # (CI không có KeyCloak), còn trong Docker thì gặp lỗi issuer không khớp.
+          # Không khai user-info-uri: họ tên, email, role đều lấy từ ID token.
+          keycloak:
+            # Trình duyệt được chuyển tới trang đăng nhập, nên dùng địa chỉ trình duyệt mở được.
+            authorization-uri: ${keycloak.url}/realms/alp/protocol/openid-connect/auth
+            # Hai địa chỉ dưới do backend tự gọi, nên dùng địa chỉ backchannel.
+            token-uri: ${keycloak.backchannel-url}/realms/alp/protocol/openid-connect/token
+            jwk-set-uri: ${keycloak.backchannel-url}/realms/alp/protocol/openid-connect/certs
+            user-name-attribute: sub
+  # Session lưu ở Redis (Spring Session). Trên máy Redis ở localhost; trong Docker, Compose đặt SPRING_DATA_REDIS_HOST=redis.
+  data:
+    redis:
+      host: localhost
+      port: 6379
 
 server:
   # Cổng 8080 đã dành cho KeyCloak.
   port: 8081
+  # Đọc header X-Forwarded-* do Nginx gửi kèm, để tạo đúng địa chỉ quay về sau khi đăng nhập, đăng xuất.
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      # 30 phút không hoạt động thì hết phiên, khớp SSO Session Idle của realm alp.
+      timeout: 30m
+      cookie:
+        # Cookie phiên tên SESSION (tên mặc định của Spring Session); JavaScript không đọc được.
+        http-only: true
+        same-site: lax
+
+# Địa chỉ KeyCloak. url: địa chỉ trình duyệt mở (trang đăng nhập, đăng xuất).
+# backchannel-url: địa chỉ backend gọi để đổi mã lấy token và lấy khóa công khai; trong Docker là http://keycloak:8080.
+keycloak:
+  url: ${KEYCLOAK_URL:http://localhost:8080}
+  backchannel-url: ${KEYCLOAK_BACKCHANNEL_URL:${keycloak.url}}
 
 mybatis:
   # File SQL (XML) nằm trong resources, cùng đường dẫn package với Mapper của module.

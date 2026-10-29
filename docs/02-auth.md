@@ -87,19 +87,20 @@ App không có nút đổi người dùng. Muốn đổi tài khoản thì bấm
 | Thứ | Cấu hình | Ghi chú |
 | --- | --- | --- |
 | Realm | Realm riêng cho project | Không dùng realm `master`, realm đó để quản trị KeyCloak |
-| Client cho backend | Bật Client authentication (có secret), bật Standard flow, tắt Direct access grants | Valid redirect URIs: `/login/oauth2/code/keycloak` của portal; Post logout redirect URIs: trang chủ portal |
-| Client quản lý user | Client riêng, bật Service accounts, gán role `manage-users` và `view-users` của client `realm-management` | Backend dùng client này gọi Admin API |
+| Client `alp-portal` cho backend | Bật Client authentication (có secret), bật Standard flow, tắt Direct access grants | Valid redirect URIs: `/login/oauth2/code/keycloak` của portal; Post logout redirect URIs: trang chủ portal |
+| Client `alp-admin` quản lý user | Client riêng, bật Service accounts, gán role `manage-users` và `view-users` của client `realm-management` | Backend dùng client này gọi Admin API (từ tuần 4) |
+| Ngôn ngữ | Bật Internationalization, chỉ tiếng Việt (`vi`) | KeyCloak có sẵn bản dịch tiếng Việt |
 | Realm roles | `MAKER`, `CHECKER`, `ADMIN` | Bật mapper "realm roles" thêm role vào ID token để backend đọc được ngay lúc đăng nhập |
-| Đăng ký, quên mật khẩu | Realm settings → Login: bật User registration và Forgot password; tắt Verify email | Default roles không gồm 3 role trên |
+| Đăng ký, quên mật khẩu | Realm settings → Login: bật User registration, Forgot password và Remember me; tắt Verify email | Default roles không gồm 3 role trên |
 | Đăng nhập bằng email | Realm settings → Login: bật Email as username | Tài khoản demo và nhân viên dùng email làm tên đăng nhập |
 | Chặn đoán mật khẩu | Realm settings → Security defenses: bật Brute force detection, nhập sai 5 lần thì khóa tạm | Lúc demo gõ sai nhiều lần sẽ bị khóa tạm |
 | Thời gian phiên | Realm settings → Sessions: SSO Session Idle 30 phút | Khớp với 30 phút của Spring Session; đổi một bên thì đổi cả bên kia |
-| Gửi mail | Realm settings → Email: host `mailpit`, port `1025` | Mailpit chỉ giữ mail để xem, không gửi ra ngoài |
+| Gửi mail | Realm settings → Email: host `mailpit`, port `1025`, người gửi `no-reply@nhdemo.local` tên "Ngân hàng Demo" | Mailpit chỉ giữ mail để xem, không gửi ra ngoài |
 | Mật khẩu | Authentication → Policies: độ dài tối thiểu, chữ hoa, chữ số | Hash mặc định là Argon2 có salt |
-| Giao diện | Quick Theme (khởi động với `--features=quick-theme`) → tải file JAR → đặt vào `providers/` → chọn ở Realm settings → Themes | File JAR lưu trong repo |
+| Giao diện | Tuần 3 dùng giao diện mặc định của KeyCloak, chữ tiếng Việt, tên hiển thị "Ngân hàng Demo"; đổi logo và màu (màn 3.1) ở tuần 10 | Quick Theme của KeyCloak 26.8.1 vẫn là tính năng thử nghiệm |
 | Đường dẫn | KeyCloak chạy ở cổng riêng `http://localhost:8080` | Xem lỗi "issuer không khớp" ở mục 4 |
 
-- Lưu cấu hình: export realm ra file JSON trong repo; container khởi động với `--import-realm` để tự dựng lại realm.
+- Lưu cấu hình: realm viết hết trong `docker/keycloak/import/alp-realm.json`, không bấm tay trong Admin Console; container khởi động với `--import-realm` để tự dựng lại realm. KeyCloak chỉ nạp khi realm chưa có: sửa file thì xóa realm `alp` trong Admin Console rồi `docker compose restart keycloak` (chi tiết ở mục 3 của `docs/modules/auth.md`).
 - Dữ liệu user tạo thêm nằm trong file H2 của container, gắn Docker volume. Không chạy `docker compose down -v`. KeyCloak không dùng Supabase vì KeyCloak mặc định mở tới 100 kết nối, gói Free của Supabase chỉ cho 60 kết nối trực tiếp.
 - Secret: mật khẩu admin KeyCloak, secret của 2 client, `DEMO_PASSWORD` để trong `.env`, không commit. Repo chỉ có `.env.example` ghi tên biến.
 
@@ -109,7 +110,7 @@ App không có nút đổi người dùng. Muốn đổi tài khoản thì bấm
 
 - `spring-boot-starter-security` và `spring-boot-starter-oauth2-client`: đăng nhập qua KeyCloak.
 - `spring-session-data-redis` và `spring-boot-starter-data-redis`: lưu session ở Redis.
-- `keycloak-admin-client` (bản tương thích KeyCloak 26) để gọi Admin API, hoặc gọi REST thẳng bằng `RestClient`.
+- `keycloak-admin-client` (bản tương thích KeyCloak 26) để gọi Admin API, hoặc gọi REST thẳng bằng `RestClient`. Thêm ở tuần 4, cùng màn Nhân viên.
 
 ### SecurityConfig
 
@@ -134,6 +135,7 @@ Bảng `app.employee` (chi tiết ở `docs/diagrams/erd.drawio`):
 | `status` | varchar(20) | `ACTIVE`, `LOCKED`. Chờ cấp quyền không phải một giá trị ở đây: đó là người chưa có role trong KeyCloak |
 | `created_at`, `updated_at` | timestamptz | |
 
+- Họ tên ghép kiểu Việt từ ID token: `family_name` + dấu cách + `given_name`, ví dụ "Nguyễn Thị Lan". Không dùng claim `name`, vì KeyCloak ghép Tên trước Họ sau.
 - Mỗi lần đăng nhập: `INSERT ... ON CONFLICT (keycloak_id) DO UPDATE` lấy họ tên và email từ token. Lần đầu thì thêm dòng, các lần sau thì cập nhật, chạy bao nhiêu lần cũng không bị trùng. Lệnh này không đụng tới `branch_id` và `status`.
 - Người dùng đổi email trong trang tài khoản của KeyCloak thì lần đăng nhập sau `employee` tự khớp lại.
 - `GET /api/me` trả họ tên, email, role (lấy từ session) và chi nhánh (lấy từ `employee`) của người đang đăng nhập. React gọi API này khi mở app.
@@ -163,7 +165,8 @@ Trước khi báo Camunda hoàn thành task Duyệt phiếu hoặc Từ chối p
 
 ### Lỗi hay gặp
 
-- **Issuer không khớp:** trình duyệt gọi KeyCloak bằng `http://localhost:8080`, còn backend trong Docker gọi bằng tên container `http://keycloak:8080`. Trường `iss` trong token phải khớp cấu hình của Spring. Cách xử lý: cố định hostname của KeyCloak là `http://localhost:8080`, cho backend gọi bằng địa chỉ trong Docker, và khai báo riêng từng endpoint trong `application.yml` thay vì chỉ một `issuer-uri`.
+- **Issuer không khớp:** trình duyệt gọi KeyCloak bằng `http://localhost:8080`, còn backend trong Docker gọi bằng tên container `http://keycloak:8080`. Trường `iss` trong token phải khớp cấu hình của Spring. Cách xử lý: cố định hostname của KeyCloak là `http://localhost:8080`, cho backend gọi bằng địa chỉ trong Docker, và khai báo riêng từng endpoint trong `application.yml` thay vì chỉ một `issuer-uri`. Cụ thể: KeyCloak đặt `KC_HOSTNAME=http://localhost:8080` và `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`; backend có `KEYCLOAK_URL` (đường trình duyệt, cho trang đăng nhập, đăng xuất) và `KEYCLOAK_BACKCHANNEL_URL` (đường backend gọi, để đổi mã lấy token và lấy khóa công khai).
+- **Trang Account của KeyCloak báo "Đã xảy ra lỗi":** tài khoản khai báo trong file realm chỉ nhận đúng các role ghi trong file, không tự nhận role mặc định như người tự đăng ký. Thiếu `default-roles-alp` thì không có quyền `view-profile`, `manage-account` của client `account`. Mỗi tài khoản demo trong `alp-realm.json` phải có `default-roles-alp`.
 - **Chuyển hướng sai địa chỉ:** request đi qua Nginx nên Spring phải đọc header `X-Forwarded-*` (`server.forward-headers-strategy`) để tạo đúng redirect URI.
 - **Đăng xuất bằng axios mà backend trả chuyển hướng:** axios đi theo chuyển hướng trong nền, gặp lỗi CORS và trình duyệt không chuyển trang. Vì vậy backend trả địa chỉ dạng JSON.
 - **Route React trùng đường dẫn của Spring:** không đặt route React là `/login`, `/logout`, `/oauth2`.
@@ -239,19 +242,19 @@ Mỗi bảng có một cặp file: interface Java khai báo method và file XML 
 3. Method có từ 2 tham số trở lên thì đặt `@Param("tên")` để XML gọi được `#{tên}`.
 4. `resultType` dùng tên ngắn nhờ `type-aliases-package` trong `application.yml`.
 
-Ví dụ (tên gói minh họa, chốt khi dựng khung):
+Ví dụ (rút gọn từ `backend/src/main/resources/io/github/arielne/alp/employee/EmployeeMapper.xml`; bản thật JOIN thêm `app.branch` để đọc tên chi nhánh):
 
 ```xml
-<mapper namespace="vn.alp.employee.EmployeeMapper">
+<mapper namespace="io.github.arielne.alp.employee.EmployeeMapper">
   <select id="findByKeycloakId" resultType="Employee">
     SELECT id, keycloak_id, email, full_name, branch_id, status
     FROM app.employee
-    WHERE keycloak_id = #{keycloakId}
+    WHERE keycloak_id = CAST(#{keycloakId} AS uuid)
   </select>
 
-  <insert id="upsertFromToken">
+  <insert id="upsertFromLogin">
     INSERT INTO app.employee (keycloak_id, email, full_name, status)
-    VALUES (#{keycloakId}, #{email}, #{fullName}, 'ACTIVE')
+    VALUES (CAST(#{keycloakId} AS uuid), #{email}, #{fullName}, 'ACTIVE')
     ON CONFLICT (keycloak_id) DO UPDATE
     SET email = EXCLUDED.email,
         full_name = EXCLUDED.full_name,
