@@ -1,0 +1,24 @@
+// Bố cục của layout chung. Màu nền Sider, Header, nội dung lấy từ theme token (theme/theme.ts).
+// Chỉ đặt màu chữ cho khối tên ngân hàng: khối này là div của mình, không phải class của AntD.
+.layout {
+  min-height: 100vh;
+}
+
+.brand {
+  padding: 16px 24px;
+}
+
+.bankName {
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.portalName {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 12px;
+}
+
+.content {
+  padding: 24px;
+}
