@@ -100,6 +100,10 @@ services:
       # Bản chạy demo bật profile demo: Flyway nạp thêm dữ liệu mẫu giả trong db/seeds/.
       SPRING_PROFILES_ACTIVE: demo
       KC_PORTAL_CLIENT_SECRET: ${KC_PORTAL_CLIENT_SECRET}
+      # Secret của client alp-admin: backend gọi Admin API (tạo user, gán role, khóa nhân viên).
+      KC_ADMIN_CLIENT_SECRET: ${KC_ADMIN_CLIENT_SECRET}
+      # Mail kích hoạt gửi qua SMTP của Mailpit; trong mạng Docker, Mailpit có tên là mailpit.
+      SPRING_MAIL_HOST: mailpit
       # Backend gọi KeyCloak qua mạng Docker để đổi mã lấy token; trình duyệt vẫn dùng http://localhost:8080.
       KEYCLOAK_BACKCHANNEL_URL: http://keycloak:8080
       # Session lưu ở Redis; trong mạng Docker, Redis có tên là redis.

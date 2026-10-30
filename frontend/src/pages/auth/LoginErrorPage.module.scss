@@ -1,0 +1,7 @@
+// Đặt Result giữa trang; trang này không có layout nên không có nền của Layout.
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

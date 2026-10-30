@@ -36,15 +36,20 @@ public class KeycloakLogoutSuccessHandler implements LogoutSuccessHandler {
                                 Authentication authentication) throws IOException {
         response.setStatus(HttpStatus.OK.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        objectMapper.writeValue(response.getWriter(), new LogoutResponse(buildLogoutUrl(request, authentication)));
+        objectMapper.writeValue(response.getWriter(), new LogoutResponse(buildLogoutUrl(request, authentication, "/")));
     }
 
-    private String buildLogoutUrl(HttpServletRequest request, Authentication authentication) {
-        // Trang chủ của đúng địa chỉ người dùng đang mở: http://localhost/ hoặc http://localhost:5173/.
-        String homeUrl = ServletUriComponentsBuilder.fromContextPath(request).path("/").toUriString();
+    /**
+     * Địa chỉ đăng xuất của KeyCloak; đăng xuất xong KeyCloak đưa trình duyệt về returnPath của app.
+     * LoginSuccessHandler cũng dùng hàm này để đưa người bị lỗi email trùng về trang /loi-dang-nhap.
+     * returnPath phải có trong "Valid post logout redirect URIs" của client alp-portal (alp-realm.json).
+     */
+    public String buildLogoutUrl(HttpServletRequest request, Authentication authentication, String returnPath) {
+        // Trang của đúng địa chỉ người dùng đang mở: http://localhost/... hoặc http://localhost:5173/...
+        String returnUrl = ServletUriComponentsBuilder.fromContextPath(request).path(returnPath).toUriString();
         UriComponentsBuilder logoutUrl = UriComponentsBuilder
                 .fromUriString(keycloakUrl + "/realms/alp/protocol/openid-connect/logout")
-                .queryParam("post_logout_redirect_uri", homeUrl);
+                .queryParam("post_logout_redirect_uri", returnUrl);
         // id_token_hint báo KeyCloak phiên nào cần kết thúc; có nó thì KeyCloak không hỏi lại người dùng.
         if (authentication != null && authentication.getPrincipal() instanceof OidcUser user) {
             logoutUrl.queryParam("id_token_hint", user.getIdToken().getTokenValue());

@@ -3,16 +3,9 @@
 import { App, Button, Divider, Flex, Tag, Typography } from 'antd'
 import { EditOutlined, KeyOutlined, LogoutOutlined, SafetyCertificateOutlined } from '@ant-design/icons'
 import type { ReactNode } from 'react'
-import { ROLE_LABELS, type AppRole } from '../pages/auth/currentUser.ts'
+import { ROLE_LABELS, ROLE_TAG_COLORS, type AppRole } from '../pages/auth/currentUser.ts'
 import { logout } from '../pages/auth/logout.ts'
 import { useCurrentUser } from '../pages/auth/useCurrentUser.ts'
-
-// Màu có sẵn của AntD gần nhất với màu role trong Design System (không viết CSS đè class của AntD).
-const ROLE_TAG_COLORS: Record<AppRole, string> = {
-  MAKER: 'cyan',
-  CHECKER: 'geekblue',
-  ADMIN: 'volcano',
-}
 
 const ROLE_TAG_ICONS: Record<AppRole, ReactNode> = {
   MAKER: <EditOutlined />,

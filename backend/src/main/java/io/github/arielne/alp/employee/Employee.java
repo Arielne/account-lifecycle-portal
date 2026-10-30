@@ -1,5 +1,6 @@
 package io.github.arielne.alp.employee;
 
+import java.time.OffsetDateTime;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -22,4 +23,6 @@ public class Employee {
     private String branchCode;
     private String branchName;
     private String status;
+    // Lúc hồ sơ được tạo: màn Nhân viên ghi "Tự đăng ký lúc ..." cho người Chờ cấp quyền.
+    private OffsetDateTime createdAt;
 }

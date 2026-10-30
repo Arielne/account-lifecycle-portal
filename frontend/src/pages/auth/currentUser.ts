@@ -28,6 +28,13 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   ADMIN: 'Admin',
 }
 
+/** Màu Tag của từng role (header, màn Nhân viên): màu có sẵn của AntD gần nhất với Design System. */
+export const ROLE_TAG_COLORS: Record<AppRole, string> = {
+  MAKER: 'cyan',
+  CHECKER: 'geekblue',
+  ADMIN: 'volcano',
+}
+
 export async function fetchCurrentUser(): Promise<CurrentUser> {
   const response = await httpClient.get<CurrentUser>(CURRENT_USER_URL)
   return response.data

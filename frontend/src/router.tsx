@@ -7,13 +7,17 @@ import NotFoundPage from './components/NotFoundPage.tsx'
 import RequireRole from './components/RequireRole.tsx'
 import AppShell from './layout/AppShell.tsx'
 import { PAGES, type PageEntry } from './layout/menuItems.tsx'
+import CurrentUserProvider from './pages/auth/CurrentUserProvider.tsx'
+import LoginErrorPage, { LOGIN_ERROR_PATH } from './pages/auth/LoginErrorPage.tsx'
 import AccountTypePage from './pages/catalog/AccountTypePage.tsx'
 import BranchPage from './pages/catalog/BranchPage.tsx'
+import EmployeePage from './pages/employee/EmployeePage.tsx'
 
 // Màn đã làm thật, theo route. Route không có ở đây hiện trang chờ ComingSoonPage.
 const PAGE_ELEMENTS: Record<string, ReactNode> = {
   '/danh-muc/loai-tai-khoan': <AccountTypePage />,
   '/danh-muc/chi-nhanh': <BranchPage />,
+  '/nhan-vien': <EmployeePage />,
 }
 
 /** Route của một mục menu: bọc bằng RequireRole, dùng chung danh sách role với menu. */
@@ -28,9 +32,16 @@ function toPageRoute(page: PageEntry): RouteObject {
 }
 
 export const routes: RouteObject[] = [
+  // Trang lỗi đăng nhập nằm ngoài phần cần đăng nhập: không đi qua CurrentUserProvider nên không gọi /api/me.
+  { path: LOGIN_ERROR_PATH, element: <LoginErrorPage /> },
   {
     path: '/',
-    element: <AppShell />,
+    // CurrentUserProvider gọi /api/me trước khi hiện mọi trang cần đăng nhập.
+    element: (
+      <CurrentUserProvider>
+        <AppShell />
+      </CurrentUserProvider>
+    ),
     children: [...PAGES.map(toPageRoute), { path: '*', element: <NotFoundPage /> }],
   },
 ]

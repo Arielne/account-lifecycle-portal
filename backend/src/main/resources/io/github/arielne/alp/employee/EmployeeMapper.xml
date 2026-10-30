@@ -23,4 +23,54 @@
         LEFT JOIN app.branch b ON b.id = e.branch_id
         WHERE e.keycloak_id = CAST(#{keycloakId} AS uuid)
     </select>
+
+    <!-- Đoạn SQL dùng chung cho các câu đọc hồ sơ kèm chi nhánh của màn Nhân viên. -->
+    <sql id="employeeWithBranch">
+        SELECT e.id, e.keycloak_id, e.email, e.full_name, e.branch_id,
+               b.code AS branch_code, b.name AS branch_name, e.status, e.created_at
+        FROM app.employee e
+        LEFT JOIN app.branch b ON b.id = e.branch_id
+    </sql>
+
+    <select id="findAll" resultType="Employee">
+        <include refid="employeeWithBranch"/>
+        ORDER BY e.full_name
+    </select>
+
+    <select id="findById" resultType="Employee">
+        <include refid="employeeWithBranch"/>
+        WHERE e.id = #{id}
+    </select>
+
+    <select id="findByEmail" resultType="Employee">
+        <include refid="employeeWithBranch"/>
+        WHERE e.email = #{email}
+    </select>
+
+    <select id="findStatusByKeycloakId" resultType="string">
+        SELECT status FROM app.employee WHERE keycloak_id = CAST(#{keycloakId} AS uuid)
+    </select>
+
+    <select id="findBranchNameById" resultType="string">
+        SELECT name FROM app.branch WHERE id = #{branchId}
+    </select>
+
+    <!-- useGeneratedKeys: lấy id database vừa sinh (cột IDENTITY) gán vào thuộc tính id của object. -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO app.employee (keycloak_id, email, full_name, branch_id, status)
+        VALUES (CAST(#{keycloakId} AS uuid), #{email}, #{fullName}, #{branchId,jdbcType=BIGINT}, #{status})
+    </insert>
+
+    <update id="updateProfile">
+        UPDATE app.employee
+        SET email = #{email},
+            full_name = #{fullName},
+            branch_id = #{branchId,jdbcType=BIGINT},
+            updated_at = now()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE app.employee SET status = #{status}, updated_at = now() WHERE id = #{id}
+    </update>
 </mapper>
