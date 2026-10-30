@@ -1,10 +1,12 @@
 package io.github.arielne.alp.employee;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import io.github.arielne.alp.PostgresTestcontainersConfiguration;
 import io.github.arielne.alp.RedisTestcontainersConfiguration;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -72,6 +74,56 @@ class EmployeeMapperIT {
         assertEquals(branchId, employee.getBranchId());
         assertEquals("TST-NV", employee.getBranchCode());
         assertEquals("LOCKED", employee.getStatus());
+    }
+
+    @Test
+    @DisplayName("insert gán id mới; findByEmail, findStatusByKeycloakId đọc đúng; updateProfile bỏ được chi nhánh")
+    void insertThenUpdateProfileAndStatus() {
+        // Chuẩn bị: hồ sơ do Admin tạo, có chi nhánh
+        Long branchId = jdbcTemplate.queryForObject(
+                "INSERT INTO app.branch (code, name, address, phone)"
+                        + " VALUES ('TST-NV2', 'Chi nhánh test 2', 'Địa chỉ test', '0900000000') RETURNING id",
+                Long.class);
+        Employee employee = new Employee();
+        employee.setKeycloakId(KEYCLOAK_ID);
+        employee.setEmail("an.nv@nhdemo.local");
+        employee.setFullName("Nguyễn Văn An");
+        employee.setBranchId(branchId);
+        employee.setStatus("ACTIVE");
+        employeeMapper.insert(employee);
+
+        // Chạy: đổi email, bỏ chi nhánh, rồi khóa
+        employee.setEmail("an.moi@nhdemo.local");
+        employee.setBranchId(null);
+        employeeMapper.updateProfile(employee);
+        employeeMapper.updateStatus(employee.getId(), "LOCKED");
+
+        // Kiểm tra kết quả
+        Employee saved = employeeMapper.findByEmail("an.moi@nhdemo.local");
+        assertEquals(employee.getId(), saved.getId());
+        assertNull(saved.getBranchId());
+        assertNotNull(saved.getCreatedAt());
+        assertEquals("LOCKED", employeeMapper.findStatusByKeycloakId(KEYCLOAK_ID));
+        assertNull(employeeMapper.findByEmail("an.nv@nhdemo.local"));
+        assertEquals("Chi nhánh test 2", employeeMapper.findBranchNameById(branchId));
+    }
+
+    @Test
+    @DisplayName("findAll đọc hồ sơ kèm tên chi nhánh, người chưa có chi nhánh vẫn có trong danh sách")
+    void findAllIncludesEmployeesWithoutBranch() {
+        // Chuẩn bị
+        employeeMapper.upsertFromLogin(KEYCLOAK_ID, "moi.dang.ky@nhdemo.local", "Nhân Viên Mới");
+
+        // Chạy
+        List<Employee> employees = employeeMapper.findAll();
+
+        // Kiểm tra kết quả
+        Employee newEmployee = employees.stream()
+                .filter(employee -> employee.getKeycloakId().equals(KEYCLOAK_ID))
+                .findFirst()
+                .orElseThrow();
+        assertNull(newEmployee.getBranchName());
+        assertEquals("ACTIVE", newEmployee.getStatus());
     }
 
     private int countProfiles() {

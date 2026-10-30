@@ -88,7 +88,7 @@ App không có nút đổi người dùng. Muốn đổi tài khoản thì bấm
 | --- | --- | --- |
 | Realm | Realm riêng cho project | Không dùng realm `master`, realm đó để quản trị KeyCloak |
 | Client `alp-portal` cho backend | Bật Client authentication (có secret), bật Standard flow, tắt Direct access grants | Valid redirect URIs: `/login/oauth2/code/keycloak` của portal; Post logout redirect URIs: trang chủ portal |
-| Client `alp-admin` quản lý user | Client riêng, bật Service accounts, gán role `manage-users` và `view-users` của client `realm-management` | Backend dùng client này gọi Admin API (từ tuần 4) |
+| Client `alp-admin` quản lý user | Client riêng, bật Service accounts, gán role `manage-users`, `view-users` và `view-realm` (để đọc role và thành viên của role) của client `realm-management` | Backend dùng client này gọi Admin API (từ tuần 4) |
 | Ngôn ngữ | Bật Internationalization, chỉ tiếng Việt (`vi`) | KeyCloak có sẵn bản dịch tiếng Việt |
 | Realm roles | `MAKER`, `CHECKER`, `ADMIN` | Bật mapper "realm roles" thêm role vào ID token để backend đọc được ngay lúc đăng nhập |
 | Đăng ký, quên mật khẩu | Realm settings → Login: bật User registration, Forgot password và Remember me; tắt Verify email | Default roles không gồm 3 role trên |
@@ -110,7 +110,7 @@ App không có nút đổi người dùng. Muốn đổi tài khoản thì bấm
 
 - `spring-boot-starter-security` và `spring-boot-starter-oauth2-client`: đăng nhập qua KeyCloak.
 - `spring-session-data-redis` và `spring-boot-starter-data-redis`: lưu session ở Redis.
-- `keycloak-admin-client` (bản tương thích KeyCloak 26) để gọi Admin API, hoặc gọi REST thẳng bằng `RestClient`. Thêm ở tuần 4, cùng màn Nhân viên.
+- `keycloak-admin-client` 26.0.x để gọi Admin API, cùng màn Nhân viên. Mọi lời gọi gom trong `employee/KeycloakUserClient`.
 
 ### SecurityConfig
 
@@ -138,6 +138,7 @@ Bảng `app.employee` (chi tiết ở `docs/diagrams/erd.drawio`):
 - Họ tên ghép kiểu Việt từ ID token: `family_name` + dấu cách + `given_name`, ví dụ "Nguyễn Thị Lan". Không dùng claim `name`, vì KeyCloak ghép Tên trước Họ sau.
 - Mỗi lần đăng nhập: `INSERT ... ON CONFLICT (keycloak_id) DO UPDATE` lấy họ tên và email từ token. Lần đầu thì thêm dòng, các lần sau thì cập nhật, chạy bao nhiêu lần cũng không bị trùng. Lệnh này không đụng tới `branch_id` và `status`.
 - Người dùng đổi email trong trang tài khoản của KeyCloak thì lần đăng nhập sau `employee` tự khớp lại.
+- Email trong token đã thuộc hồ sơ có `keycloak_id` khác: không lưu hồ sơ, xóa session, đăng xuất khỏi KeyCloak rồi về trang `/loi-dang-nhap` của React. Không nối hồ sơ theo email vì realm không bắt xác minh email (chi tiết ở mục 6 của `docs/modules/admin.md`).
 - `GET /api/me` trả họ tên, email, role (lấy từ session) và chi nhánh (lấy từ `employee`) của người đang đăng nhập. React gọi API này khi mở app.
 
 ### Chi nhánh của nhân viên
@@ -157,7 +158,7 @@ Bảng `app.employee` (chi tiết ở `docs/diagrams/erd.drawio`):
 | Gán role | Admin API gán realm role. Chỉ cho gán `MAKER` hoặc `CHECKER` khi hồ sơ đã có chi nhánh |
 | Khóa, mở khóa | Hỏi xác nhận; cập nhật `status`; Admin API đặt `enabled`; khi khóa thì đăng xuất các phiên ở KeyCloak, bộ lọc ở mục 2 đẩy người đó ra ở request kế tiếp |
 
-Không có transaction chung giữa KeyCloak và Supabase. Tạo ở KeyCloak xong mà lưu hồ sơ bị lỗi thì xóa user vừa tạo trên KeyCloak để bù lại, hoặc để lần đăng nhập đầu tự tạo hồ sơ.
+Không có transaction chung giữa KeyCloak và Supabase. Tạo ở KeyCloak xong mà lưu hồ sơ bị lỗi thì xóa user vừa tạo trên KeyCloak để bù lại.
 
 ### Chặn tự duyệt và duyệt khác chi nhánh
 

@@ -90,6 +90,17 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
+        <!-- Gọi Admin API của KeyCloak (tạo user, gán role, khóa) bằng client alp-admin. Bản 26.0.x dùng được với KeyCloak 26. -->
+        <dependency>
+            <groupId>org.keycloak</groupId>
+            <artifactId>keycloak-admin-client</artifactId>
+            <version>26.0.12</version>
+        </dependency>
+        <!-- Spring Mail: gửi mail "Tài khoản đã được kích hoạt" tới Mailpit (tạm gửi thẳng, sau chuyển sang Outbox + Kafka). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
 
         <!-- JUnit 5, Mockito, MockMvc cho test. -->
         <dependency>

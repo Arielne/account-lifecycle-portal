@@ -51,7 +51,7 @@
         "http://localhost:5173/login/oauth2/code/keycloak"
       ],
       "attributes": {
-        "post.logout.redirect.uris": "http://localhost/##http://localhost:5173/"
+        "post.logout.redirect.uris": "http://localhost/##http://localhost:5173/##http://localhost/loi-dang-nhap##http://localhost:5173/loi-dang-nhap"
       },
       "protocolMappers": [
         {
@@ -134,7 +134,7 @@
       "enabled": true,
       "serviceAccountClientId": "alp-admin",
       "clientRoles": {
-        "realm-management": ["manage-users", "view-users"]
+        "realm-management": ["manage-users", "view-users", "view-realm"]
       }
     }
   ]

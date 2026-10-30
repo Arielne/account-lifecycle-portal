@@ -1,11 +1,13 @@
 package io.github.arielne.alp.auth;
 
+import io.github.arielne.alp.employee.EmployeeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
@@ -23,6 +25,7 @@ public class SecurityConfig {
     private final KeycloakLogoutSuccessHandler keycloakLogoutSuccessHandler;
     private final ApiAuthenticationEntryPoint apiAuthenticationEntryPoint;
     private final ApiAccessDeniedHandler apiAccessDeniedHandler;
+    private final EmployeeService employeeService;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -35,6 +38,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/account-types/**", "/api/branches/**")
                         .hasAnyRole("MAKER", "CHECKER", "ADMIN")
                         .requestMatchers("/api/account-types/**", "/api/branches/**").hasRole("ADMIN")
+                        // Nhân viên (CN-22): chỉ ADMIN, kể cả đọc.
+                        .requestMatchers("/api/employees/**").hasRole("ADMIN")
                         .requestMatchers("/api/**").hasAnyRole("MAKER", "CHECKER", "ADMIN")
                         .anyRequest().authenticated())
                 // OAuth2 Login: tự có /oauth2/authorization/keycloak và /login/oauth2/code/keycloak.
@@ -53,7 +58,10 @@ public class SecurityConfig {
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
                 // POST /logout: xóa session rồi trả địa chỉ đăng xuất của KeyCloak dạng JSON.
-                .logout(logout -> logout.logoutSuccessHandler(keycloakLogoutSuccessHandler));
+                .logout(logout -> logout.logoutSuccessHandler(keycloakLogoutSuccessHandler))
+                // Nhân viên bị khóa: đẩy ra trước bước kiểm quyền, để nhận 401 (phiên hết) chứ không phải 403.
+                .addFilterBefore(new LockedEmployeeFilter(employeeService, apiAuthenticationEntryPoint),
+                        AuthorizationFilter.class);
         return http.build();
     }
 }

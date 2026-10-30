@@ -50,6 +50,10 @@ spring:
     redis:
       host: localhost
       port: 6379
+  # Mail gửi qua SMTP của Mailpit (chỉ giữ mail để xem). Trên máy là localhost; trong Docker, Compose đặt SPRING_MAIL_HOST=mailpit.
+  mail:
+    host: localhost
+    port: 1025
 
 server:
   # Cổng 8080 đã dành cho KeyCloak.
@@ -70,6 +74,17 @@ server:
 keycloak:
   url: ${KEYCLOAK_URL:http://localhost:8080}
   backchannel-url: ${KEYCLOAK_BACKCHANNEL_URL:${keycloak.url}}
+  # Client alp-admin (Service accounts) để backend gọi Admin API qua địa chỉ backchannel (CN-22).
+  # Secret mặc định để trống: test và CI không gọi KeyCloak thật nên không cần secret.
+  admin-client-id: alp-admin
+  admin-client-secret: ${KC_ADMIN_CLIENT_SECRET:}
+
+management:
+  health:
+    # Có Spring Mail thì Actuator tự kiểm kết nối SMTP; Mailpit tắt là /actuator/health báo DOWN và Compose
+    # không bật web. Mail chỉ là thông báo (gửi lỗi thì ghi log), nên không tính vào sức khỏe của backend.
+    mail:
+      enabled: false
 
 logging:
   pattern:
