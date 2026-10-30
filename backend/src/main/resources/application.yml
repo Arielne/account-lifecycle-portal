@@ -71,6 +71,11 @@ keycloak:
   url: ${KEYCLOAK_URL:http://localhost:8080}
   backchannel-url: ${KEYCLOAK_BACKCHANNEL_URL:${keycloak.url}}
 
+logging:
+  pattern:
+    # Thêm mã request (RequestIdFilter gán cho mỗi request vào /api) sau mức log; ngoài request /api thì để trống.
+    level: "%5p [%X{requestId:-}]"
+
 mybatis:
   # File SQL (XML) nằm trong resources, cùng đường dẫn package với Mapper của module.
   mapper-locations: classpath*:io/github/arielne/alp/**/*Mapper.xml

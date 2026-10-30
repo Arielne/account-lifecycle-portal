@@ -23,7 +23,7 @@ import org.springframework.test.web.servlet.ResultActions;
  */
 @WebMvcTest(MeController.class)
 @Import({SecurityConfig.class, KeycloakRoleMapper.class, LoginSuccessHandler.class,
-        KeycloakLogoutSuccessHandler.class, ApiAuthenticationEntryPoint.class})
+        KeycloakLogoutSuccessHandler.class, ApiAuthenticationEntryPoint.class, ApiAccessDeniedHandler.class})
 class LogoutTest {
 
     @Autowired
