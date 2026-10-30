@@ -88,6 +88,7 @@ Hành động và đối tượng của tuần 4. Database lưu mã; màn 3.5 hi
 | `EMPLOYEE` | Nhân viên | `CREATE` Thêm nhân viên, `UPDATE` Sửa nhân viên, `ASSIGN_ROLE` Gán role, `LOCK` Khóa nhân viên, `UNLOCK` Mở khóa nhân viên, `SELF_REGISTER` Tự đăng ký |
 
 Mã đối tượng (cột `object_id`): mã của danh mục, hoặc email với `EMPLOYEE`. Cột dài 150 ký tự (V8) cho vừa email, vì email được tới 150 ký tự.
+Với `EMPLOYEE`, câu INSERT ghi thêm `object_employee_id` (V9) theo email đang lưu lúc thao tác, nên người đó đổi email sau này thì màn 3.5 vẫn hiện đúng họ tên.
 
 Mô tả (cột `description`) viết bằng lời nghiệp vụ, theo bản thiết kế:
 
@@ -201,6 +202,7 @@ Quy tắc:
 
 - `GET /api/audit-logs` (chỉ `ADMIN`): lọc theo người thực hiện, khoảng thời gian, hành động, đối tượng; phân trang ở backend (10 dòng), mới nhất ở trên. Câu lọc dùng `<where>` và `<if>` của MyBatis.
 - Bảng theo bản thiết kế: Thời gian, Người thực hiện ("Hệ thống" khi `employee_id` rỗng), Hành động, Đối tượng, Mô tả, IP. Hành động và đối tượng hiện nhãn, không hiện mã.
+- Đối tượng là nhân viên thì hiện họ tên hiện tại, nối theo `object_employee_id`, không nối theo email.
 - Chỉ dòng có từ 2 trường thay đổi mới mở rộng được, hiện bảng Thông tin, Trước, Sau.
 - Mã request và `source` lưu để tra lỗi, không hiện trên màn.
 - Ô "Người thực hiện" lấy danh sách từ `/api/employees`, thêm lựa chọn "Hệ thống".
