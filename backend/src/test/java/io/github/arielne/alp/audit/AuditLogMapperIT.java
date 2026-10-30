@@ -19,7 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Test chậm cho câu lọc audit log (spec admin mục 8, test 10): mỗi điều kiện của <where>, <if> chạy thật
+ * Test chậm cho câu lọc audit log (spec admin mục 8, test 10) và câu insert: mỗi điều kiện của <where>, <if> chạy thật
  * trên Postgres của Testcontainers. Test tự thêm 4 dòng audit riêng và tự rollback sau khi chạy.
  */
 @SpringBootTest
@@ -119,6 +119,32 @@ class AuditLogMapperIT {
         // Kiểm tra kết quả
         assertEquals(List.of("CREATE"), actionsOf(rows));
         assertEquals(4, auditLogMapper.count(filter));
+    }
+
+    @Test
+    @DisplayName("insert lưu được mã đối tượng là email dài hơn 50 ký tự, người làm tìm theo keycloakId")
+    void insertKeepsLongEmailObjectId() {
+        // Chuẩn bị: email 57 ký tự, vẫn trong giới hạn 150 ký tự của employee.email
+        String longEmail = "nguyen.thi.thanh.huong.phong.giao.dich.quan7@nhdemo.local";
+        AuditLogEntry entry = new AuditLogEntry();
+        entry.setKeycloakId("0a1b2c3d-0000-4000-8000-0000000000f1");
+        entry.setAction("CREATE");
+        entry.setObjectType("EMPLOYEE");
+        entry.setObjectId(longEmail);
+        entry.setDescription("Tạo nhân viên");
+        entry.setSource("AuditLogMapperIT");
+
+        // Chạy
+        auditLogMapper.insert(entry);
+
+        // Kiểm tra kết quả: dữ liệu chung không có dòng CREATE nào trên EMPLOYEE, nên chỉ có dòng vừa thêm
+        AuditLogFilter filter = filter();
+        filter.setAction("CREATE");
+        filter.setObjectType("EMPLOYEE");
+        List<AuditLogRow> rows = auditLogMapper.findPage(filter);
+        assertEquals(1, rows.size());
+        assertEquals(longEmail, rows.get(0).getObjectId());
+        assertEquals("Admin Audit", rows.get(0).getEmployeeName());
     }
 
     /** Bộ lọc trống: không điều kiện nào, trang đầu 10 dòng. */

@@ -87,6 +87,8 @@ Hành động và đối tượng của tuần 4. Database lưu mã; màn 3.5 hi
 | `BRANCH` | Chi nhánh | Như dòng trên |
 | `EMPLOYEE` | Nhân viên | `CREATE` Thêm nhân viên, `UPDATE` Sửa nhân viên, `ASSIGN_ROLE` Gán role, `LOCK` Khóa nhân viên, `UNLOCK` Mở khóa nhân viên, `SELF_REGISTER` Tự đăng ký |
 
+Mã đối tượng (cột `object_id`): mã của danh mục, hoặc email với `EMPLOYEE`. Cột dài 150 ký tự (V8) cho vừa email, vì email được tới 150 ký tự.
+
 Mô tả (cột `description`) viết bằng lời nghiệp vụ, theo bản thiết kế:
 
 - Thêm, xóa: tên đối tượng, ví dụ "Chi nhánh Quận 7".
