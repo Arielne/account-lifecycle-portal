@@ -56,9 +56,10 @@ Thiếu bước 3 thì bấm đăng nhập lại sẽ vào thẳng mà không ph
 
 ### Đổi role, khóa nhân viên
 
-- Role nằm trong token lấy lúc đăng nhập, nên đổi role xong nhân viên phải đăng nhập lại mới nhận quyền mới.
-- Khóa nhân viên: backend cập nhật `employee.status = LOCKED`, đặt `enabled = false` qua Admin API và đăng xuất các phiên của người đó ở KeyCloak. Phiếu họ đã tạo giữ nguyên.
-- Người bị khóa có thể đang đăng nhập, mà session trong Redis chỉ hết hạn sau 30 phút không hoạt động. Vì vậy mỗi request vào `/api` đi qua một bộ lọc đọc `employee.status` của người trong session; gặp `LOCKED` thì xóa session hiện tại và trả 401. Người bị khóa bị đẩy ra ngay ở thao tác kế tiếp và không đăng nhập lại được.
+- Role nằm trong token lấy lúc đăng nhập, nên được thêm role thì nhân viên phải đăng nhập lại mới nhận quyền mới.
+- Bị bỏ role thì không chờ người đó tự đăng nhập lại: nếu không, phiên đang mở vẫn giữ role vừa bỏ tới khi họ đăng xuất. Backend ghi `employee.sessions_invalid_before` là thời điểm ngay sau khi KeyCloak bỏ role; phiên nào tạo trước thời điểm đó bị đẩy ra ở thao tác kế tiếp. Phiên SSO ở KeyCloak vẫn còn, nên bấm đăng nhập lại là vào ngay với token không còn role đã bỏ.
+- Khóa nhân viên: backend cập nhật `employee.status = LOCKED` và `sessions_invalid_before`, đặt `enabled = false` qua Admin API và đăng xuất các phiên của người đó ở KeyCloak. Phiếu họ đã tạo giữ nguyên.
+- Người bị khóa hoặc bị bỏ role có thể đang đăng nhập, mà session trong Redis chỉ hết hạn sau 30 phút không hoạt động. Vì vậy mỗi request vào `/api` đi qua một bộ lọc (`RevokedSessionFilter`) đọc `employee.status` và `sessions_invalid_before` của người trong session; gặp `LOCKED`, hoặc session tạo trước `sessions_invalid_before`, thì xóa session hiện tại và trả 401. Người bị khóa bị đẩy ra ngay ở thao tác kế tiếp và không đăng nhập lại được.
 - Mở khóa: đặt `enabled = true` và `status = ACTIVE`.
 
 ### Đổi tài khoản và demo nhiều vai trò
@@ -134,6 +135,7 @@ Bảng `app.employee` (chi tiết ở `docs/diagrams/erd.drawio`):
 | `branch_id` | bigint, null | FK → `branch`; rỗng khi chưa được gán |
 | `status` | varchar(20) | `ACTIVE`, `LOCKED`. Chờ cấp quyền không phải một giá trị ở đây: đó là người chưa có role trong KeyCloak |
 | `created_at`, `updated_at` | timestamptz | |
+| `sessions_invalid_before` | timestamptz, null | Phiên tạo trước thời điểm này đã bị thu hồi (bị bỏ role, bị khóa); rỗng khi chưa thu hồi lần nào |
 
 - Họ tên ghép kiểu Việt từ ID token: `family_name` + dấu cách + `given_name`, ví dụ "Nguyễn Thị Lan". Không dùng claim `name`, vì KeyCloak ghép Tên trước Họ sau.
 - Mỗi lần đăng nhập: `INSERT ... ON CONFLICT (keycloak_id) DO UPDATE` lấy họ tên và email từ token. Lần đầu thì thêm dòng, các lần sau thì cập nhật, chạy bao nhiêu lần cũng không bị trùng. Lệnh này không đụng tới `branch_id` và `status`.

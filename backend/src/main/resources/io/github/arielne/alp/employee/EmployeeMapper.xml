@@ -47,8 +47,8 @@
         WHERE e.email = #{email}
     </select>
 
-    <select id="findStatusByKeycloakId" resultType="string">
-        SELECT status FROM app.employee WHERE keycloak_id = CAST(#{keycloakId} AS uuid)
+    <select id="findSessionStateByKeycloakId" resultType="EmployeeSessionState">
+        SELECT status, sessions_invalid_before FROM app.employee WHERE keycloak_id = CAST(#{keycloakId} AS uuid)
     </select>
 
     <select id="findBranchNameById" resultType="string">
@@ -72,5 +72,9 @@
 
     <update id="updateStatus">
         UPDATE app.employee SET status = #{status}, updated_at = now() WHERE id = #{id}
+    </update>
+
+    <update id="updateSessionsInvalidBefore">
+        UPDATE app.employee SET sessions_invalid_before = #{time}, updated_at = now() WHERE id = #{id}
     </update>
 </mapper>

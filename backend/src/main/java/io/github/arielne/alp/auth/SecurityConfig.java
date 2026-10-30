@@ -59,8 +59,9 @@ public class SecurityConfig {
                         .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
                 // POST /logout: xóa session rồi trả địa chỉ đăng xuất của KeyCloak dạng JSON.
                 .logout(logout -> logout.logoutSuccessHandler(keycloakLogoutSuccessHandler))
-                // Nhân viên bị khóa: đẩy ra trước bước kiểm quyền, để nhận 401 (phiên hết) chứ không phải 403.
-                .addFilterBefore(new LockedEmployeeFilter(employeeService, apiAuthenticationEntryPoint),
+                // Phiên bị thu hồi (bị khóa, bị bỏ role): đẩy ra trước bước kiểm quyền, để nhận 401 (phiên hết)
+                // chứ không phải 403, và để role cũ còn trong session không được dùng ở bước kiểm quyền.
+                .addFilterBefore(new RevokedSessionFilter(employeeService, apiAuthenticationEntryPoint),
                         AuthorizationFilter.class);
         return http.build();
     }

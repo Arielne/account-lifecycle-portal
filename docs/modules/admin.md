@@ -30,7 +30,7 @@ backend/src/main/java/io/github/arielne/alp/
 ├── catalog/       AccountType*, Branch* (Controller, Service, Mapper, DTO)
 ├── employee/      Employee* (Controller, Service, Mapper), lớp gọi Admin API của KeyCloak
 ├── notification/  gửi mail kích hoạt (tạm gọi thẳng, tuần 9 đổi sang Kafka)
-└── auth/          bộ lọc nhân viên bị khóa; xử lý email trùng khi đăng nhập
+└── auth/          bộ lọc phiên bị thu hồi (bị khóa, bị bỏ role); xử lý email trùng khi đăng nhập
 frontend/src/
 ├── api/              đọc lỗi dạng chung, đưa lỗi từng ô vào Form
 ├── pages/catalog/    màn Loại tài khoản, màn Chi nhánh
@@ -173,13 +173,15 @@ Quy tắc:
 - `MAKER`, `CHECKER` chỉ gán được khi đã có chi nhánh; `ADMIN` không cần chi nhánh.
 - Người đang Chờ cấp quyền được gán role đầu tiên thì gửi mail "Tài khoản đã được kích hoạt", nhắc đăng nhập lại (CN-05). Tuần 4 gửi thẳng bằng Spring Mail tới Mailpit qua một class trong `notification`, comment ghi rõ là tạm; tuần 9 đổi sang Outbox + Kafka (B2). Trên máy gửi tới `localhost:1025`; trong Docker gửi tới `mailpit:1025`.
 - Role nằm trong token nên nhân viên phải đăng nhập lại mới nhận quyền mới.
+- Có bỏ role thì backend ghi `employee.sessions_invalid_before` (thời điểm ngay sau khi KeyCloak bỏ role): phiên đang mở của người đó bị bộ lọc trong `auth` đẩy ra ở thao tác kế tiếp, để role vừa bỏ không còn dùng được. Chỉ thêm role thì không đẩy ra.
 - Màn hình: một Drawer dùng chung cho Thêm, Sửa, Gán role theo bản thiết kế. Drawer Gán role có cả ô Chi nhánh; đổi chi nhánh thì lưu chi nhánh trước rồi mới gán role.
 
 ### Khóa và mở khóa (A1 của tuần 3)
 
 - Khóa: hỏi xác nhận theo màn 3.13 ("Khóa nhân viên ...? Người này bị đăng xuất ngay và không đăng nhập được nữa. Phiếu họ đã tạo vẫn giữ nguyên.", nút "Khóa" màu đỏ). Backend đặt `status = LOCKED`, Admin API đặt `enabled = false` và đăng xuất mọi phiên KeyCloak của người đó.
 - Mở khóa: `status = ACTIVE`, `enabled = true`.
-- Bộ lọc trong `auth`: mỗi request vào `/api` của người đã đăng nhập đọc `employee.status` theo `keycloak_id`; gặp `LOCKED` thì xóa session và trả 401 dạng JSON. React hiện hộp thoại phiên hết hạn như tuần 3; đăng nhập lại thì KeyCloak từ chối vì tài khoản đã tắt.
+- Khóa cũng ghi `sessions_invalid_before`, nên mở khóa trước khi người đó gọi API thì phiên cũ vẫn không dùng lại được.
+- Bộ lọc trong `auth` (`RevokedSessionFilter`): mỗi request vào `/api` của người đã đăng nhập đọc `employee.status` và `sessions_invalid_before` theo `keycloak_id`; gặp `LOCKED`, hoặc session tạo trước `sessions_invalid_before`, thì xóa session và trả 401 dạng JSON. React hiện hộp thoại phiên hết hạn như tuần 3; đăng nhập lại thì KeyCloak từ chối vì tài khoản đã tắt (bị khóa), hoặc cấp token có role mới (bị bỏ role).
 
 ### Email trùng khi đăng nhập (lỗi phát hiện ở tuần 3)
 
@@ -213,7 +215,7 @@ Backend, test nhanh (`*Test`, `@WebMvcTest`, service KeyCloak và mail thay bằ
 4. Thêm nhân viên trùng email → 409; tạo trên KeyCloak xong mà lưu hồ sơ lỗi → user trên KeyCloak bị xóa.
 5. Gán `MAKER` cho người chưa có chi nhánh → 409; Admin tự khóa mình hoặc tự đổi role của mình → 409.
 6. Gán role đầu tiên cho người Chờ cấp quyền → gửi mail kích hoạt; thêm role cho người đã có role → không gửi.
-7. Khóa → gọi tắt tài khoản và đăng xuất phiên trên KeyCloak; người bị khóa gọi `/api` → 401 và session bị xóa.
+7. Khóa → gọi tắt tài khoản và đăng xuất phiên trên KeyCloak; người bị khóa gọi `/api` → 401 và session bị xóa. Bỏ role → ghi `sessions_invalid_before` sau khi KeyCloak bỏ role; chỉ thêm role → không ghi; session tạo trước mốc đó gọi `/api` → 401, tạo sau → đi qua.
 8. Đăng nhập bằng email đã thuộc hồ sơ khác → chuyển tới `/loi-dang-nhap`, không có session, không lỗi 500.
 
 Backend, test chậm (`*IT`, Testcontainers):

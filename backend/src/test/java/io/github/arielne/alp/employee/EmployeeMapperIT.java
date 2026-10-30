@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import io.github.arielne.alp.PostgresTestcontainersConfiguration;
 import io.github.arielne.alp.RedisTestcontainersConfiguration;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -77,7 +79,7 @@ class EmployeeMapperIT {
     }
 
     @Test
-    @DisplayName("insert gán id mới; findByEmail, findStatusByKeycloakId đọc đúng; updateProfile bỏ được chi nhánh")
+    @DisplayName("insert gán id mới; findByEmail, findSessionStateByKeycloakId đọc đúng; updateProfile bỏ được chi nhánh")
     void insertThenUpdateProfileAndStatus() {
         // Chuẩn bị: hồ sơ do Admin tạo, có chi nhánh
         Long branchId = jdbcTemplate.queryForObject(
@@ -103,9 +105,28 @@ class EmployeeMapperIT {
         assertEquals(employee.getId(), saved.getId());
         assertNull(saved.getBranchId());
         assertNotNull(saved.getCreatedAt());
-        assertEquals("LOCKED", employeeMapper.findStatusByKeycloakId(KEYCLOAK_ID));
+        assertEquals("LOCKED", employeeMapper.findSessionStateByKeycloakId(KEYCLOAK_ID).getStatus());
         assertNull(employeeMapper.findByEmail("an.nv@nhdemo.local"));
         assertEquals("Chi nhánh test 2", employeeMapper.findBranchNameById(branchId));
+    }
+
+    @Test
+    @DisplayName("updateSessionsInvalidBefore lưu mốc thu hồi phiên; hồ sơ mới thì mốc này rỗng")
+    void updateSessionsInvalidBefore() {
+        // Chuẩn bị: hồ sơ vừa đăng nhập lần đầu, chưa bị thu hồi phiên lần nào
+        employeeMapper.upsertFromLogin(KEYCLOAK_ID, "an.nv@nhdemo.local", "Nguyễn Văn An");
+        Long id = employeeMapper.findByKeycloakId(KEYCLOAK_ID).getId();
+        assertNull(employeeMapper.findSessionStateByKeycloakId(KEYCLOAK_ID).getSessionsInvalidBefore());
+        OffsetDateTime revokedAt = OffsetDateTime.of(2026, 10, 30, 9, 0, 0, 0, ZoneOffset.ofHours(7));
+
+        // Chạy
+        employeeMapper.updateSessionsInvalidBefore(id, revokedAt);
+
+        // Kiểm tra kết quả: cùng thời điểm (Postgres trả về theo múi giờ của phiên kết nối, nên so bằng Instant)
+        EmployeeSessionState state = employeeMapper.findSessionStateByKeycloakId(KEYCLOAK_ID);
+        assertEquals("ACTIVE", state.getStatus());
+        assertEquals(revokedAt.toInstant(), state.getSessionsInvalidBefore().toInstant());
+        assertNull(employeeMapper.findSessionStateByKeycloakId("0a1b2c3d-0000-4000-8000-000000000099"));
     }
 
     @Test

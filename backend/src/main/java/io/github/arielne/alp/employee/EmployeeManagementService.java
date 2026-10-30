@@ -4,6 +4,7 @@ import io.github.arielne.alp.common.AuditNote;
 import io.github.arielne.alp.common.Audited;
 import io.github.arielne.alp.common.BusinessException;
 import io.github.arielne.alp.notification.AccountActivationMailer;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -100,6 +101,7 @@ public class EmployeeManagementService {
     /**
      * Danh sách role mới thay cho danh sách cũ: so với role hiện có trên KeyCloak rồi thêm hoặc bỏ từng role.
      * Người Chờ cấp quyền được gán role đầu tiên thì gửi mail kích hoạt (CN-05).
+     * Có bỏ role thì thu hồi phiên đang mở của người đó: role trong phiên là role lúc đăng nhập.
      */
     @Transactional
     @Audited(action = "ASSIGN_ROLE", objectType = "EMPLOYEE")
@@ -114,6 +116,11 @@ public class EmployeeManagementService {
         List<String> rolesToRemove = rolesNotIn(currentRoles, newRoles);
         keycloakUserClient.addRoles(employee.getKeycloakId(), rolesToAdd);
         keycloakUserClient.removeRoles(employee.getKeycloakId(), rolesToRemove);
+        if (!rolesToRemove.isEmpty()) {
+            // Lấy thời điểm sau khi KeyCloak đã bỏ role: phiên nào bắt đầu trước đó (kể cả đăng nhập xen giữa)
+            // đều bị đẩy ra; đăng nhập lại thì token không còn role đã bỏ.
+            employeeMapper.updateSessionsInvalidBefore(id, OffsetDateTime.now());
+        }
 
         auditNote.setObjectId(employee.getEmail());
         auditNote.addChangeIfDifferent("Role", AppRoles.labels(currentRoles), AppRoles.labels(newRoles));
@@ -124,13 +131,17 @@ public class EmployeeManagementService {
         }
     }
 
-    /** Khóa: hồ sơ LOCKED, tắt tài khoản và đăng xuất mọi phiên trên KeyCloak. Phiếu họ đã tạo giữ nguyên. */
+    /**
+     * Khóa: hồ sơ LOCKED, tắt tài khoản và đăng xuất mọi phiên trên KeyCloak. Phiếu họ đã tạo giữ nguyên.
+     * Thu hồi luôn phiên đang mở của app: mở khóa trước khi người đó gọi API thì phiên cũ cũng không dùng lại được.
+     */
     @Transactional
     @Audited(action = "LOCK", objectType = "EMPLOYEE")
     public void lock(Long id, String currentKeycloakId) {
         Employee employee = findExisting(id);
         checkNotSelf(employee, currentKeycloakId, "Không thể tự khóa chính mình");
         employeeMapper.updateStatus(id, LOCKED);
+        employeeMapper.updateSessionsInvalidBefore(id, OffsetDateTime.now());
         keycloakUserClient.setEnabled(employee.getKeycloakId(), false);
         keycloakUserClient.logout(employee.getKeycloakId());
 

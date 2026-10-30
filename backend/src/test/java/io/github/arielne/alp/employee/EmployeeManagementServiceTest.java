@@ -1,10 +1,13 @@
 package io.github.arielne.alp.employee;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -13,10 +16,13 @@ import static org.mockito.Mockito.when;
 import io.github.arielne.alp.common.AuditNote;
 import io.github.arielne.alp.common.BusinessException;
 import io.github.arielne.alp.notification.AccountActivationMailer;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 
@@ -159,6 +165,28 @@ class EmployeeManagementServiceTest {
         verify(accountActivationMailer).sendAccountActivated("thu.dangky@nhdemo.local", "Bắc Đẩu Thu",
                 "Giao dịch viên");
         assertEquals("Thêm Giao dịch viên", auditNote.getDescription());
+        // Chỉ thêm role, không bỏ role nào: phiên đang mở không bị thu hồi.
+        verify(employeeMapper, never()).updateSessionsInvalidBefore(any(), any());
+    }
+
+    @Test
+    @DisplayName("Bỏ role thì thu hồi phiên đang mở, sau khi KeyCloak đã bỏ role")
+    void removingRoleRevokesOpenSessions() {
+        // Chuẩn bị: đang giữ cả Giao dịch viên và Kiểm soát viên, Admin bỏ Kiểm soát viên
+        when(employeeMapper.findById(7L)).thenReturn(employee(7L, NEW_KEYCLOAK_ID, 4L));
+        when(employeeMapper.findBranchNameById(4L)).thenReturn("Chi nhánh Tân Phú");
+        when(keycloakUserClient.findAppRoles(NEW_KEYCLOAK_ID)).thenReturn(List.of("MAKER", "CHECKER"));
+        OffsetDateTime before = OffsetDateTime.now();
+
+        // Chạy
+        service.assignRoles(7L, List.of("MAKER"), ADMIN_KEYCLOAK_ID);
+
+        // Kiểm tra kết quả: thời điểm thu hồi lấy sau khi KeyCloak bỏ role, để phiên đăng nhập xen giữa cũng bị đẩy ra
+        InOrder inOrder = inOrder(keycloakUserClient, employeeMapper);
+        inOrder.verify(keycloakUserClient).removeRoles(NEW_KEYCLOAK_ID, List.of("CHECKER"));
+        ArgumentCaptor<OffsetDateTime> revokedAt = ArgumentCaptor.forClass(OffsetDateTime.class);
+        inOrder.verify(employeeMapper).updateSessionsInvalidBefore(eq(7L), revokedAt.capture());
+        assertFalse(revokedAt.getValue().isBefore(before));
     }
 
     @Test
@@ -192,6 +220,8 @@ class EmployeeManagementServiceTest {
         verify(employeeMapper).updateStatus(7L, "LOCKED");
         verify(keycloakUserClient).setEnabled(NEW_KEYCLOAK_ID, false);
         verify(keycloakUserClient).logout(NEW_KEYCLOAK_ID);
+        // Thu hồi luôn phiên đang mở: mở khóa trước khi người đó gọi API thì phiên cũ cũng không dùng lại được.
+        verify(employeeMapper).updateSessionsInvalidBefore(eq(7L), any(OffsetDateTime.class));
     }
 
     @Test
