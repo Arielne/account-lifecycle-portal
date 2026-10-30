@@ -196,6 +196,9 @@ Nginx là cửa vào của portal, để React và backend dùng chung một dom
 | `/api/`, `/oauth2/`, `/login/oauth2/`, `/logout` | Backend Spring Boot |
 | Còn lại | File build của React |
 
+- Nginx nén gzip file chữ (JS, CSS, JSON, SVG, HTML từ 1 KB trở lên); file JS của bản build nặng hơn 1 MB, nén còn khoảng một phần ba.
+- File trong `/assets/` có mã băm trong tên (Vite đặt) nên trình duyệt giữ 1 năm (`immutable`); thiếu file thì 404. `index.html` gửi kèm `no-cache` để bản build mới có hiệu lực ngay.
+
 KeyCloak chạy ở cổng riêng `http://localhost:8080`; khi đăng nhập, trình duyệt sang thẳng địa chỉ đó. Demo chạy trên máy bằng localhost.
 
 Spring tin mọi header `X-Forwarded-*` và `Forwarded` gửi tới (`server.forward-headers-strategy: framework`), kể cả header trình duyệt tự gửi. Vì vậy Nginx ghi đè `X-Forwarded-For` bằng IP mà Nginx thấy (`$remote_addr`, không nối thêm), và bỏ hẳn `Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Port`, `X-Forwarded-Prefix`, `X-Forwarded-Ssl`. Compose chỉ mở cổng 8081 của backend cho `127.0.0.1`, để máy khác không gọi thẳng backend mà bỏ qua Nginx.
