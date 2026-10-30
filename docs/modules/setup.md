@@ -51,7 +51,7 @@ Package của các module khác (bảng module trong `CLAUDE.md`) tạo khi bắ
 | kafka | Apache Kafka chế độ KRaft (không ZooKeeper), 1 broker | 9092 | |
 | kafka-ui | Kafka UI, chọn image còn được duy trì | 8090 | |
 | mailpit | `axllent/mailpit` | 1025 (SMTP), 8025 (web) | |
-| backend | build từ `backend/` | 8081 | Cổng 8081 vì 8080 là KeyCloak |
+| backend | build từ `backend/` | 8081 | Cổng 8081 vì 8080 là KeyCloak; chỉ mở cho `127.0.0.1`, máy khác phải đi qua Nginx |
 | web | build từ `frontend/` | 80 | Nginx trả bản build React, chuyển `/api/`, `/oauth2/`, `/login/oauth2/`, `/logout` sang `backend:8081` |
 
 - Ghim số phiên bản cho mọi image, không dùng `latest`.

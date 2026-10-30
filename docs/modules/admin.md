@@ -76,7 +76,7 @@ Cách ghi:
 
 1. Method ghi dữ liệu của Service gắn `@Audited(action = "...", objectType = "...")`.
 2. Trong method, Service ghi nội dung nghiệp vụ vào `AuditNote` (bean theo request): mã đối tượng, mô tả, và các trường đổi giá trị (nhãn tiếng Việt, giá trị trước, giá trị sau). Service tự so từng trường; không dùng reflection.
-3. Method chạy xong không lỗi thì `AuditAspect` thêm phần chung rồi lưu 1 dòng `audit_log`: người làm (`employee.id` của người trong session), thời gian, IP người dùng (`request.getRemoteAddr()`, Spring đã đọc header của Nginx), mã request, và `source` là tên class và method.
+3. Method chạy xong không lỗi thì `AuditAspect` thêm phần chung rồi lưu 1 dòng `audit_log`: người làm (`employee.id` của người trong session), thời gian, IP người dùng (`request.getRemoteAddr()`, Spring đã đọc header của Nginx; Nginx ghi đè `X-Forwarded-For` nên người dùng không tự đặt được IP), mã request, và `source` là tên class và method.
 4. Method lỗi thì không ghi. Dòng audit nằm trong cùng transaction với thao tác: thao tác bị hủy thì không có dòng audit; lưu audit lỗi thì thao tác cũng bị hủy.
 
 Hành động và đối tượng của tuần 4. Database lưu mã; màn 3.5 hiện nhãn:

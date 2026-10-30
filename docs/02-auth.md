@@ -198,6 +198,8 @@ Nginx là cửa vào của portal, để React và backend dùng chung một dom
 
 KeyCloak chạy ở cổng riêng `http://localhost:8080`; khi đăng nhập, trình duyệt sang thẳng địa chỉ đó. Demo chạy trên máy bằng localhost.
 
+Spring tin mọi header `X-Forwarded-*` và `Forwarded` gửi tới (`server.forward-headers-strategy: framework`), kể cả header trình duyệt tự gửi. Vì vậy Nginx ghi đè `X-Forwarded-For` bằng IP mà Nginx thấy (`$remote_addr`, không nối thêm), và bỏ hẳn `Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Port`, `X-Forwarded-Prefix`, `X-Forwarded-Ssl`. Compose chỉ mở cổng 8081 của backend cho `127.0.0.1`, để máy khác không gọi thẳng backend mà bỏ qua Nginx.
+
 ## 6. Bảo mật
 
 | Mối nguy | Là gì | Thiết kế này chặn thế nào |
@@ -206,6 +208,7 @@ KeyCloak chạy ở cổng riêng `http://localhost:8080`; khi đăng nhập, tr
 | CSRF | Trang lạ lừa trình duyệt gửi request kèm cookie của mình | Cookie `SameSite=Lax` và CSRF token: trang lạ không đọc được cookie `XSRF-TOKEN` nên không gửi được header đúng |
 | Lộ database | Ai đó đọc được dữ liệu trong DB | Supabase không chứa mật khẩu; KeyCloak lưu hash Argon2 có salt |
 | Vượt quyền từ giao diện | Tự hiện nút bị ẩn hoặc gọi API trực tiếp | Mọi quyền kiểm tra ở backend, kể cả chặn tự duyệt và duyệt khác chi nhánh |
+| Giả IP trong audit log | Tự gửi header `X-Forwarded-For` với IP khác | Nginx ghi đè header này bằng IP thật nó thấy; backend chỉ mở cổng cho `127.0.0.1` (mục 5, Nginx) |
 
 - Cookie phiên: HttpOnly, SameSite=Lax; nếu sau này chạy HTTPS thì thêm Secure.
 - Session tự hết hạn sau 30 phút không hoạt động (mặc định của Spring Boot), khớp với SSO Session Idle của realm.
