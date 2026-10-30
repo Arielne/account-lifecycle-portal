@@ -38,8 +38,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/account-types/**", "/api/branches/**")
                         .hasAnyRole("MAKER", "CHECKER", "ADMIN")
                         .requestMatchers("/api/account-types/**", "/api/branches/**").hasRole("ADMIN")
-                        // Nhân viên (CN-22): chỉ ADMIN, kể cả đọc.
-                        .requestMatchers("/api/employees/**").hasRole("ADMIN")
+                        // Nhân viên (CN-22) và Audit log (CN-23): chỉ ADMIN, kể cả đọc.
+                        .requestMatchers("/api/employees/**", "/api/audit-logs/**").hasRole("ADMIN")
                         .requestMatchers("/api/**").hasAnyRole("MAKER", "CHECKER", "ADMIN")
                         .anyRequest().authenticated())
                 // OAuth2 Login: tự có /oauth2/authorization/keycloak và /login/oauth2/code/keycloak.

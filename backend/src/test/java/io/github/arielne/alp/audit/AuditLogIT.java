@@ -6,6 +6,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -144,6 +146,57 @@ class AuditLogIT {
                 "SELECT count(*) FROM app.branch WHERE code = 'ZZ-RB'", Integer.class);
         assertEquals(0, branchCount);
         assertEquals(0, countAuditRows("ZZ-RB"));
+    }
+
+    @Test
+    @DisplayName("Không có API sửa hay xóa audit log (QT-09): Admin gửi PUT, DELETE, POST đều bị từ chối, dòng còn nguyên")
+    void auditLogCannotBeChangedOrDeleted() throws Exception {
+        // Chuẩn bị: một dòng audit có sẵn
+        Long auditId = jdbcTemplate.queryForObject(
+                "INSERT INTO app.audit_log (occurred_at, action, object_type, object_id, description)"
+                        + " VALUES (now(), 'CREATE', 'BRANCH', 'ZZ-QT9', 'Dòng không được sửa, xóa') RETURNING id",
+                Long.class);
+
+        // Chạy: Admin thử sửa, xóa từng dòng và cả danh sách
+        mockMvc.perform(put("/api/audit-logs/" + auditId).with(admin()).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(delete("/api/audit-logs/" + auditId).with(admin()).with(csrf()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(delete("/api/audit-logs").with(admin()).with(csrf()))
+                .andExpect(status().isMethodNotAllowed());
+        mockMvc.perform(post("/api/audit-logs").with(admin()).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isMethodNotAllowed());
+
+        // Kiểm tra kết quả
+        assertEquals(1, countAuditRows("ZZ-QT9"));
+    }
+
+    @Test
+    @DisplayName("Admin đọc audit log qua API: lọc theo đối tượng và ngày, cột changes trả về dạng danh sách")
+    void adminReadsFilteredAuditLogThroughApi() throws Exception {
+        // Chuẩn bị: một dòng sửa 2 trường ngày 18/10/2026 (giờ Việt Nam)
+        jdbcTemplate.update(
+                "INSERT INTO app.audit_log (occurred_at, action, object_type, object_id, description, changes)"
+                        + " VALUES (CAST('2026-10-18T16:58:40+07:00' AS timestamptz), 'UPDATE', 'BRANCH', 'ZZ-Q3',"
+                        + " 'Sửa 2 trường: Địa chỉ, Số điện thoại', CAST(? AS jsonb))",
+                "[{\"label\": \"Địa chỉ\", \"before\": \"A\", \"after\": \"B\"},"
+                        + " {\"label\": \"Số điện thoại\", \"before\": \"028 3932 4051\", \"after\": \"028 3930 7712\"}]");
+
+        // Chạy
+        mockMvc.perform(get("/api/audit-logs").with(admin())
+                        .param("objectType", "BRANCH").param("from", "2026-10-18").param("to", "2026-10-18"))
+
+                // Kiểm tra kết quả: người làm rỗng (hệ thống), không trả mã request và source
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].objectId").value("ZZ-Q3"))
+                .andExpect(jsonPath("$.items[0].employeeName").isEmpty())
+                .andExpect(jsonPath("$.items[0].changes.length()").value(2))
+                .andExpect(jsonPath("$.items[0].changes[1].after").value("028 3930 7712"))
+                .andExpect(jsonPath("$.items[0].requestId").doesNotExist())
+                .andExpect(jsonPath("$.items[0].source").doesNotExist());
     }
 
     private RequestPostProcessor admin() {
