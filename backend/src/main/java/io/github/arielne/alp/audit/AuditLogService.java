@@ -66,7 +66,8 @@ public class AuditLogService {
         if (query.page() != null && query.page() > 1) {
             page = query.page();
         }
-        filter.setOffset((page - 1) * PAGE_SIZE);
+        // Tính bằng long: page gần Integer.MAX_VALUE nhân 10 sẽ tràn int thành số âm, Postgres báo lỗi OFFSET âm.
+        filter.setOffset((page - 1L) * PAGE_SIZE);
         filter.setSize(PAGE_SIZE);
         return filter;
     }
