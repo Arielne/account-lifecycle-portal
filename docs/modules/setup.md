@@ -104,6 +104,7 @@ Package của các module khác (bảng module trong `CLAUDE.md`) tạo khi bắ
 ## 7. Backend
 
 - Spring Boot 3.5.16, Java 21, Maven Wrapper (máy không cần cài Maven). Package gốc `io.github.arielne.alp`.
+- Maven Wrapper kiểm tra SHA-256 của bản Maven tải về (`distributionSha256Sum` trong `backend/.mvn/wrapper/maven-wrapper.properties`); sai thì dừng, không chạy. Đổi phiên bản Maven thì cập nhật số này theo file `.sha512` Apache công bố.
 - Thư viện tuần này: web, validation, actuator (kiểm tra sống cho Compose), JDBC + driver PostgreSQL, MyBatis starter, Flyway (kèm module PostgreSQL), Lombok. Test: spring-boot-starter-test, Testcontainers (PostgreSQL). Plugin JaCoCo.
 - `catalog`: `Branch`, `BranchMapper` + `BranchMapper.xml` với `findAll`. Chưa cần Controller.
 - MyBatis: `map-underscore-to-camel-case: true`, `type-aliases-package`, `mapper-locations` trỏ tới file XML.
