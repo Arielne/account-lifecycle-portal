@@ -15,4 +15,39 @@
                 #{ipAddress,jdbcType=VARCHAR}, CAST(#{changesJson,jdbcType=VARCHAR} AS jsonb),
                 #{requestId,jdbcType=VARCHAR}, #{source})
     </insert>
+
+    <!-- Điều kiện lọc dùng chung cho findPage và count (CN-23).
+         <where> tự thêm chữ WHERE khi có ít nhất một điều kiện và bỏ chữ AND thừa ở đầu;
+         <if> chỉ chèn điều kiện khi trường tương ứng của AuditLogFilter có giá trị.
+         &gt;= và &lt; là cách viết >= và < trong file XML. -->
+    <sql id="auditLogFilter">
+        <where>
+            <if test="employeeId != null">AND a.employee_id = #{employeeId}</if>
+            <if test="systemOnly">AND a.employee_id IS NULL</if>
+            <if test="fromTime != null">AND a.occurred_at &gt;= #{fromTime}</if>
+            <if test="toTime != null">AND a.occurred_at &lt; #{toTime}</if>
+            <if test="action != null">AND a.action = #{action}</if>
+            <if test="objectType != null">AND a.object_type = #{objectType}</if>
+        </where>
+    </sql>
+
+    <!-- Đọc chéo bảng employee hai lần: người làm (theo employee_id) và nhân viên là đối tượng (theo email).
+         Mới nhất ở trên; cùng thời điểm thì dòng ghi sau ở trên. -->
+    <select id="findPage" resultType="AuditLogRow">
+        SELECT a.id, a.occurred_at, actor.full_name AS employee_name, a.action, a.object_type, a.object_id,
+               target.full_name AS object_name, a.description, a.ip_address,
+               CAST(a.changes AS text) AS changes_json
+        FROM app.audit_log a
+        LEFT JOIN app.employee actor ON actor.id = a.employee_id
+        LEFT JOIN app.employee target ON a.object_type = 'EMPLOYEE' AND target.email = a.object_id
+        <include refid="auditLogFilter"/>
+        ORDER BY a.occurred_at DESC, a.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT count(*)
+        FROM app.audit_log a
+        <include refid="auditLogFilter"/>
+    </select>
 </mapper>

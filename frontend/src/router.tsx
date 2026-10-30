@@ -9,6 +9,7 @@ import AppShell from './layout/AppShell.tsx'
 import { PAGES, type PageEntry } from './layout/menuItems.tsx'
 import CurrentUserProvider from './pages/auth/CurrentUserProvider.tsx'
 import LoginErrorPage, { LOGIN_ERROR_PATH } from './pages/auth/LoginErrorPage.tsx'
+import AuditLogPage from './pages/audit/AuditLogPage.tsx'
 import AccountTypePage from './pages/catalog/AccountTypePage.tsx'
 import BranchPage from './pages/catalog/BranchPage.tsx'
 import EmployeePage from './pages/employee/EmployeePage.tsx'
@@ -18,6 +19,7 @@ const PAGE_ELEMENTS: Record<string, ReactNode> = {
   '/danh-muc/loai-tai-khoan': <AccountTypePage />,
   '/danh-muc/chi-nhanh': <BranchPage />,
   '/nhan-vien': <EmployeePage />,
+  '/audit-log': <AuditLogPage />,
 }
 
 /** Route của một mục menu: bọc bằng RequireRole, dùng chung danh sách role với menu. */

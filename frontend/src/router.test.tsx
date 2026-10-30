@@ -41,12 +41,12 @@ describe('Chặn route theo role', () => {
     expect(await screen.findByText('Bạn không có quyền truy cập trang này.')).toBeInTheDocument()
   })
 
-  it('Admin vào /audit-log thì qua được, thấy trang chờ của màn chưa làm', async () => {
+  it('Giao dịch viên vào /khach-hang thì qua được, thấy trang chờ của màn chưa làm', async () => {
     // Chuẩn bị, chạy
-    renderAt('/audit-log', ['ADMIN'])
+    renderAt('/khach-hang', ['MAKER'])
 
     // Kiểm tra kết quả
-    expect(await screen.findByText('Màn này làm ở tuần 4.')).toBeInTheDocument()
+    expect(await screen.findByText('Màn này làm ở tuần 5.')).toBeInTheDocument()
     expect(screen.queryByText('Bạn không có quyền truy cập trang này.')).not.toBeInTheDocument()
   })
 
