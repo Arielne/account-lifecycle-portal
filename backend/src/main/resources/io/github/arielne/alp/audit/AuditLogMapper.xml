@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- SQL cho AuditLogMapper (CN-26). namespace là tên đầy đủ của interface, id là tên hàm. -->
+<mapper namespace="io.github.arielne.alp.audit.AuditLogMapper">
+
+    <!-- employee_id: câu SELECT con đọc bảng employee theo keycloak_id (đọc chéo được, không ghi chéo);
+         không có hồ sơ thì câu con không trả dòng nào và cột để rỗng.
+         changes: chuỗi JSON ép sang kiểu jsonb của Postgres. jdbcType=VARCHAR để MyBatis gửi được giá trị null. -->
+    <insert id="insert">
+        INSERT INTO app.audit_log (occurred_at, employee_id, action, object_type, object_id, description,
+                                   ip_address, changes, request_id, source)
+        VALUES (now(),
+                (SELECT id FROM app.employee WHERE keycloak_id = CAST(#{keycloakId,jdbcType=VARCHAR} AS uuid)),
+                #{action}, #{objectType}, #{objectId}, #{description},
+                #{ipAddress,jdbcType=VARCHAR}, CAST(#{changesJson,jdbcType=VARCHAR} AS jsonb),
+                #{requestId,jdbcType=VARCHAR}, #{source})
+    </insert>
+</mapper>

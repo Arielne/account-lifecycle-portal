@@ -3,10 +3,56 @@
 <!-- SQL cho BranchMapper (CN-21). namespace là tên đầy đủ của interface, id là tên hàm. -->
 <mapper namespace="io.github.arielne.alp.catalog.BranchMapper">
 
+    <!-- Đoạn SQL dùng chung cho findAll và findById, chèn vào bằng <include refid="...">.
+         Hai câu SELECT con đếm nhân viên và tài khoản thuộc chi nhánh (đọc bảng của module employee, account). -->
+    <sql id="branchColumns">
+        b.id, b.code, b.name, b.address, b.phone, b.created_at, b.updated_at,
+        (SELECT count(*) FROM app.employee e WHERE e.branch_id = b.id) AS employee_count,
+        (SELECT count(*) FROM app.account a WHERE a.branch_id = b.id) AS account_count
+    </sql>
+
     <!-- resultType Branch: tên ngắn nhờ type-aliases-package; mỗi dòng kết quả thành một object Branch. -->
     <select id="findAll" resultType="Branch">
-        SELECT id, code, name, address, phone, created_at, updated_at
-        FROM app.branch
-        ORDER BY code
+        SELECT <include refid="branchColumns"/>
+        FROM app.branch b
+        ORDER BY b.code
     </select>
+
+    <select id="findById" resultType="Branch">
+        SELECT <include refid="branchColumns"/>
+        FROM app.branch b
+        WHERE b.id = #{id}
+    </select>
+
+    <select id="existsByCode" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM app.branch WHERE code = #{code})
+    </select>
+
+    <!-- Mọi bảng có khóa ngoại tới branch; còn dòng nào thì không xóa được chi nhánh. -->
+    <select id="findUsage" resultType="BranchUsage">
+        SELECT (SELECT count(*) FROM app.employee WHERE branch_id = #{id}) AS employee_count,
+               (SELECT count(*) FROM app.customer WHERE branch_id = #{id}) AS customer_count,
+               (SELECT count(*) FROM app.account WHERE branch_id = #{id}) AS account_count,
+               (SELECT count(*) FROM app.ticket WHERE branch_id = #{id}) AS ticket_count
+    </select>
+
+    <!-- useGeneratedKeys: lấy id database vừa sinh (cột IDENTITY) gán vào thuộc tính id của object. -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO app.branch (code, name, address, phone)
+        VALUES (#{code}, #{name}, #{address}, #{phone})
+    </insert>
+
+    <update id="update">
+        UPDATE app.branch
+        SET code = #{code},
+            name = #{name},
+            address = #{address},
+            phone = #{phone},
+            updated_at = now()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM app.branch WHERE id = #{id}
+    </delete>
 </mapper>

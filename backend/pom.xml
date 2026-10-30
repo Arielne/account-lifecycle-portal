@@ -33,6 +33,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        <!-- AOP (AspectJ): AuditAspect tự ghi audit log cho method gắn @Audited. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
         <!-- /actuator/health để Docker Compose kiểm tra backend còn sống. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

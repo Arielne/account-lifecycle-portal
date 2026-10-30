@@ -27,7 +27,7 @@ import org.springframework.test.web.servlet.ResultActions;
  */
 @WebMvcTest(MeController.class)
 @Import({SecurityConfig.class, KeycloakRoleMapper.class, LoginSuccessHandler.class,
-        KeycloakLogoutSuccessHandler.class, ApiAuthenticationEntryPoint.class})
+        KeycloakLogoutSuccessHandler.class, ApiAuthenticationEntryPoint.class, ApiAccessDeniedHandler.class})
 class MeControllerTest {
 
     private static final String LAN_KEYCLOAK_ID = "5b30439a-4e15-42ac-bf7d-c4e8dba67784";

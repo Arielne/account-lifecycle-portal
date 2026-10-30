@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- SQL cho AccountTypeMapper (CN-20). namespace là tên đầy đủ của interface, id là tên hàm. -->
+<mapper namespace="io.github.arielne.alp.catalog.AccountTypeMapper">
+
+    <!-- Đoạn SQL dùng chung cho findAll và findById, chèn vào bằng <include refid="...">.
+         account_count: câu SELECT con đếm tài khoản dùng loại này (đọc bảng account của module account). -->
+    <sql id="accountTypeColumns">
+        t.id, t.code, t.name, t.description, t.dormant_after_months, t.created_at, t.updated_at,
+        (SELECT count(*) FROM app.account a WHERE a.account_type_id = t.id) AS account_count
+    </sql>
+
+    <select id="findAll" resultType="AccountType">
+        SELECT <include refid="accountTypeColumns"/>
+        FROM app.account_type t
+        ORDER BY t.code
+    </select>
+
+    <select id="findById" resultType="AccountType">
+        SELECT <include refid="accountTypeColumns"/>
+        FROM app.account_type t
+        WHERE t.id = #{id}
+    </select>
+
+    <select id="existsByCode" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM app.account_type WHERE code = #{code})
+    </select>
+
+    <!-- useGeneratedKeys: lấy id database vừa sinh (cột IDENTITY) gán vào thuộc tính id của object. -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO app.account_type (code, name, description, dormant_after_months)
+        VALUES (#{code}, #{name}, #{description,jdbcType=VARCHAR}, #{dormantAfterMonths})
+    </insert>
+
+    <update id="update">
+        UPDATE app.account_type
+        SET name = #{name},
+            description = #{description,jdbcType=VARCHAR},
+            dormant_after_months = #{dormantAfterMonths},
+            updated_at = now()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM app.account_type WHERE id = #{id}
+    </delete>
+</mapper>

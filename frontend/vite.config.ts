@@ -26,5 +26,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: './src/setupTests.ts',
+    // Lần render đầu của Table, Form của AntD trong jsdom mất vài giây khi máy đang chạy backend và Vite;
+    // mức mặc định 5 giây làm test trượt vì chậm chứ không phải vì sai. Nâng lên 20 giây cho mỗi test.
+    testTimeout: 20000,
   },
 })

@@ -21,4 +21,7 @@ public class Branch {
     private String phone;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
+    // Số nhân viên, số tài khoản thuộc chi nhánh. Không phải cột của bảng: câu SELECT đếm ở bảng employee, account.
+    private Long employeeCount;
+    private Long accountCount;
 }
