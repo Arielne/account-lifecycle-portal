@@ -12,21 +12,28 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Nghiệp vụ màn Nhân viên (CN-22, spec admin mục 6): danh sách kèm role, thêm, sửa hồ sơ, gán chi nhánh,
  * gán role, khóa, mở khóa. Hồ sơ nằm ở bảng employee; tài khoản và role nằm ở KeyCloak (qua KeycloakUserClient).
  * Không có transaction chung giữa KeyCloak và database: mỗi thao tác ghi database trong transaction,
- * KeyCloak lỗi thì ném lỗi để transaction hủy; tạo user xong mà lưu hồ sơ lỗi thì xóa user để bù lại.
+ * KeyCloak lỗi thì ném lỗi để transaction hủy. Đổi gì trên KeyCloak xong thì đăng ký việc làm ngược lại
+ * (undoOnRollback): transaction hủy ở bước sau (lưu hồ sơ, gọi KeyCloak lần nữa, ghi audit, commit)
+ * thì KeyCloak được trả về như cũ.
  * Mỗi thao tác ghi audit log (CN-26) qua @Audited và AuditNote.
  */
 @Service
 @RequiredArgsConstructor
 public class EmployeeManagementService {
 
+    private static final Logger log = LoggerFactory.getLogger(EmployeeManagementService.class);
     private static final String ACTIVE = "ACTIVE";
     private static final String LOCKED = "LOCKED";
 
@@ -61,15 +68,11 @@ public class EmployeeManagementService {
         checkBranchForRoles(request.branchId(), roles);
 
         String keycloakId = keycloakUserClient.createUser(email, name);
-        try {
-            insertProfile(keycloakId, email, name.fullName(), request.branchId());
-            keycloakUserClient.addRoles(keycloakId, roles);
-            keycloakUserClient.sendSetPasswordEmail(keycloakId);
-        } catch (RuntimeException exception) {
-            // Transaction tự hủy dòng employee; user vừa tạo trên KeyCloak thì xóa ở đây để hai bên không lệch.
-            keycloakUserClient.deleteUser(keycloakId);
-            throw exception;
-        }
+        // Transaction tự hủy dòng employee; user vừa tạo trên KeyCloak thì xóa (kèm role đã gán) để hai bên không lệch.
+        undoOnRollback("xóa user " + keycloakId + " vừa tạo", () -> keycloakUserClient.deleteUser(keycloakId));
+        insertProfile(keycloakId, email, name.fullName(), request.branchId());
+        keycloakUserClient.addRoles(keycloakId, roles);
+        keycloakUserClient.sendSetPasswordEmail(keycloakId);
         auditNote.setObjectId(email);
         auditNote.setDescription(name.fullName());
     }
@@ -90,7 +93,12 @@ public class EmployeeManagementService {
 
         boolean accountChanged = !email.equals(employee.getEmail()) || !name.fullName().equals(employee.getFullName());
         if (accountChanged) {
-            keycloakUserClient.updateUser(employee.getKeycloakId(), email, name);
+            String keycloakId = employee.getKeycloakId();
+            String oldEmail = employee.getEmail();
+            NameParts oldName = NameParts.fromFullName(employee.getFullName());
+            keycloakUserClient.updateUser(keycloakId, email, name);
+            undoOnRollback("trả email, họ tên của user " + keycloakId + " về như cũ",
+                    () -> keycloakUserClient.updateUser(keycloakId, oldEmail, oldName));
         }
         employee.setEmail(email);
         employee.setFullName(name.fullName());
@@ -114,8 +122,13 @@ public class EmployeeManagementService {
         List<String> currentRoles = keycloakUserClient.findAppRoles(employee.getKeycloakId());
         List<String> rolesToAdd = rolesNotIn(newRoles, currentRoles);
         List<String> rolesToRemove = rolesNotIn(currentRoles, newRoles);
-        keycloakUserClient.addRoles(employee.getKeycloakId(), rolesToAdd);
-        keycloakUserClient.removeRoles(employee.getKeycloakId(), rolesToRemove);
+        String keycloakId = employee.getKeycloakId();
+        keycloakUserClient.addRoles(keycloakId, rolesToAdd);
+        undoOnRollback("bỏ role vừa thêm của user " + keycloakId,
+                () -> keycloakUserClient.removeRoles(keycloakId, rolesToAdd));
+        keycloakUserClient.removeRoles(keycloakId, rolesToRemove);
+        undoOnRollback("thêm lại role vừa bỏ của user " + keycloakId,
+                () -> keycloakUserClient.addRoles(keycloakId, rolesToRemove));
         if (!rolesToRemove.isEmpty()) {
             // Lấy thời điểm sau khi KeyCloak đã bỏ role: phiên nào bắt đầu trước đó (kể cả đăng nhập xen giữa)
             // đều bị đẩy ra; đăng nhập lại thì token không còn role đã bỏ.
@@ -134,6 +147,8 @@ public class EmployeeManagementService {
     /**
      * Khóa: hồ sơ LOCKED, tắt tài khoản và đăng xuất mọi phiên trên KeyCloak. Phiếu họ đã tạo giữ nguyên.
      * Thu hồi luôn phiên đang mở của app: mở khóa trước khi người đó gọi API thì phiên cũ cũng không dùng lại được.
+     * Đăng xuất trên KeyCloak lỗi thì chỉ ghi log, không hủy việc khóa: tài khoản đã tắt nên KeyCloak không cho
+     * đăng nhập lại, kể cả bằng phiên SSO còn lại, và phiên của app đã bị thu hồi.
      */
     @Transactional
     @Audited(action = "LOCK", objectType = "EMPLOYEE")
@@ -142,8 +157,15 @@ public class EmployeeManagementService {
         checkNotSelf(employee, currentKeycloakId, "Không thể tự khóa chính mình");
         employeeMapper.updateStatus(id, LOCKED);
         employeeMapper.updateSessionsInvalidBefore(id, OffsetDateTime.now());
-        keycloakUserClient.setEnabled(employee.getKeycloakId(), false);
-        keycloakUserClient.logout(employee.getKeycloakId());
+        String keycloakId = employee.getKeycloakId();
+        keycloakUserClient.setEnabled(keycloakId, false);
+        undoOnRollback("bật lại user " + keycloakId, () -> keycloakUserClient.setEnabled(keycloakId, true));
+        try {
+            keycloakUserClient.logout(keycloakId);
+        } catch (RuntimeException exception) {
+            log.warn("Không đăng xuất được phiên KeyCloak của user {} khi khóa: {}", keycloakId,
+                    exception.getMessage());
+        }
 
         auditNote.setObjectId(employee.getEmail());
         auditNote.setDescription(employee.getFullName());
@@ -155,7 +177,9 @@ public class EmployeeManagementService {
     public void unlock(Long id) {
         Employee employee = findExisting(id);
         employeeMapper.updateStatus(id, ACTIVE);
-        keycloakUserClient.setEnabled(employee.getKeycloakId(), true);
+        String keycloakId = employee.getKeycloakId();
+        keycloakUserClient.setEnabled(keycloakId, true);
+        undoOnRollback("tắt lại user " + keycloakId, () -> keycloakUserClient.setEnabled(keycloakId, false));
 
         auditNote.setObjectId(employee.getEmail());
         auditNote.setDescription(employee.getFullName());
@@ -167,6 +191,26 @@ public class EmployeeManagementService {
             throw new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy nhân viên");
         }
         return employee;
+    }
+
+    /**
+     * Gọi ngay sau một lần ghi lên KeyCloak, với việc làm ngược lại. Transaction đang chạy bị hủy thì Spring chạy undo
+     * sau khi rollback; commit được thì bỏ qua. Undo cũng lỗi thì ghi log để sửa tay trên KeyCloak, lỗi gốc vẫn trả về.
+     */
+    private void undoOnRollback(String description, Runnable undo) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_ROLLED_BACK) {
+                    return;
+                }
+                try {
+                    undo.run();
+                } catch (RuntimeException exception) {
+                    log.error("Transaction bị hủy mà không hoàn tác được trên KeyCloak: {}", description, exception);
+                }
+            }
+        });
     }
 
     private void insertProfile(String keycloakId, String email, String fullName, Long branchId) {

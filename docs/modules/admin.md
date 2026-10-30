@@ -162,7 +162,9 @@ Quy tắc:
 2. Admin API tạo user: username và email là email đã nhập; Họ là phần trước từ cuối, Tên là từ cuối của họ tên ("Nguyễn Thị Lan" → Họ "Nguyễn Thị", Tên "Lan"); `enabled = true`. KeyCloak báo email đã có tài khoản thì trả 409 với câu tiếng Việt.
 3. Lưu dòng `employee` (`status = ACTIVE`, chi nhánh đã chọn) và gán role đã chọn qua Admin API.
 4. Gửi mail để người đó tự đặt mật khẩu (execute actions email, `UPDATE_PASSWORD`); KeyCloak gửi qua SMTP của realm tới Mailpit.
-5. Bước 3 hoặc 4 lỗi thì transaction hủy dòng `employee`, và backend xóa user vừa tạo trên KeyCloak để hai bên không lệch.
+5. Bước 3 hoặc 4 lỗi, hay transaction bị hủy ở bước sau (ghi audit, commit), thì transaction hủy dòng `employee`, và backend xóa user vừa tạo trên KeyCloak để hai bên không lệch.
+
+Mỗi lần ghi lên KeyCloak, Service đăng ký luôn việc làm ngược lại; Spring chạy việc đó sau khi transaction bị hủy, commit được thì bỏ qua (`TransactionSynchronization`). Áp dụng cho mọi thao tác ở mục này: thêm (xóa user), sửa (trả email, họ tên cũ), gán role (bỏ role vừa thêm, thêm lại role vừa bỏ), khóa và mở khóa (đặt lại `enabled`). Làm ngược lại cũng lỗi thì ghi log để sửa tay trên KeyCloak.
 
 ### Sửa hồ sơ, gán chi nhánh
 
@@ -182,6 +184,7 @@ Quy tắc:
 ### Khóa và mở khóa (A1 của tuần 3)
 
 - Khóa: hỏi xác nhận theo màn 3.13 ("Khóa nhân viên ...? Người này bị đăng xuất ngay và không đăng nhập được nữa. Phiếu họ đã tạo vẫn giữ nguyên.", nút "Khóa" màu đỏ). Backend đặt `status = LOCKED`, Admin API đặt `enabled = false` và đăng xuất mọi phiên KeyCloak của người đó.
+- Đăng xuất trên KeyCloak lỗi thì chỉ ghi log, không hủy việc khóa: tài khoản đã tắt nên KeyCloak không cho đăng nhập lại (kể cả bằng phiên SSO còn lại), và phiên của app đã bị thu hồi.
 - Mở khóa: `status = ACTIVE`, `enabled = true`.
 - Khóa cũng ghi `sessions_invalid_before`, nên mở khóa trước khi người đó gọi API thì phiên cũ vẫn không dùng lại được.
 - Bộ lọc trong `auth` (`RevokedSessionFilter`): mỗi request vào `/api` của người đã đăng nhập đọc `employee.status` và `sessions_invalid_before` theo `keycloak_id`; gặp `LOCKED`, hoặc session tạo trước `sessions_invalid_before`, thì xóa session và trả 401 dạng JSON. React hiện hộp thoại phiên hết hạn như tuần 3; đăng nhập lại thì KeyCloak từ chối vì tài khoản đã tắt (bị khóa), hoặc cấp token có role mới (bị bỏ role).
@@ -216,7 +219,7 @@ Backend, test nhanh (`*Test`, `@WebMvcTest`, service KeyCloak và mail thay bằ
 1. Mỗi API ghi: chưa đăng nhập → 401; sai role → 403.
 2. Thêm loại tài khoản sai mã → 400 có `fieldErrors`; mã trùng → 409; sửa không đổi được mã.
 3. Xóa loại tài khoản, chi nhánh đang được dùng → 409.
-4. Thêm nhân viên trùng email → 409; tạo trên KeyCloak xong mà lưu hồ sơ lỗi → user trên KeyCloak bị xóa.
+4. Thêm nhân viên trùng email → 409; tạo trên KeyCloak xong mà lưu hồ sơ lỗi, hoặc transaction bị hủy ở bước sau → user trên KeyCloak bị xóa. Sửa, gán role, khóa, mở khóa mà transaction bị hủy → KeyCloak được trả về như cũ; đăng xuất trên KeyCloak lỗi → vẫn khóa.
 5. Gán `MAKER` cho người chưa có chi nhánh → 409; Admin tự khóa mình hoặc tự đổi role của mình → 409.
 6. Gán role đầu tiên cho người Chờ cấp quyền → gửi mail kích hoạt; thêm role cho người đã có role → không gửi.
 7. Khóa → gọi tắt tài khoản và đăng xuất phiên trên KeyCloak; người bị khóa gọi `/api` → 401 và session bị xóa. Bỏ role → ghi `sessions_invalid_before` sau khi KeyCloak bỏ role; chỉ thêm role → không ghi; session tạo trước mốc đó gọi `/api` → 401, tạo sau → đi qua.
@@ -224,7 +227,7 @@ Backend, test nhanh (`*Test`, `@WebMvcTest`, service KeyCloak và mail thay bằ
 
 Backend, test chậm (`*IT`, Testcontainers):
 
-9. Thêm chi nhánh → có 1 dòng audit đúng người làm, hành động, đối tượng, mã request; sửa 2 trường → `changes` có 2 mục; thao tác lỗi giữa chừng → không có dòng audit.
+9. Thêm chi nhánh → có 1 dòng audit đúng người làm, hành động, đối tượng, mã request; sửa 2 trường → `changes` có 2 mục; thao tác lỗi giữa chừng → không có dòng audit. Thêm nhân viên mà lưu audit lỗi → không có hồ sơ, user vừa tạo trên KeyCloak bị xóa.
 10. Câu đếm số tài khoản, số nhân viên của từng danh mục; câu lọc audit log theo từng điều kiện.
 11. Không có API sửa hay xóa audit log (QT-09).
 

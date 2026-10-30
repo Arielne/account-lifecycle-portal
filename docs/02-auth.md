@@ -160,7 +160,7 @@ Bảng `app.employee` (chi tiết ở `docs/diagrams/erd.drawio`):
 | Gán role | Admin API gán realm role. Chỉ cho gán `MAKER` hoặc `CHECKER` khi hồ sơ đã có chi nhánh |
 | Khóa, mở khóa | Hỏi xác nhận; cập nhật `status`; Admin API đặt `enabled`; khi khóa thì đăng xuất các phiên ở KeyCloak, bộ lọc ở mục 2 đẩy người đó ra ở request kế tiếp |
 
-Không có transaction chung giữa KeyCloak và Supabase. Tạo ở KeyCloak xong mà lưu hồ sơ bị lỗi thì xóa user vừa tạo trên KeyCloak để bù lại.
+Không có transaction chung giữa KeyCloak và Supabase. Mỗi lần ghi lên KeyCloak, backend đăng ký việc làm ngược lại và chạy việc đó khi transaction của database bị hủy: tạo user xong mà lưu hồ sơ hay ghi audit lỗi thì xóa user vừa tạo; sửa, gán role, khóa, mở khóa thì trả KeyCloak về như cũ (`docs/modules/admin.md`, mục Thêm nhân viên).
 
 ### Chặn tự duyệt và duyệt khác chi nhánh
 
