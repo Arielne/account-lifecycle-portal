@@ -1,6 +1,7 @@
 package io.github.arielne.alp.employee;
 
 import java.time.OffsetDateTime;
+import java.util.Objects;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -25,4 +26,9 @@ public class Employee {
     private String status;
     // Lúc hồ sơ được tạo: màn Nhân viên ghi "Tự đăng ký lúc ..." cho người Chờ cấp quyền.
     private OffsetDateTime createdAt;
+
+    /** Email hoặc họ tên khác hồ sơ không; lúc đăng nhập, khác nghĩa là người đó đã tự sửa trên KeyCloak. */
+    public boolean differsFrom(String otherEmail, String otherFullName) {
+        return !Objects.equals(email, otherEmail) || !Objects.equals(fullName, otherFullName);
+    }
 }

@@ -18,7 +18,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import io.github.arielne.alp.PostgresTestcontainersConfiguration;
 import io.github.arielne.alp.RedisTestcontainersConfiguration;
+import io.github.arielne.alp.auth.LoginSuccessHandler;
 import io.github.arielne.alp.employee.KeycloakUserClient;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,13 +30,21 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.oidc.OidcIdToken;
+import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * Test chậm cho phần ghi audit log bằng AOP (spec admin mục 8, test 9).
@@ -63,6 +73,9 @@ class AuditLogIT {
 
     @MockitoBean
     private KeycloakUserClient keycloakUserClient;
+
+    @Autowired
+    private LoginSuccessHandler loginSuccessHandler;
 
     @Test
     @DisplayName("Thêm chi nhánh thì có đúng 1 dòng audit: đúng người làm, hành động, đối tượng, có mã request")
@@ -234,6 +247,48 @@ class AuditLogIT {
                 .andExpect(jsonPath("$.items[0].changes[1].after").value("028 3930 7712"))
                 .andExpect(jsonPath("$.items[0].requestId").doesNotExist())
                 .andExpect(jsonPath("$.items[0].source").doesNotExist());
+    }
+
+    /**
+     * Đăng nhập thật cần KeyCloak đổi code lấy token, nên test gọi thẳng LoginSuccessHandler sau khi đặt sẵn
+     * request và người đăng nhập, đúng như Spring Security làm ngay trước bước này.
+     */
+    @Test
+    @DisplayName("Đăng nhập với email đã tự đổi trên KeyCloak: 1 dòng audit Sửa, người làm là chính người đó")
+    void loginWithChangedEmailWritesAuditRowBySelf() throws Exception {
+        // Chuẩn bị: hồ sơ còn email cũ; token có email mới
+        Long employeeId = jdbcTemplate.queryForObject(
+                "INSERT INTO app.employee (keycloak_id, email, full_name, status)"
+                        + " VALUES (CAST(? AS uuid), 'email.cu@nhdemo.local', 'Kiểm Thử Đăng Nhập', 'ACTIVE') RETURNING id",
+                Long.class, NEW_KEYCLOAK_ID);
+        OidcIdToken idToken = OidcIdToken.withTokenValue("id-token-value")
+                .subject(NEW_KEYCLOAK_ID)
+                .claim("email", "email.moi@nhdemo.local")
+                .claim("family_name", "Kiểm Thử Đăng")
+                .claim("given_name", "Nhập")
+                .build();
+        OAuth2AuthenticationToken authentication =
+                new OAuth2AuthenticationToken(new DefaultOidcUser(List.of(), idToken), List.of(), "keycloak");
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/login/oauth2/code/keycloak");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        // Chạy
+        try {
+            loginSuccessHandler.onAuthenticationSuccess(request, new MockHttpServletResponse(), authentication);
+        } finally {
+            SecurityContextHolder.clearContext();
+            RequestContextHolder.resetRequestAttributes();
+        }
+
+        // Kiểm tra kết quả
+        Map<String, Object> row = jdbcTemplate.queryForMap(
+                "SELECT * FROM app.audit_log WHERE object_type = 'EMPLOYEE' AND object_id = 'email.moi@nhdemo.local'");
+        assertEquals(employeeId, row.get("employee_id"));
+        assertEquals(employeeId, row.get("object_employee_id"));
+        assertEquals("UPDATE", row.get("action"));
+        assertEquals("Email: email.cu@nhdemo.local → email.moi@nhdemo.local", row.get("description"));
+        assertEquals("EmployeeService.updateProfileFromLogin", row.get("source"));
     }
 
     private RequestPostProcessor admin() {

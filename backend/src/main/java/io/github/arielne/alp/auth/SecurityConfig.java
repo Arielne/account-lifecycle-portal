@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -64,7 +65,9 @@ public class SecurityConfig {
                 // Phiên bị thu hồi (bị khóa, bị bỏ role): đẩy ra trước bước kiểm quyền, để nhận 401 (phiên hết)
                 // chứ không phải 403, và để role cũ còn trong session không được dùng ở bước kiểm quyền.
                 .addFilterBefore(new RevokedSessionFilter(employeeService, apiAuthenticationEntryPoint),
-                        AuthorizationFilter.class);
+                        AuthorizationFilter.class)
+                // Ghi giờ bắt đầu đổi code lấy token, trước filter đăng nhập OAuth2 của Spring.
+                .addFilterBefore(new LoginStartTimeFilter(), OAuth2LoginAuthenticationFilter.class);
         return http.build();
     }
 }

@@ -3,6 +3,7 @@ package io.github.arielne.alp.audit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
@@ -32,7 +33,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 /**
  * Test nhanh cho GET /api/audit-logs (spec admin mục 8, test 1): chỉ ADMIN đọc được; tham số trên URL
- * được ghép đúng vào AuditLogQuery. AuditLogService là mock; câu lọc test riêng ở AuditLogMapperIT.
+ * được ghép đúng vào AuditLogQuery; số trang sai kiểu thì 400. AuditLogService là mock; câu lọc test riêng ở AuditLogMapperIT.
  */
 @WebMvcTest(AuditLogController.class)
 @Import({SecurityConfig.class, KeycloakRoleMapper.class, LoginSuccessHandler.class,
@@ -100,5 +101,24 @@ class AuditLogControllerTest {
         assertEquals("UPDATE", query.action());
         assertEquals("BRANCH", query.objectType());
         assertEquals(2, query.page());
+    }
+
+    @Test
+    @DisplayName("Số trang không phải số, hoặc vượt kiểu int, thì trả 400 dạng JSON và không truy vấn")
+    void invalidPageReturns400() throws Exception {
+        // Chuẩn bị: Admin đã đăng nhập
+
+        // Chạy
+        ResultActions notNumber = mockMvc.perform(get("/api/audit-logs").param("page", "abc")
+                .with(oidcLogin().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+        ResultActions tooLarge = mockMvc.perform(get("/api/audit-logs").param("page", "99999999999")
+                .with(oidcLogin().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+
+        // Kiểm tra kết quả
+        notNumber.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+        tooLarge.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+        verify(auditLogService, never()).findPage(any());
     }
 }

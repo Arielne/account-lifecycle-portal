@@ -62,6 +62,7 @@ public class EmployeeManagementService {
         String email = normalizeEmail(request.email());
         NameParts name = NameParts.fromFullName(request.fullName());
         List<String> roles = normalizeRoles(request.roles());
+        checkAdminNotCombined(roles);
         checkEmailNotUsed(email, null);
         // Gọi để kiểm tra chi nhánh đã chọn có thật (không có thì 404); tên chi nhánh không dùng ở đây.
         branchNameOf(request.branchId());
@@ -72,6 +73,8 @@ public class EmployeeManagementService {
         undoOnRollback("xóa user " + keycloakId + " vừa tạo", () -> keycloakUserClient.deleteUser(keycloakId));
         insertProfile(keycloakId, email, name.fullName(), request.branchId());
         keycloakUserClient.addRoles(keycloakId, roles);
+        // Mail đặt mật khẩu gửi ngay, không đợi commit như mail kích hoạt: gửi lỗi thì hủy cả việc thêm, vì chưa có
+        // chức năng gửi lại mail. Hiếm khi commit lỗi sau bước này; khi đó user bị xóa nên link trong mail hết dùng được.
         keycloakUserClient.sendSetPasswordEmail(keycloakId);
         auditNote.setObjectId(email);
         auditNote.setDescription(name.fullName());
@@ -117,6 +120,7 @@ public class EmployeeManagementService {
         Employee employee = findExisting(id);
         checkNotSelf(employee, currentKeycloakId, "Không thể tự đổi role của chính mình");
         List<String> newRoles = normalizeRoles(requestedRoles);
+        checkAdminNotCombined(newRoles);
         checkBranchForRoles(employee.getBranchId(), newRoles);
 
         List<String> currentRoles = keycloakUserClient.findAppRoles(employee.getKeycloakId());
@@ -139,9 +143,22 @@ public class EmployeeManagementService {
         auditNote.addChangeIfDifferent("Role", AppRoles.labels(currentRoles), AppRoles.labels(newRoles));
         auditNote.setDescription(describeRoleChange(rolesToAdd, rolesToRemove));
         if (currentRoles.isEmpty()) {
-            accountActivationMailer.sendAccountActivated(employee.getEmail(), employee.getFullName(),
-                    AppRoles.labels(newRoles));
+            sendActivationMailAfterCommit(employee, newRoles);
         }
+    }
+
+    /**
+     * Mail "Tài khoản đã được kích hoạt" chỉ gửi khi transaction đã commit: commit lỗi thì role trên KeyCloak
+     * được trả lại (undoOnRollback), nên gửi trước đó là báo sai. Gửi lỗi thì mailer chỉ ghi log.
+     */
+    private void sendActivationMailAfterCommit(Employee employee, List<String> roles) {
+        String roleLabels = AppRoles.labels(roles);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                accountActivationMailer.sendAccountActivated(employee.getEmail(), employee.getFullName(), roleLabels);
+            }
+        });
     }
 
     /**
@@ -261,6 +278,14 @@ public class EmployeeManagementService {
                 throw new BusinessException(HttpStatus.CONFLICT,
                         "Giao dịch viên, Kiểm soát viên phải có chi nhánh. Vui lòng chọn chi nhánh trước.");
             }
+        }
+    }
+
+    /** Gán Admin cùng Giao dịch viên hoặc Kiểm soát viên thì 409; kiểm trước khi gọi KeyCloak. */
+    private void checkAdminNotCombined(List<String> roles) {
+        if (AppRoles.combinesAdminWithBranchRole(roles)) {
+            throw new BusinessException(HttpStatus.CONFLICT,
+                    "Admin không giữ thêm role Giao dịch viên hoặc Kiểm soát viên");
         }
     }
 

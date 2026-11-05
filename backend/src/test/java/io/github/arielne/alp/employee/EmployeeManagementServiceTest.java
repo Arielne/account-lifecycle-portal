@@ -202,6 +202,38 @@ class EmployeeManagementServiceTest {
     }
 
     @Test
+    @DisplayName("Thêm nhân viên vừa Admin vừa Giao dịch viên thì báo 409, không tạo user trên KeyCloak")
+    void createAdminWithMakerThrowsConflict() {
+        // Chuẩn bị
+        EmployeeCreateRequest request = new EmployeeCreateRequest("Nguyễn Thị Lan", "lan.nt@nhdemo.local", 4L,
+                List.of("MAKER", "ADMIN"));
+
+        // Chạy
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.create(request));
+
+        // Kiểm tra kết quả
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertEquals("Admin không giữ thêm role Giao dịch viên hoặc Kiểm soát viên", exception.getMessage());
+        verify(keycloakUserClient, never()).createUser(anyString(), any());
+    }
+
+    @Test
+    @DisplayName("Gán Admin cùng Kiểm soát viên thì báo 409, không đổi role trên KeyCloak")
+    void assignAdminWithCheckerThrowsConflict() {
+        // Chuẩn bị: người đã có chi nhánh, để lỗi chỉ đến từ việc ghép role
+        when(employeeMapper.findById(7L)).thenReturn(employee(7L, NEW_KEYCLOAK_ID, 4L));
+
+        // Chạy
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.assignRoles(7L, List.of("CHECKER", "ADMIN"), ADMIN_KEYCLOAK_ID));
+
+        // Kiểm tra kết quả
+        assertEquals("Admin không giữ thêm role Giao dịch viên hoặc Kiểm soát viên", exception.getMessage());
+        verify(keycloakUserClient, never()).addRoles(anyString(), any());
+        verify(keycloakUserClient, never()).removeRoles(anyString(), any());
+    }
+
+    @Test
     @DisplayName("Admin tự khóa mình thì báo 409, không đổi trạng thái")
     void lockSelfThrowsConflict() {
         // Chuẩn bị
@@ -218,7 +250,7 @@ class EmployeeManagementServiceTest {
     }
 
     @Test
-    @DisplayName("Gán role đầu tiên cho người Chờ cấp quyền thì gửi mail kích hoạt")
+    @DisplayName("Gán role đầu tiên cho người Chờ cấp quyền thì gửi mail kích hoạt, sau khi transaction commit")
     void firstRoleSendsActivationMail() {
         // Chuẩn bị: người tự đăng ký, đã được gán chi nhánh, chưa có role
         when(employeeMapper.findById(7L)).thenReturn(employee(7L, NEW_KEYCLOAK_ID, 4L));
@@ -228,13 +260,32 @@ class EmployeeManagementServiceTest {
         // Chạy
         service.assignRoles(7L, List.of("MAKER"), ADMIN_KEYCLOAK_ID);
 
-        // Kiểm tra kết quả
+        // Kiểm tra kết quả: chưa commit thì chưa gửi, commit xong mới gửi
         verify(keycloakUserClient).addRoles(NEW_KEYCLOAK_ID, List.of("MAKER"));
+        verify(accountActivationMailer, never()).sendAccountActivated(anyString(), anyString(), anyString());
+        commit();
         verify(accountActivationMailer).sendAccountActivated("thu.dangky@nhdemo.local", "Bắc Đẩu Thu",
                 "Giao dịch viên");
         assertEquals("Thêm Giao dịch viên", auditNote.getDescription());
         // Chỉ thêm role, không bỏ role nào: phiên đang mở không bị thu hồi.
         verify(employeeMapper, never()).updateSessionsInvalidBefore(any(), any());
+    }
+
+    @Test
+    @DisplayName("Gán role đầu tiên mà transaction bị hủy thì không gửi mail kích hoạt, role trên KeyCloak được bỏ lại")
+    void firstRoleSendsNoMailWhenTransactionRollsBack() {
+        // Chuẩn bị: người Chờ cấp quyền, đã có chi nhánh
+        when(employeeMapper.findById(7L)).thenReturn(employee(7L, NEW_KEYCLOAK_ID, 4L));
+        when(employeeMapper.findBranchNameById(4L)).thenReturn("Chi nhánh Tân Phú");
+        when(keycloakUserClient.findAppRoles(NEW_KEYCLOAK_ID)).thenReturn(List.of());
+
+        // Chạy: gán role xong thì transaction bị hủy ở bước sau (ghi audit, commit)
+        service.assignRoles(7L, List.of("MAKER"), ADMIN_KEYCLOAK_ID);
+        rollBack();
+
+        // Kiểm tra kết quả
+        verify(accountActivationMailer, never()).sendAccountActivated(anyString(), anyString(), anyString());
+        verify(keycloakUserClient).removeRoles(NEW_KEYCLOAK_ID, List.of("MAKER"));
     }
 
     @Test
@@ -442,8 +493,11 @@ class EmployeeManagementServiceTest {
         verify(employeeMapper, never()).updateProfile(any());
     }
 
-    /** Transaction commit: chạy các việc đã đăng ký, như Spring làm sau khi commit. */
+    /** Transaction commit: chạy các việc đã đăng ký theo đúng thứ tự Spring làm, afterCommit rồi afterCompletion. */
     private void commit() {
+        for (TransactionSynchronization synchronization : TransactionSynchronizationManager.getSynchronizations()) {
+            synchronization.afterCommit();
+        }
         endTransaction(TransactionSynchronization.STATUS_COMMITTED);
     }
 

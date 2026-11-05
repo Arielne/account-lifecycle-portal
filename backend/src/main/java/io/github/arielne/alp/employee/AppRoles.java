@@ -28,6 +28,15 @@ public final class AppRoles {
         return role.equals("MAKER") || role.equals("CHECKER");
     }
 
+    /**
+     * Có Admin đi cùng Giao dịch viên hoặc Kiểm soát viên không. Admin không được giữ thêm 2 role đó,
+     * vì Admin không được xem khách hàng, tài khoản, phiếu (docs/01-chuc-nang.md mục 1).
+     */
+    public static boolean combinesAdminWithBranchRole(List<String> roles) {
+        boolean hasBranchRole = roles.contains("MAKER") || roles.contains("CHECKER");
+        return roles.contains("ADMIN") && hasBranchRole;
+    }
+
     /** Nhãn của nhiều role, cách nhau dấu phẩy, theo thứ tự MAKER, CHECKER, ADMIN; không có role nào thì "(trống)". */
     public static String labels(List<String> roles) {
         StringBuilder text = new StringBuilder();

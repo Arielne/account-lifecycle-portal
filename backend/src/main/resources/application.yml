@@ -58,6 +58,9 @@ spring:
 server:
   # Cổng 8080 đã dành cho KeyCloak.
   port: 8081
+  # Chạy bằng mvnw thì chỉ nhận kết nối từ chính máy này: máy khác trong mạng không gọi thẳng được backend,
+  # nên không tự đặt được header X-Forwarded-For (IP ghi vào audit log). Container đặt lại 0.0.0.0 trong compose.yaml.
+  address: 127.0.0.1
   # Đọc header X-Forwarded-* do Nginx gửi kèm, để tạo đúng địa chỉ quay về sau khi đăng nhập, đăng xuất.
   forward-headers-strategy: framework
   servlet:
