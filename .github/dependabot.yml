@@ -1,0 +1,52 @@
+# Dependabot: GitHub tự mở Pull Request nâng phiên bản thư viện và action, mỗi tuần một lần, vào develop.
+# CI chạy trên các Pull Request đó như mọi Pull Request khác; người dùng xem CI xanh rồi mới merge.
+# Mỗi nhóm gom mọi bản nâng minor, patch thành 1 Pull Request. Bản nâng major không tự mở:
+# major thường đổi cách dùng, nên nâng bằng tay khi có lý do (CLAUDE.md mục "Công nghệ").
+# Image Docker không có ở đây: phiên bản image đã chốt trong CLAUDE.md (ví dụ KeyCloak 26.8.1), nâng bằng tay.
+version: 2
+updates:
+  # Action trong .github/workflows ghim theo SHA, nên không tự nhận bản vá; Dependabot đổi cả SHA lẫn ghi chú phiên bản.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  - package-ecosystem: maven
+    directory: /backend
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # Giữ Spring Boot 3.5.x vì Camunda 7.24 không chạy với bản mới hơn.
+      - dependency-name: "org.springframework.boot:spring-boot-starter-parent"
+        versions: ["[3.6.0,)"]
+      # keycloak-admin-client giữ bản 26.0.x (CLAUDE.md mục "Công nghệ").
+      - dependency-name: "org.keycloak:keycloak-admin-client"
+        versions: ["[26.1.0,)"]
+    groups:
+      maven-minor-patch:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      npm-minor-patch:
+        patterns: ["*"]
