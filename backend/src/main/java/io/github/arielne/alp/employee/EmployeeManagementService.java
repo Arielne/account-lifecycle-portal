@@ -97,7 +97,7 @@ public class EmployeeManagementService {
             String oldEmail = employee.getEmail();
             NameParts oldName = NameParts.fromFullName(employee.getFullName());
             keycloakUserClient.updateUser(keycloakId, email, name);
-            undoOnRollback("trả email, họ tên của user " + keycloakId + " về như cũ",
+            undoOnRollback("trả user " + keycloakId + " về email " + oldEmail + ", họ tên " + employee.getFullName(),
                     () -> keycloakUserClient.updateUser(keycloakId, oldEmail, oldName));
         }
         employee.setEmail(email);
@@ -124,10 +124,10 @@ public class EmployeeManagementService {
         List<String> rolesToRemove = rolesNotIn(currentRoles, newRoles);
         String keycloakId = employee.getKeycloakId();
         keycloakUserClient.addRoles(keycloakId, rolesToAdd);
-        undoOnRollback("bỏ role vừa thêm của user " + keycloakId,
+        undoOnRollback("bỏ role " + rolesToAdd + " vừa thêm của user " + keycloakId,
                 () -> keycloakUserClient.removeRoles(keycloakId, rolesToAdd));
         keycloakUserClient.removeRoles(keycloakId, rolesToRemove);
-        undoOnRollback("thêm lại role vừa bỏ của user " + keycloakId,
+        undoOnRollback("thêm lại role " + rolesToRemove + " vừa bỏ của user " + keycloakId,
                 () -> keycloakUserClient.addRoles(keycloakId, rolesToRemove));
         if (!rolesToRemove.isEmpty()) {
             // Lấy thời điểm sau khi KeyCloak đã bỏ role: phiên nào bắt đầu trước đó (kể cả đăng nhập xen giữa)
@@ -194,20 +194,28 @@ public class EmployeeManagementService {
     }
 
     /**
-     * Gọi ngay sau một lần ghi lên KeyCloak, với việc làm ngược lại. Transaction đang chạy bị hủy thì Spring chạy undo
-     * sau khi rollback; commit được thì bỏ qua. Undo cũng lỗi thì ghi log để sửa tay trên KeyCloak, lỗi gốc vẫn trả về.
+     * Gọi ngay sau một lần ghi lên KeyCloak, với việc làm ngược lại; description ghi đủ dữ liệu để sửa tay.
+     * Commit được thì bỏ qua. Transaction bị hủy hoặc commit lỗi thì Spring chạy undo sau khi transaction kết thúc,
+     * vì người dùng đã nhận lỗi nên KeyCloak phải về như cũ. Undo cũng lỗi thì ghi log, lỗi gốc vẫn trả về.
+     * Mất kết nối database đúng lúc commit thì Spring rollback cũng lỗi và báo STATUS_UNKNOWN: thường là database
+     * chưa lưu, nhưng cũng có thể đã lưu rồi, nên ghi thêm log để đối chiếu.
      */
     private void undoOnRollback(String description, Runnable undo) {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCompletion(int status) {
-                if (status != STATUS_ROLLED_BACK) {
+                if (status == STATUS_COMMITTED) {
                     return;
+                }
+                if (status == STATUS_UNKNOWN) {
+                    log.error("Transaction kết thúc lỗi. Không rõ database đã lưu hay chưa, cần đối chiếu hồ sơ với KeyCloak: {}",
+                            description);
                 }
                 try {
                     undo.run();
                 } catch (RuntimeException exception) {
-                    log.error("Transaction bị hủy mà không hoàn tác được trên KeyCloak: {}", description, exception);
+                    log.error("Thao tác lỗi mà không hoàn tác được trên KeyCloak, cần sửa tay: {}", description,
+                            exception);
                 }
             }
         });

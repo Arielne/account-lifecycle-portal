@@ -3,6 +3,7 @@ package io.github.arielne.alp.employee;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -23,19 +24,30 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Test nhanh cho nghiệp vụ màn Nhân viên (spec admin mục 8, test 4–7). Không dựng Spring:
  * EmployeeMapper, KeycloakUserClient, AccountActivationMailer là mock của Mockito (CI không có KeyCloak, Mailpit).
  * Không có transaction thật: test tự bật danh sách việc chờ transaction kết thúc, rồi gọi commit() hoặc rollBack()
  * để chạy các việc đó như Spring làm sau khi commit hoặc rollback.
+ * OutputCaptureExtension của Spring Boot bắt những gì in ra console, test nhận qua tham số CapturedOutput
+ * để kiểm tra nội dung log.
  */
+@ExtendWith(OutputCaptureExtension.class)
 class EmployeeManagementServiceTest {
 
     private static final String ADMIN_KEYCLOAK_ID = "927c941a-3244-4299-8a41-7c78b44d08e6";
@@ -59,7 +71,10 @@ class EmployeeManagementServiceTest {
 
     @AfterEach
     void tearDown() {
-        TransactionSynchronizationManager.clearSynchronization();
+        // Test dùng transaction thật thì transaction đã tự dọn danh sách việc.
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test
@@ -113,6 +128,26 @@ class EmployeeManagementServiceTest {
 
         // Kiểm tra kết quả
         verify(keycloakUserClient).deleteUser(NEW_KEYCLOAK_ID);
+    }
+
+    @Test
+    @DisplayName("Mất kết nối database lúc commit (commit, rollback đều lỗi) thì vẫn xóa user vừa tạo trên KeyCloak")
+    void createDeletesKeycloakUserWhenConnectionLostAtCommit(CapturedOutput output) {
+        // Chuẩn bị: transaction thật của Spring, chỉ bước commit và rollback xuống database là lỗi.
+        // Bỏ danh sách việc của setUp để transaction tự tạo danh sách riêng và tự chạy các việc khi kết thúc.
+        TransactionSynchronizationManager.clearSynchronization();
+        when(keycloakUserClient.createUser(anyString(), any())).thenReturn(NEW_KEYCLOAK_ID);
+        EmployeeCreateRequest request = new EmployeeCreateRequest("Nguyễn Văn An", "an.nv@nhdemo.local", null,
+                List.of("ADMIN"));
+        TransactionTemplate transaction = new TransactionTemplate(new ConnectionLostTransactionManager());
+
+        // Chạy
+        assertThrows(DataAccessResourceFailureException.class,
+                () -> transaction.executeWithoutResult(status -> service.create(request)));
+
+        // Kiểm tra kết quả: Spring báo "không rõ kết quả" chứ không báo rollback, KeyCloak vẫn được trả về như cũ
+        verify(keycloakUserClient).deleteUser(NEW_KEYCLOAK_ID);
+        assertTrue(output.getOut().contains("Không rõ database đã lưu hay chưa"));
     }
 
     @Test
@@ -278,6 +313,45 @@ class EmployeeManagementServiceTest {
     }
 
     @Test
+    @DisplayName("Không trả được role trên KeyCloak thì log ghi đủ user và tên role để sửa tay")
+    void undoFailureLogNamesUserAndRoles(CapturedOutput output) {
+        // Chuẩn bị: đổi Giao dịch viên sang Kiểm soát viên xong; KeyCloak lỗi ở cả hai việc hoàn tác
+        when(employeeMapper.findById(7L)).thenReturn(employee(7L, NEW_KEYCLOAK_ID, 4L));
+        when(employeeMapper.findBranchNameById(4L)).thenReturn("Chi nhánh Tân Phú");
+        when(keycloakUserClient.findAppRoles(NEW_KEYCLOAK_ID)).thenReturn(List.of("MAKER"));
+        service.assignRoles(7L, List.of("CHECKER"), ADMIN_KEYCLOAK_ID);
+        doThrow(new IllegalStateException("KeyCloak không trả lời")).when(keycloakUserClient)
+                .removeRoles(NEW_KEYCLOAK_ID, List.of("CHECKER"));
+        doThrow(new IllegalStateException("KeyCloak không trả lời")).when(keycloakUserClient)
+                .addRoles(NEW_KEYCLOAK_ID, List.of("MAKER"));
+
+        // Chạy
+        rollBack();
+
+        // Kiểm tra kết quả
+        assertTrue(output.getOut().contains("bỏ role [CHECKER] vừa thêm của user " + NEW_KEYCLOAK_ID));
+        assertTrue(output.getOut().contains("thêm lại role [MAKER] vừa bỏ của user " + NEW_KEYCLOAK_ID));
+    }
+
+    @Test
+    @DisplayName("Không trả được email, họ tên trên KeyCloak thì log ghi đủ user, email và họ tên cũ để sửa tay")
+    void undoFailureLogNamesOldEmailAndFullName(CapturedOutput output) {
+        // Chuẩn bị: sửa email xong; KeyCloak lỗi lúc hoàn tác
+        when(employeeMapper.findById(7L)).thenReturn(employee(7L, NEW_KEYCLOAK_ID, 4L));
+        when(employeeMapper.findBranchNameById(4L)).thenReturn("Chi nhánh Tân Phú");
+        service.update(7L, new EmployeeUpdateRequest("Bắc Đẩu Thu", "thu.moi@nhdemo.local", 4L));
+        doThrow(new IllegalStateException("KeyCloak không trả lời")).when(keycloakUserClient)
+                .updateUser(NEW_KEYCLOAK_ID, "thu.dangky@nhdemo.local", new NameParts("Bắc Đẩu", "Thu"));
+
+        // Chạy
+        rollBack();
+
+        // Kiểm tra kết quả
+        assertTrue(output.getOut().contains(
+                "trả user " + NEW_KEYCLOAK_ID + " về email thu.dangky@nhdemo.local, họ tên Bắc Đẩu Thu"));
+    }
+
+    @Test
     @DisplayName("Khóa nhân viên: hồ sơ LOCKED, tắt tài khoản và đăng xuất mọi phiên trên KeyCloak")
     void lockDisablesAccountAndLogsOutOnKeycloak() {
         // Chuẩn bị
@@ -393,5 +467,32 @@ class EmployeeManagementServiceTest {
         employee.setBranchId(branchId);
         employee.setStatus("ACTIVE");
         return employee;
+    }
+
+    /**
+     * Transaction manager giả, không có database, đi đúng đường như khi mất kết nối đúng lúc commit: commit lỗi,
+     * Spring thử rollback thì rollback cũng lỗi. EmployeeKeycloakUndoIT tái hiện đường này trên Postgres thật.
+     */
+    private static class ConnectionLostTransactionManager extends AbstractPlatformTransactionManager {
+
+        @Override
+        protected Object doGetTransaction() {
+            return new Object();
+        }
+
+        @Override
+        protected void doBegin(Object transaction, TransactionDefinition definition) {
+            // Không có database nên không có gì để bắt đầu.
+        }
+
+        @Override
+        protected void doCommit(DefaultTransactionStatus status) {
+            throw new DataAccessResourceFailureException("Mất kết nối lúc commit");
+        }
+
+        @Override
+        protected void doRollback(DefaultTransactionStatus status) {
+            throw new DataAccessResourceFailureException("Mất kết nối lúc rollback");
+        }
     }
 }
