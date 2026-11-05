@@ -144,7 +144,7 @@ Phần này do KeyCloak làm, app không tự viết trang đăng nhập hay lư
 
 | Mã | Chức năng | Ai | Ghi chú |
 | --- | --- | --- | --- |
-| CN-06 | Xem tổng quan | Mọi role | Giao dịch viên và Kiểm soát viên thấy số tài khoản theo 5 trạng thái; bấm một thẻ thì mở danh sách Tài khoản đã lọc theo trạng thái đó. Khối giữa đổi theo role: Kiểm soát viên thấy "Phiếu chờ tôi duyệt" (phiếu của chi nhánh mình, đã loại phiếu do mình tạo); Giao dịch viên thấy "Phiếu của tôi" (phiếu bị từ chối luôn ở trên cùng); Admin thấy "Nhân viên chờ cấp quyền". Khối "Hoạt động gần đây" lấy 6 dòng mới nhất của Audit log. Số liệu tính bằng Function trong DB. |
+| CN-06 | Xem tổng quan | Mọi role | Việc đang chờ người dùng nằm trên cùng. Kiểm soát viên: số phiếu đang chờ mình duyệt và số phiếu đã chờ quá 24 giờ, nút "Duyệt từ phiếu cũ nhất" mở màn Chờ duyệt ở phiếu gửi sớm nhất; dưới là danh sách phiếu chờ, phiếu quá 24 giờ tô màu cảnh báo. Chỉ tính phiếu của chi nhánh mình, đã loại phiếu do mình tạo. Giao dịch viên: thẻ "Phiếu bị trả lại, cần sửa" (chỉ hiện khi có phiếu Bị từ chối; có lý do từ chối và nút "Sửa và gửi lại"; nhiều phiếu thì xếp dọc, bị từ chối sớm nhất ở trên); hàng "Tạo phiếu nhanh", mỗi ô một loại phiếu, bấm vào thì vào thẳng bước 2 của Tạo phiếu (CN-11); khối "Phiếu của tôi" gồm phiếu đang chờ duyệt (kèm thời gian chờ) và phiếu xong gần đây. Admin: số nhân viên chờ cấp quyền và danh sách của họ. Giao dịch viên và Kiểm soát viên có thêm 1 hàng nhỏ cuối màn: số tài khoản theo 5 trạng thái, bấm một trạng thái thì mở danh sách Tài khoản đã lọc theo trạng thái đó. Không có khối "Hoạt động gần đây" ở role nào. Số liệu tính bằng Function trong DB. |
 
 ### 4.3 Khách hàng và tài khoản
 
@@ -159,11 +159,11 @@ Phần này do KeyCloak làm, app không tự viết trang đăng nhập hay lư
 
 | Mã | Chức năng | Ai | Ghi chú |
 | --- | --- | --- | --- |
-| CN-11 | Tạo phiếu | Giao dịch viên | 4 bước: chọn loại phiếu → khách hàng hoặc tài khoản → lý do và giấy tờ → xác nhận. Chi tiết ở dưới bảng. |
+| CN-11 | Tạo phiếu | Giao dịch viên | 4 bước: chọn loại phiếu → khách hàng hoặc tài khoản → lý do và giấy tờ → xác nhận. Bắt đầu từ hàng "Tạo phiếu nhanh" ở Tổng quan thì loại phiếu đã chọn sẵn, bỏ bước 1. Chi tiết ở dưới bảng. |
 | CN-12 | Sửa và gửi lại phiếu bị từ chối | Giao dịch viên (người tạo) | Sửa theo lý do từ chối rồi gửi lại; phiếu quay về Chờ duyệt, số lần gửi tăng thêm 1. Phiếu lô chỉ được bỏ dòng, không sửa dòng (xem CN-18). |
 | CN-13 | Hủy phiếu | Giao dịch viên (người tạo) | Chỉ khi phiếu Chờ duyệt hoặc Bị từ chối. Phiếu sang Đã hủy, backend dừng quy trình Camunda. Phiếu Mở tài khoản bị hủy thì tài khoản Chờ mở sang Đã đóng. Phiếu bị từ chối mà người tạo không sửa, không hủy thì tài khoản giữ nguyên Chờ mở; hệ thống không tự hủy. |
-| CN-14 | Xem danh sách phiếu | Giao dịch viên, Kiểm soát viên | Tab theo trạng thái (Tất cả, Chờ duyệt, Đã duyệt, Bị từ chối, Hoàn tất, Đã hủy); lọc theo mã phiếu, loại phiếu, chi nhánh, khoảng ngày. "Tất cả phiếu" xem được phiếu của mọi chi nhánh. Danh sách Chờ duyệt của Kiểm soát viên: chỉ phiếu thuộc chi nhánh mình (không có bộ lọc chi nhánh), không gồm phiếu do mình tạo, phiếu gửi sớm nhất ở trên, chờ quá 24 giờ thì tô màu cảnh báo, không có nút duyệt nhanh. |
-| CN-15 | Xem chi tiết phiếu | Giao dịch viên, Kiểm soát viên | Steps cho biết phiếu đang ở bước nào; nội dung yêu cầu (trạng thái trước → sau); giấy tờ đính kèm (xem và tải, không xóa); Timeline lịch sử xử lý. Phiếu lô có thêm bảng khách trong lô, phân trang ở backend. |
+| CN-14 | Xem danh sách phiếu | Giao dịch viên, Kiểm soát viên | Tab theo trạng thái (Tất cả, Chờ duyệt, Đã duyệt, Bị từ chối, Hoàn tất, Đã hủy); lọc theo mã phiếu, loại phiếu, chi nhánh, khoảng ngày. "Tất cả phiếu" xem được phiếu của mọi chi nhánh. Màn Chờ duyệt của Kiểm soát viên chia 2 cột: bên trái là danh sách, bên phải là chi tiết phiếu đang chọn (CN-15) kèm nút Duyệt, Từ chối. Duyệt hoặc từ chối xong thì tự mở phiếu kế tiếp. Danh sách chỉ có phiếu thuộc chi nhánh mình (không có bộ lọc chi nhánh), không gồm phiếu do mình tạo, phiếu gửi sớm nhất ở trên, chờ quá 24 giờ thì tô màu cảnh báo, không có nút duyệt nhanh. Phiếu lô có nút mở trang chi tiết đầy đủ (2.4). Trên điện thoại, bấm vào phiếu thì mở trang 2.4. Tab "Tất cả phiếu" giữ nguyên. |
+| CN-15 | Xem chi tiết phiếu | Giao dịch viên, Kiểm soát viên | Steps cho biết phiếu đang ở bước nào; nội dung yêu cầu (trạng thái trước → sau); giấy tờ đính kèm (xem và tải, không xóa); Timeline lịch sử xử lý. Phiếu lô có thêm bảng khách trong lô, phân trang ở backend. Phần thân chi tiết phiếu (Steps, nội dung, giấy tờ, Timeline) là một component dùng chung cho trang 2.4 và cột phải của màn Chờ duyệt (CN-14). |
 | CN-16 | Duyệt phiếu | Kiểm soát viên | Hỏi xác nhận trước khi duyệt. Backend kiểm tra người duyệt khác người tạo và cùng chi nhánh với phiếu rồi mới báo Camunda hoàn thành task. Phiếu lô: xem CN-18. |
 | CN-17 | Từ chối phiếu | Kiểm soát viên | Bắt buộc nhập lý do (tối đa 500 ký tự). Phiếu về Bị từ chối; hệ thống gửi mail cho người tạo kèm lý do (CN-24). Trạng thái tài khoản không đổi. Cùng kiểm tra như CN-16. |
 
@@ -252,5 +252,12 @@ Quy tắc của phiếu lô:
 Các quyết định ngày 20/10/2026 đã ghi vào đúng mục ở trên. Quyết định sau đó, cũng đã ghi vào đúng mục:
 
 - 30/10/2026: giữ React cho phần chính. Angular chỉ làm 2 màn 3.11 Import Excel, 3.12 Xuất báo cáo và bộ khung: header và menu bằng NG-ZORRO, chặn route theo role, xử lý 401, trang 403, 404. Nginx chuyển `/bao-cao/` tới app Angular (thư mục `frontend-angular/`), hai app dùng chung cookie phiên (mục 3). Dựng bộ khung trước, làm 2 màn sau.
+- 31/10/2026: đổi thiết kế màn 2.2 Tổng quan và 3.10 Phiếu chờ duyệt (CN-06, CN-11, CN-14, CN-15). Tổng quan cho người dùng thấy việc đang chờ mình trước. Bỏ "Hoạt động gần đây" vì khối này trôi rất nhanh khi nhiều người cùng làm nên không giúp được ai, và Giao dịch viên, Kiểm soát viên không có quyền xem Audit log. Phiếu chờ duyệt chia 2 cột và tự mở phiếu kế tiếp, vì Kiểm soát viên duyệt nhiều phiếu liên tiếp mà bản cũ phải qua lại giữa 2 trang cho từng phiếu.
 
-Hiện không còn điểm nào cần chốt.
+Điểm cần chốt, phát sinh khi đối chiếu bản thiết kế ngày 31/10:
+
+1. "Chờ quá 24 giờ" tính từ lần gửi đầu hay lần gửi lại gần nhất. Đề xuất backend tính sẵn, không tính theo giờ máy người dùng.
+2. Người giữ cả `MAKER` và `CHECKER` thấy khối nào trước ở Tổng quan.
+3. Cột phải của màn Chờ duyệt chưa có bảng khách trong lô: phiếu lô được duyệt ngay ở đó, hay phải mở trang 2.4.
+4. Có bắt Kiểm soát viên mở giấy tờ rồi mới duyệt không. CN-16 hiện không bắt, còn chú thích trên bản thiết kế thì có.
+5. Tự mở phiếu kế tiếp: lấy theo danh sách tải lại từ backend và theo bộ lọc đang bật; phiếu kế đã bị người khác xử lý (QT-11) thì báo thế nào.
