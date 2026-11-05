@@ -1,5 +1,6 @@
 package io.github.arielne.alp.employee;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -31,8 +32,8 @@ public interface EmployeeMapper {
     /** Hồ sơ đang dùng email này; null khi chưa ai dùng. */
     Employee findByEmail(String email);
 
-    /** Trạng thái ACTIVE hoặc LOCKED theo keycloak_id; null khi chưa có hồ sơ. Bộ lọc nhân viên bị khóa gọi mỗi request. */
-    String findStatusByKeycloakId(String keycloakId);
+    /** Trạng thái và mốc thu hồi phiên theo keycloak_id; null khi chưa có hồ sơ. Bộ lọc phiên gọi mỗi request. */
+    EmployeeSessionState findSessionStateByKeycloakId(String keycloakId);
 
     /** Tên chi nhánh theo id (đọc bảng branch của module catalog); null khi không có chi nhánh này. */
     String findBranchNameById(Long branchId);
@@ -44,4 +45,7 @@ public interface EmployeeMapper {
     void updateProfile(Employee employee);
 
     void updateStatus(@Param("id") Long id, @Param("status") String status);
+
+    /** Thu hồi mọi phiên tạo trước thời điểm này (cột sessions_invalid_before). */
+    void updateSessionsInvalidBefore(@Param("id") Long id, @Param("time") OffsetDateTime time);
 }

@@ -25,6 +25,11 @@ public class ApiAuthenticationEntryPoint implements AuthenticationEntryPoint {
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException authException) throws IOException {
+        writeUnauthorized(response);
+    }
+
+    /** Ghi 401 dạng JSON. RevokedSessionFilter gọi trực tiếp: phiên bị thu hồi nhận đúng câu trả lời của phiên hết hạn. */
+    public void writeUnauthorized(HttpServletResponse response) throws IOException {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");

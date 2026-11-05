@@ -19,7 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Test chậm cho câu lọc audit log (spec admin mục 8, test 10): mỗi điều kiện của <where>, <if> chạy thật
+ * Test chậm cho câu lọc audit log (spec admin mục 8, test 10) và câu insert: mỗi điều kiện của <where>, <if> chạy thật
  * trên Postgres của Testcontainers. Test tự thêm 4 dòng audit riêng và tự rollback sau khi chạy.
  */
 @SpringBootTest
@@ -121,6 +121,52 @@ class AuditLogMapperIT {
         assertEquals(4, auditLogMapper.count(filter));
     }
 
+    @Test
+    @DisplayName("insert: mã đối tượng là email dài hơn 50 ký tự; người làm tìm theo keycloakId, đối tượng theo email")
+    void insertKeepsLongEmailObjectId() {
+        // Chuẩn bị: nhân viên có email 57 ký tự, vẫn trong giới hạn 150 ký tự của employee.email
+        String longEmail = "nguyen.thi.thanh.huong.phong.giao.dich.quan7@nhdemo.local";
+        insertEmployee("0a1b2c3d-0000-4000-8000-0000000000f3", longEmail, "Nguyễn Thị Thanh Hương");
+        AuditLogEntry entry = new AuditLogEntry();
+        entry.setKeycloakId("0a1b2c3d-0000-4000-8000-0000000000f1");
+        entry.setAction("CREATE");
+        entry.setObjectType("EMPLOYEE");
+        entry.setObjectId(longEmail);
+        entry.setDescription("Tạo nhân viên");
+        entry.setSource("AuditLogMapperIT");
+
+        // Chạy
+        auditLogMapper.insert(entry);
+
+        // Kiểm tra kết quả: dữ liệu chung không có dòng CREATE nào trên EMPLOYEE, nên chỉ có dòng vừa thêm
+        AuditLogFilter filter = filter();
+        filter.setAction("CREATE");
+        filter.setObjectType("EMPLOYEE");
+        List<AuditLogRow> rows = auditLogMapper.findPage(filter);
+        assertEquals(1, rows.size());
+        assertEquals(longEmail, rows.get(0).getObjectId());
+        assertEquals("Nguyễn Thị Thanh Hương", rows.get(0).getObjectName());
+        assertEquals("Admin Audit", rows.get(0).getEmployeeName());
+    }
+
+    @Test
+    @DisplayName("Nhân viên là đối tượng đổi email sau đó: dòng cũ vẫn hiện họ tên, object_id giữ email lúc thao tác")
+    void objectNameSurvivesEmailChange() {
+        // Chuẩn bị: nhân viên của dòng LOCK đổi email (Admin sửa, hoặc đổi trên KeyCloak rồi đăng nhập lại)
+        jdbcTemplate.update("UPDATE app.employee SET email = 'nv.audit.moi@nhdemo.local'"
+                + " WHERE email = 'nv.audit@nhdemo.local'");
+        AuditLogFilter filter = filter();
+        filter.setAction("LOCK");
+
+        // Chạy
+        List<AuditLogRow> rows = auditLogMapper.findPage(filter);
+
+        // Kiểm tra kết quả
+        assertEquals(1, rows.size());
+        assertEquals("nv.audit@nhdemo.local", rows.get(0).getObjectId());
+        assertEquals("Nhân Viên Audit", rows.get(0).getObjectName());
+    }
+
     /** Bộ lọc trống: không điều kiện nào, trang đầu 10 dòng. */
     private AuditLogFilter filter() {
         AuditLogFilter filter = new AuditLogFilter();
@@ -143,11 +189,14 @@ class AuditLogMapperIT {
                 Long.class, keycloakId, email, fullName);
     }
 
+    /** Đối tượng là nhân viên thì ghi object_employee_id theo email, như câu INSERT của AuditLogMapper. */
     private void insertAudit(String occurredAt, Long employeeId, String action, String objectType, String objectId,
                              String changesJson) {
         jdbcTemplate.update(
-                "INSERT INTO app.audit_log (occurred_at, employee_id, action, object_type, object_id, description,"
-                        + " changes) VALUES (CAST(? AS timestamptz), ?, ?, ?, ?, 'Mô tả test', CAST(? AS jsonb))",
-                occurredAt, employeeId, action, objectType, objectId, changesJson);
+                "INSERT INTO app.audit_log (occurred_at, employee_id, action, object_type, object_id,"
+                        + " object_employee_id, description, changes) VALUES (CAST(? AS timestamptz), ?, ?, ?, ?,"
+                        + " (SELECT id FROM app.employee WHERE ? = 'EMPLOYEE' AND email = ?), 'Mô tả test',"
+                        + " CAST(? AS jsonb))",
+                occurredAt, employeeId, action, objectType, objectId, objectType, objectId, changesJson);
     }
 }

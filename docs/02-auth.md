@@ -56,9 +56,10 @@ Thiếu bước 3 thì bấm đăng nhập lại sẽ vào thẳng mà không ph
 
 ### Đổi role, khóa nhân viên
 
-- Role nằm trong token lấy lúc đăng nhập, nên đổi role xong nhân viên phải đăng nhập lại mới nhận quyền mới.
-- Khóa nhân viên: backend cập nhật `employee.status = LOCKED`, đặt `enabled = false` qua Admin API và đăng xuất các phiên của người đó ở KeyCloak. Phiếu họ đã tạo giữ nguyên.
-- Người bị khóa có thể đang đăng nhập, mà session trong Redis chỉ hết hạn sau 30 phút không hoạt động. Vì vậy mỗi request vào `/api` đi qua một bộ lọc đọc `employee.status` của người trong session; gặp `LOCKED` thì xóa session hiện tại và trả 401. Người bị khóa bị đẩy ra ngay ở thao tác kế tiếp và không đăng nhập lại được.
+- Role nằm trong token lấy lúc đăng nhập, nên được thêm role thì nhân viên phải đăng nhập lại mới nhận quyền mới.
+- Bị bỏ role thì không chờ người đó tự đăng nhập lại: nếu không, phiên đang mở vẫn giữ role vừa bỏ tới khi họ đăng xuất. Backend ghi `employee.sessions_invalid_before` là thời điểm ngay sau khi KeyCloak bỏ role; phiên nào tạo trước thời điểm đó bị đẩy ra ở thao tác kế tiếp. Phiên SSO ở KeyCloak vẫn còn, nên bấm đăng nhập lại là vào ngay với token không còn role đã bỏ.
+- Khóa nhân viên: backend cập nhật `employee.status = LOCKED` và `sessions_invalid_before`, đặt `enabled = false` qua Admin API và đăng xuất các phiên của người đó ở KeyCloak. Phiếu họ đã tạo giữ nguyên.
+- Người bị khóa hoặc bị bỏ role có thể đang đăng nhập, mà session trong Redis chỉ hết hạn sau 30 phút không hoạt động. Vì vậy mỗi request vào `/api` đi qua một bộ lọc (`RevokedSessionFilter`) đọc `employee.status` và `sessions_invalid_before` của người trong session; gặp `LOCKED`, hoặc session tạo trước `sessions_invalid_before`, thì xóa session hiện tại và trả 401. Người bị khóa bị đẩy ra ngay ở thao tác kế tiếp và không đăng nhập lại được.
 - Mở khóa: đặt `enabled = true` và `status = ACTIVE`.
 
 ### Đổi tài khoản và demo nhiều vai trò
@@ -134,6 +135,7 @@ Bảng `app.employee` (chi tiết ở `docs/diagrams/erd.drawio`):
 | `branch_id` | bigint, null | FK → `branch`; rỗng khi chưa được gán |
 | `status` | varchar(20) | `ACTIVE`, `LOCKED`. Chờ cấp quyền không phải một giá trị ở đây: đó là người chưa có role trong KeyCloak |
 | `created_at`, `updated_at` | timestamptz | |
+| `sessions_invalid_before` | timestamptz, null | Phiên tạo trước thời điểm này đã bị thu hồi (bị bỏ role, bị khóa); rỗng khi chưa thu hồi lần nào |
 
 - Họ tên ghép kiểu Việt từ ID token: `family_name` + dấu cách + `given_name`, ví dụ "Nguyễn Thị Lan". Không dùng claim `name`, vì KeyCloak ghép Tên trước Họ sau.
 - Mỗi lần đăng nhập: `INSERT ... ON CONFLICT (keycloak_id) DO UPDATE` lấy họ tên và email từ token. Lần đầu thì thêm dòng, các lần sau thì cập nhật, chạy bao nhiêu lần cũng không bị trùng. Lệnh này không đụng tới `branch_id` và `status`.
@@ -158,7 +160,7 @@ Bảng `app.employee` (chi tiết ở `docs/diagrams/erd.drawio`):
 | Gán role | Admin API gán realm role. Chỉ cho gán `MAKER` hoặc `CHECKER` khi hồ sơ đã có chi nhánh |
 | Khóa, mở khóa | Hỏi xác nhận; cập nhật `status`; Admin API đặt `enabled`; khi khóa thì đăng xuất các phiên ở KeyCloak, bộ lọc ở mục 2 đẩy người đó ra ở request kế tiếp |
 
-Không có transaction chung giữa KeyCloak và Supabase. Tạo ở KeyCloak xong mà lưu hồ sơ bị lỗi thì xóa user vừa tạo trên KeyCloak để bù lại.
+Không có transaction chung giữa KeyCloak và Supabase. Mỗi lần ghi lên KeyCloak, backend đăng ký việc làm ngược lại và chạy việc đó khi transaction của database bị hủy hoặc commit lỗi: tạo user xong mà lưu hồ sơ hay ghi audit lỗi thì xóa user vừa tạo; sửa, gán role, khóa, mở khóa thì trả KeyCloak về như cũ (`docs/modules/admin.md`, mục Thêm nhân viên).
 
 ### Chặn tự duyệt và duyệt khác chi nhánh
 
@@ -194,7 +196,12 @@ Nginx là cửa vào của portal, để React và backend dùng chung một dom
 | `/api/`, `/oauth2/`, `/login/oauth2/`, `/logout` | Backend Spring Boot |
 | Còn lại | File build của React |
 
+- Nginx nén gzip file chữ (JS, CSS, JSON, SVG, HTML từ 1 KB trở lên); file JS của bản build nặng hơn 1 MB, nén còn khoảng một phần ba.
+- File trong `/assets/` có mã băm trong tên (Vite đặt) nên trình duyệt giữ 1 năm (`immutable`); thiếu file thì 404. `index.html` gửi kèm `no-cache` để bản build mới có hiệu lực ngay.
+
 KeyCloak chạy ở cổng riêng `http://localhost:8080`; khi đăng nhập, trình duyệt sang thẳng địa chỉ đó. Demo chạy trên máy bằng localhost.
+
+Spring tin mọi header `X-Forwarded-*` và `Forwarded` gửi tới (`server.forward-headers-strategy: framework`), kể cả header trình duyệt tự gửi. Vì vậy Nginx ghi đè `X-Forwarded-For` bằng IP mà Nginx thấy (`$remote_addr`, không nối thêm), và bỏ hẳn `Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Port`, `X-Forwarded-Prefix`, `X-Forwarded-Ssl`. Compose chỉ mở cổng 8081 của backend cho `127.0.0.1`, để máy khác không gọi thẳng backend mà bỏ qua Nginx.
 
 ## 6. Bảo mật
 
@@ -204,6 +211,7 @@ KeyCloak chạy ở cổng riêng `http://localhost:8080`; khi đăng nhập, tr
 | CSRF | Trang lạ lừa trình duyệt gửi request kèm cookie của mình | Cookie `SameSite=Lax` và CSRF token: trang lạ không đọc được cookie `XSRF-TOKEN` nên không gửi được header đúng |
 | Lộ database | Ai đó đọc được dữ liệu trong DB | Supabase không chứa mật khẩu; KeyCloak lưu hash Argon2 có salt |
 | Vượt quyền từ giao diện | Tự hiện nút bị ẩn hoặc gọi API trực tiếp | Mọi quyền kiểm tra ở backend, kể cả chặn tự duyệt và duyệt khác chi nhánh |
+| Giả IP trong audit log | Tự gửi header `X-Forwarded-For` với IP khác | Nginx ghi đè header này bằng IP thật nó thấy; backend chỉ mở cổng cho `127.0.0.1` (mục 5, Nginx) |
 
 - Cookie phiên: HttpOnly, SameSite=Lax; nếu sau này chạy HTTPS thì thêm Secure.
 - Session tự hết hạn sau 30 phút không hoạt động (mặc định của Spring Boot), khớp với SSO Session Idle của realm.

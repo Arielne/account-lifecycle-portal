@@ -2,6 +2,8 @@ package io.github.arielne.alp.employee;
 
 import io.github.arielne.alp.common.AuditNote;
 import io.github.arielne.alp.common.Audited;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -49,8 +51,21 @@ public class EmployeeService {
         return owner != null && !owner.getKeycloakId().equals(keycloakId);
     }
 
-    /** Nhân viên đã bị Admin khóa chưa; bộ lọc ở module auth gọi mỗi request vào /api. */
-    public boolean isLocked(String keycloakId) {
-        return "LOCKED".equals(employeeMapper.findStatusByKeycloakId(keycloakId));
+    /**
+     * Phiên đăng nhập này đã bị thu hồi chưa; bộ lọc ở module auth gọi mỗi request vào /api.
+     * Bị thu hồi khi nhân viên đã bị khóa, hoặc phiên được tạo trước lần thu hồi gần nhất (Admin bỏ role, khóa):
+     * role trong phiên là role lúc đăng nhập, nên phiên cũ vẫn còn role vừa bị bỏ.
+     * sessionCreatedAt và mốc thu hồi đều lấy theo đồng hồ của backend, nên so được với nhau.
+     */
+    public boolean isSessionRevoked(String keycloakId, Instant sessionCreatedAt) {
+        EmployeeSessionState state = employeeMapper.findSessionStateByKeycloakId(keycloakId);
+        if (state == null) {
+            return false;
+        }
+        if ("LOCKED".equals(state.getStatus())) {
+            return true;
+        }
+        OffsetDateTime invalidBefore = state.getSessionsInvalidBefore();
+        return invalidBefore != null && sessionCreatedAt.isBefore(invalidBefore.toInstant());
     }
 }

@@ -30,7 +30,7 @@ backend/src/main/java/io/github/arielne/alp/
 ├── catalog/       AccountType*, Branch* (Controller, Service, Mapper, DTO)
 ├── employee/      Employee* (Controller, Service, Mapper), lớp gọi Admin API của KeyCloak
 ├── notification/  gửi mail kích hoạt (tạm gọi thẳng, tuần 9 đổi sang Kafka)
-└── auth/          bộ lọc nhân viên bị khóa; xử lý email trùng khi đăng nhập
+└── auth/          bộ lọc phiên bị thu hồi (bị khóa, bị bỏ role); xử lý email trùng khi đăng nhập
 frontend/src/
 ├── api/              đọc lỗi dạng chung, đưa lỗi từng ô vào Form
 ├── pages/catalog/    màn Loại tài khoản, màn Chi nhánh
@@ -43,7 +43,7 @@ compose.yaml                            backend: secret của alp-admin, địa 
 
 - Chiều gọi theo bảng module trong `CLAUDE.md`: `auth` → `employee` → `catalog`; module nào cũng gọi được `common`.
 - Không module nào gọi thẳng `audit`. Service chỉ gắn `@Audited` và ghi nội dung vào `AuditNote` (cả hai nằm ở `common`); phần lưu do `AuditAspect` làm.
-- Không đổi bảng, không thêm script Flyway: `account_type`, `branch`, `employee`, `audit_log` đã đủ cột.
+- Không thêm bảng: dùng `account_type`, `branch`, `employee`, `audit_log` đã có. Thêm 3 script Flyway đổi cột: V7 (`employee.sessions_invalid_before`), V8 (nới `audit_log.object_id` lên 150 ký tự), V9 (`audit_log.object_employee_id`).
 
 ## 3. Dạng lỗi chung và kiểm tra dữ liệu
 
@@ -76,7 +76,7 @@ Cách ghi:
 
 1. Method ghi dữ liệu của Service gắn `@Audited(action = "...", objectType = "...")`.
 2. Trong method, Service ghi nội dung nghiệp vụ vào `AuditNote` (bean theo request): mã đối tượng, mô tả, và các trường đổi giá trị (nhãn tiếng Việt, giá trị trước, giá trị sau). Service tự so từng trường; không dùng reflection.
-3. Method chạy xong không lỗi thì `AuditAspect` thêm phần chung rồi lưu 1 dòng `audit_log`: người làm (`employee.id` của người trong session), thời gian, IP người dùng (`request.getRemoteAddr()`, Spring đã đọc header của Nginx), mã request, và `source` là tên class và method.
+3. Method chạy xong không lỗi thì `AuditAspect` thêm phần chung rồi lưu 1 dòng `audit_log`: người làm (`employee.id` của người trong session), thời gian, IP người dùng (`request.getRemoteAddr()`, Spring đã đọc header của Nginx; Nginx ghi đè `X-Forwarded-For` nên người dùng không tự đặt được IP), mã request, và `source` là tên class và method.
 4. Method lỗi thì không ghi. Dòng audit nằm trong cùng transaction với thao tác: thao tác bị hủy thì không có dòng audit; lưu audit lỗi thì thao tác cũng bị hủy.
 
 Hành động và đối tượng của tuần 4. Database lưu mã; màn 3.5 hiện nhãn:
@@ -86,6 +86,10 @@ Hành động và đối tượng của tuần 4. Database lưu mã; màn 3.5 hi
 | `ACCOUNT_TYPE` | Loại TK | `CREATE` Thêm danh mục, `UPDATE` Sửa danh mục, `DELETE` Xóa danh mục |
 | `BRANCH` | Chi nhánh | Như dòng trên |
 | `EMPLOYEE` | Nhân viên | `CREATE` Thêm nhân viên, `UPDATE` Sửa nhân viên, `ASSIGN_ROLE` Gán role, `LOCK` Khóa nhân viên, `UNLOCK` Mở khóa nhân viên, `SELF_REGISTER` Tự đăng ký |
+
+Mã đối tượng (cột `object_id`): mã của danh mục, hoặc email với `EMPLOYEE`. Cột dài 150 ký tự (V8) cho vừa email, vì email được tới 150 ký tự.
+Với `EMPLOYEE`, câu INSERT ghi thêm `object_employee_id` (V9) theo email đang lưu lúc thao tác, nên người đó đổi email sau này thì màn 3.5 vẫn hiện đúng họ tên.
+Dòng có từ trước V9 được nối theo email lúc chạy script: nhân viên đã đổi email trước đó thì cột này của dòng cũ để rỗng, màn 3.5 hiện email trong `object_id` thay cho họ tên.
 
 Mô tả (cột `description`) viết bằng lời nghiệp vụ, theo bản thiết kế:
 
@@ -159,7 +163,9 @@ Quy tắc:
 2. Admin API tạo user: username và email là email đã nhập; Họ là phần trước từ cuối, Tên là từ cuối của họ tên ("Nguyễn Thị Lan" → Họ "Nguyễn Thị", Tên "Lan"); `enabled = true`. KeyCloak báo email đã có tài khoản thì trả 409 với câu tiếng Việt.
 3. Lưu dòng `employee` (`status = ACTIVE`, chi nhánh đã chọn) và gán role đã chọn qua Admin API.
 4. Gửi mail để người đó tự đặt mật khẩu (execute actions email, `UPDATE_PASSWORD`); KeyCloak gửi qua SMTP của realm tới Mailpit.
-5. Bước 3 hoặc 4 lỗi thì transaction hủy dòng `employee`, và backend xóa user vừa tạo trên KeyCloak để hai bên không lệch.
+5. Bước 3 hoặc 4 lỗi, hay transaction bị hủy ở bước sau (ghi audit, commit), thì transaction hủy dòng `employee`, và backend xóa user vừa tạo trên KeyCloak để hai bên không lệch.
+
+Mỗi lần ghi lên KeyCloak, Service đăng ký luôn việc làm ngược lại; Spring chạy việc đó sau khi transaction bị hủy hoặc commit lỗi, commit được thì bỏ qua (`TransactionSynchronization`). Áp dụng cho mọi thao tác ở mục này: thêm (xóa user), sửa (trả email, họ tên cũ), gán role (bỏ role vừa thêm, thêm lại role vừa bỏ), khóa và mở khóa (đặt lại `enabled`). Làm ngược lại cũng lỗi thì ghi log kèm dữ liệu để sửa tay trên KeyCloak (`keycloak_id`, tên role, email và họ tên cũ). Mất kết nối database đúng lúc commit thì không rõ database đã lưu hay chưa (Spring báo `STATUS_UNKNOWN`), nên vẫn làm ngược lại và ghi log để đối chiếu hồ sơ với KeyCloak.
 
 ### Sửa hồ sơ, gán chi nhánh
 
@@ -173,13 +179,16 @@ Quy tắc:
 - `MAKER`, `CHECKER` chỉ gán được khi đã có chi nhánh; `ADMIN` không cần chi nhánh.
 - Người đang Chờ cấp quyền được gán role đầu tiên thì gửi mail "Tài khoản đã được kích hoạt", nhắc đăng nhập lại (CN-05). Tuần 4 gửi thẳng bằng Spring Mail tới Mailpit qua một class trong `notification`, comment ghi rõ là tạm; tuần 9 đổi sang Outbox + Kafka (B2). Trên máy gửi tới `localhost:1025`; trong Docker gửi tới `mailpit:1025`.
 - Role nằm trong token nên nhân viên phải đăng nhập lại mới nhận quyền mới.
+- Có bỏ role thì backend ghi `employee.sessions_invalid_before` (thời điểm ngay sau khi KeyCloak bỏ role): phiên đang mở của người đó bị bộ lọc trong `auth` đẩy ra ở thao tác kế tiếp, để role vừa bỏ không còn dùng được. Chỉ thêm role thì không đẩy ra.
 - Màn hình: một Drawer dùng chung cho Thêm, Sửa, Gán role theo bản thiết kế. Drawer Gán role có cả ô Chi nhánh; đổi chi nhánh thì lưu chi nhánh trước rồi mới gán role.
 
 ### Khóa và mở khóa (A1 của tuần 3)
 
 - Khóa: hỏi xác nhận theo màn 3.13 ("Khóa nhân viên ...? Người này bị đăng xuất ngay và không đăng nhập được nữa. Phiếu họ đã tạo vẫn giữ nguyên.", nút "Khóa" màu đỏ). Backend đặt `status = LOCKED`, Admin API đặt `enabled = false` và đăng xuất mọi phiên KeyCloak của người đó.
+- Đăng xuất trên KeyCloak lỗi thì chỉ ghi log, không hủy việc khóa: tài khoản đã tắt nên KeyCloak không cho đăng nhập lại (kể cả bằng phiên SSO còn lại), và phiên của app đã bị thu hồi.
 - Mở khóa: `status = ACTIVE`, `enabled = true`.
-- Bộ lọc trong `auth`: mỗi request vào `/api` của người đã đăng nhập đọc `employee.status` theo `keycloak_id`; gặp `LOCKED` thì xóa session và trả 401 dạng JSON. React hiện hộp thoại phiên hết hạn như tuần 3; đăng nhập lại thì KeyCloak từ chối vì tài khoản đã tắt.
+- Khóa cũng ghi `sessions_invalid_before`, nên mở khóa trước khi người đó gọi API thì phiên cũ vẫn không dùng lại được.
+- Bộ lọc trong `auth` (`RevokedSessionFilter`): mỗi request vào `/api` của người đã đăng nhập đọc `employee.status` và `sessions_invalid_before` theo `keycloak_id`; gặp `LOCKED`, hoặc session tạo trước `sessions_invalid_before`, thì xóa session và trả 401 dạng JSON. React xử lý như phiên hết hạn: mở trang hoặc F5 (`/api/me`) thì chuyển sang đăng nhập, API khác thì hiện hộp thoại phiên hết hạn; không có thông báo riêng cho việc bị thu hồi. Đăng nhập lại thì KeyCloak từ chối vì tài khoản đã tắt (bị khóa), hoặc cấp token có role mới (bị bỏ role).
 
 ### Email trùng khi đăng nhập (lỗi phát hiện ở tuần 3)
 
@@ -197,6 +206,7 @@ Quy tắc:
 
 - `GET /api/audit-logs` (chỉ `ADMIN`): lọc theo người thực hiện, khoảng thời gian, hành động, đối tượng; phân trang ở backend (10 dòng), mới nhất ở trên. Câu lọc dùng `<where>` và `<if>` của MyBatis.
 - Bảng theo bản thiết kế: Thời gian, Người thực hiện ("Hệ thống" khi `employee_id` rỗng), Hành động, Đối tượng, Mô tả, IP. Hành động và đối tượng hiện nhãn, không hiện mã.
+- Đối tượng là nhân viên thì hiện họ tên hiện tại, nối theo `object_employee_id`, không nối theo email.
 - Chỉ dòng có từ 2 trường thay đổi mới mở rộng được, hiện bảng Thông tin, Trước, Sau.
 - Mã request và `source` lưu để tra lỗi, không hiện trên màn.
 - Ô "Người thực hiện" lấy danh sách từ `/api/employees`, thêm lựa chọn "Hệ thống".
@@ -210,15 +220,15 @@ Backend, test nhanh (`*Test`, `@WebMvcTest`, service KeyCloak và mail thay bằ
 1. Mỗi API ghi: chưa đăng nhập → 401; sai role → 403.
 2. Thêm loại tài khoản sai mã → 400 có `fieldErrors`; mã trùng → 409; sửa không đổi được mã.
 3. Xóa loại tài khoản, chi nhánh đang được dùng → 409.
-4. Thêm nhân viên trùng email → 409; tạo trên KeyCloak xong mà lưu hồ sơ lỗi → user trên KeyCloak bị xóa.
+4. Thêm nhân viên trùng email → 409; tạo trên KeyCloak xong mà lưu hồ sơ lỗi, hoặc transaction bị hủy ở bước sau → user trên KeyCloak bị xóa. Sửa, gán role, khóa, mở khóa mà transaction bị hủy → KeyCloak được trả về như cũ; đăng xuất trên KeyCloak lỗi → vẫn khóa. Mất kết nối database lúc commit → vẫn làm ngược lại và ghi log để đối chiếu; làm ngược lại lỗi → log ghi đủ dữ liệu để sửa tay.
 5. Gán `MAKER` cho người chưa có chi nhánh → 409; Admin tự khóa mình hoặc tự đổi role của mình → 409.
 6. Gán role đầu tiên cho người Chờ cấp quyền → gửi mail kích hoạt; thêm role cho người đã có role → không gửi.
-7. Khóa → gọi tắt tài khoản và đăng xuất phiên trên KeyCloak; người bị khóa gọi `/api` → 401 và session bị xóa.
+7. Khóa → gọi tắt tài khoản và đăng xuất phiên trên KeyCloak; người bị khóa gọi `/api` → 401 và session bị xóa. Bỏ role → ghi `sessions_invalid_before` sau khi KeyCloak bỏ role; chỉ thêm role → không ghi; session tạo trước mốc đó gọi `/api` → 401, tạo sau → đi qua.
 8. Đăng nhập bằng email đã thuộc hồ sơ khác → chuyển tới `/loi-dang-nhap`, không có session, không lỗi 500.
 
 Backend, test chậm (`*IT`, Testcontainers):
 
-9. Thêm chi nhánh → có 1 dòng audit đúng người làm, hành động, đối tượng, mã request; sửa 2 trường → `changes` có 2 mục; thao tác lỗi giữa chừng → không có dòng audit.
+9. Thêm chi nhánh → có 1 dòng audit đúng người làm, hành động, đối tượng, mã request; sửa 2 trường → `changes` có 2 mục; thao tác lỗi giữa chừng → không có dòng audit. Thêm nhân viên mà lưu audit lỗi → không có hồ sơ, user vừa tạo trên KeyCloak bị xóa. Thêm nhân viên mà kết nối database bị ngắt ngay trước commit (`pg_terminate_backend`) → không có hồ sơ, user vừa tạo trên KeyCloak vẫn bị xóa, log báo cần đối chiếu.
 10. Câu đếm số tài khoản, số nhân viên của từng danh mục; câu lọc audit log theo từng điều kiện.
 11. Không có API sửa hay xóa audit log (QT-09).
 

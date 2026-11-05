@@ -51,7 +51,7 @@ Package của các module khác (bảng module trong `CLAUDE.md`) tạo khi bắ
 | kafka | Apache Kafka chế độ KRaft (không ZooKeeper), 1 broker | 9092 | |
 | kafka-ui | Kafka UI, chọn image còn được duy trì | 8090 | |
 | mailpit | `axllent/mailpit` | 1025 (SMTP), 8025 (web) | |
-| backend | build từ `backend/` | 8081 | Cổng 8081 vì 8080 là KeyCloak |
+| backend | build từ `backend/` | 8081 | Cổng 8081 vì 8080 là KeyCloak; chỉ mở cho `127.0.0.1`, máy khác phải đi qua Nginx |
 | web | build từ `frontend/` | 80 | Nginx trả bản build React, chuyển `/api/`, `/oauth2/`, `/login/oauth2/`, `/logout` sang `backend:8081` |
 
 - Ghim số phiên bản cho mọi image, không dùng `latest`.
@@ -104,6 +104,7 @@ Package của các module khác (bảng module trong `CLAUDE.md`) tạo khi bắ
 ## 7. Backend
 
 - Spring Boot 3.5.16, Java 21, Maven Wrapper (máy không cần cài Maven). Package gốc `io.github.arielne.alp`.
+- Maven Wrapper kiểm tra SHA-256 của bản Maven tải về (`distributionSha256Sum` trong `backend/.mvn/wrapper/maven-wrapper.properties`); sai thì dừng, không chạy. Đổi phiên bản Maven thì cập nhật số này theo file `.sha512` Apache công bố.
 - Thư viện tuần này: web, validation, actuator (kiểm tra sống cho Compose), JDBC + driver PostgreSQL, MyBatis starter, Flyway (kèm module PostgreSQL), Lombok. Test: spring-boot-starter-test, Testcontainers (PostgreSQL). Plugin JaCoCo.
 - `catalog`: `Branch`, `BranchMapper` + `BranchMapper.xml` với `findAll`. Chưa cần Controller.
 - MyBatis: `map-underscore-to-camel-case: true`, `type-aliases-package`, `mapper-locations` trỏ tới file XML.

@@ -19,7 +19,7 @@ public class AuditLogRow {
     private String action;
     private String objectType;
     private String objectId;
-    // Họ tên hiện tại của nhân viên là đối tượng (object_type EMPLOYEE, object_id là email); loại khác thì rỗng.
+    // Họ tên hiện tại của nhân viên là đối tượng (object_type EMPLOYEE, theo object_employee_id); loại khác thì rỗng.
     private String objectName;
     private String description;
     private String ipAddress;

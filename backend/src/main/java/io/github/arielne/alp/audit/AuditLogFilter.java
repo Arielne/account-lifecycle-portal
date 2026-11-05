@@ -22,6 +22,7 @@ public class AuditLogFilter {
     private OffsetDateTime toTime;
     private String action;
     private String objectType;
-    private int offset;
+    /** Số dòng bỏ qua; kiểu long vì trang lớn nhân 10 vượt giới hạn của int. */
+    private long offset;
     private int size;
 }

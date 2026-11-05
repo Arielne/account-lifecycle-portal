@@ -90,8 +90,10 @@ services:
       # Build ở gốc repo vì image cần cả backend/ và db/migrations/.
       context: .
       dockerfile: backend/Dockerfile
+    # Chỉ mở cổng 8081 cho chính máy này (127.0.0.1). Mở cho cả mạng thì máy khác gọi thẳng backend, bỏ qua Nginx,
+    # và tự đặt được header X-Forwarded-For (IP ghi vào audit log).
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"
     environment:
       # Trong container không có file .env, nên Compose lấy giá trị từ .env truyền vào thành biến môi trường.
       DB_URL: ${DB_URL}

@@ -5,13 +5,17 @@
 
     <!-- employee_id: câu SELECT con đọc bảng employee theo keycloak_id (đọc chéo được, không ghi chéo);
          không có hồ sơ thì câu con không trả dòng nào và cột để rỗng.
+         object_employee_id: đối tượng là nhân viên thì tìm id theo email trong object_id. Dòng audit ghi sau thao tác,
+         trong cùng transaction, nên đây là email đang lưu của người đó (kể cả email vừa sửa).
          changes: chuỗi JSON ép sang kiểu jsonb của Postgres. jdbcType=VARCHAR để MyBatis gửi được giá trị null. -->
     <insert id="insert">
-        INSERT INTO app.audit_log (occurred_at, employee_id, action, object_type, object_id, description,
-                                   ip_address, changes, request_id, source)
+        INSERT INTO app.audit_log (occurred_at, employee_id, action, object_type, object_id, object_employee_id,
+                                   description, ip_address, changes, request_id, source)
         VALUES (now(),
                 (SELECT id FROM app.employee WHERE keycloak_id = CAST(#{keycloakId,jdbcType=VARCHAR} AS uuid)),
-                #{action}, #{objectType}, #{objectId}, #{description},
+                #{action}, #{objectType}, #{objectId},
+                CASE WHEN #{objectType} = 'EMPLOYEE' THEN (SELECT id FROM app.employee WHERE email = #{objectId}) END,
+                #{description},
                 #{ipAddress,jdbcType=VARCHAR}, CAST(#{changesJson,jdbcType=VARCHAR} AS jsonb),
                 #{requestId,jdbcType=VARCHAR}, #{source})
     </insert>
@@ -31,7 +35,8 @@
         </where>
     </sql>
 
-    <!-- Đọc chéo bảng employee hai lần: người làm (theo employee_id) và nhân viên là đối tượng (theo email).
+    <!-- Đọc chéo bảng employee hai lần: người làm (theo employee_id) và nhân viên là đối tượng
+         (theo object_employee_id, nên đổi email sau đó vẫn hiện đúng họ tên).
          Mới nhất ở trên; cùng thời điểm thì dòng ghi sau ở trên. -->
     <select id="findPage" resultType="AuditLogRow">
         SELECT a.id, a.occurred_at, actor.full_name AS employee_name, a.action, a.object_type, a.object_id,
@@ -39,7 +44,7 @@
                CAST(a.changes AS text) AS changes_json
         FROM app.audit_log a
         LEFT JOIN app.employee actor ON actor.id = a.employee_id
-        LEFT JOIN app.employee target ON a.object_type = 'EMPLOYEE' AND target.email = a.object_id
+        LEFT JOIN app.employee target ON target.id = a.object_employee_id
         <include refid="auditLogFilter"/>
         ORDER BY a.occurred_at DESC, a.id DESC
         LIMIT #{size} OFFSET #{offset}

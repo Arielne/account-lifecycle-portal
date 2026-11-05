@@ -3,7 +3,10 @@ package io.github.arielne.alp.audit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -15,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import io.github.arielne.alp.PostgresTestcontainersConfiguration;
 import io.github.arielne.alp.RedisTestcontainersConfiguration;
+import io.github.arielne.alp.employee.KeycloakUserClient;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,6 +29,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -35,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Test chậm cho phần ghi audit log bằng AOP (spec admin mục 8, test 9).
  * Gọi API thật qua MockMvc (đủ Security, filter mã request, Controller, Service, AuditAspect) trên Postgres
  * của Testcontainers. @MockitoSpyBean bọc AuditLogMapper thật: mặc định chạy như thật, test cuối bắt nó ném lỗi.
+ * KeycloakUserClient là mock (CI không có KeyCloak).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -43,6 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
 class AuditLogIT {
 
     private static final String ADMIN_KEYCLOAK_ID = "0a1b2c3d-0000-4000-8000-0000000000a1";
+    private static final String NEW_KEYCLOAK_ID = "0a1b2c3d-0000-4000-8000-0000000000a2";
     private static final String UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
     @Autowired
@@ -53,6 +60,9 @@ class AuditLogIT {
 
     @MockitoSpyBean
     private AuditLogMapper auditLogMapper;
+
+    @MockitoBean
+    private KeycloakUserClient keycloakUserClient;
 
     @Test
     @DisplayName("Thêm chi nhánh thì có đúng 1 dòng audit: đúng người làm, hành động, đối tượng, có mã request")
@@ -146,6 +156,33 @@ class AuditLogIT {
                 "SELECT count(*) FROM app.branch WHERE code = 'ZZ-RB'", Integer.class);
         assertEquals(0, branchCount);
         assertEquals(0, countAuditRows("ZZ-RB"));
+    }
+
+    /**
+     * Như test trên, Service tự mở và tự hủy transaction thật. Lưu audit chạy sau khi đã tạo user trên KeyCloak,
+     * nên transaction bị hủy thì Spring phải chạy việc hoàn tác Service đã đăng ký: xóa user vừa tạo.
+     */
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @DisplayName("Thêm nhân viên mà lưu audit lỗi thì hồ sơ bị hủy và user vừa tạo trên KeyCloak bị xóa")
+    void auditFailureDeletesNewKeycloakUser() throws Exception {
+        // Chuẩn bị: KeyCloak tạo được user, AuditLogMapper.insert ném lỗi
+        when(keycloakUserClient.createUser(anyString(), any())).thenReturn(NEW_KEYCLOAK_ID);
+        doThrow(new IllegalStateException("Giả lập lỗi khi lưu audit")).when(auditLogMapper).insert(any());
+
+        // Chạy
+        mockMvc.perform(post("/api/employees").with(admin()).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName": "Nguyễn Văn Hủy", "email": "huy.nv@nhdemo.local", "roles": ["ADMIN"]}
+                                """))
+                .andExpect(status().isInternalServerError());
+
+        // Kiểm tra kết quả
+        Integer employeeCount = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM app.employee WHERE email = 'huy.nv@nhdemo.local'", Integer.class);
+        assertEquals(0, employeeCount);
+        verify(keycloakUserClient).deleteUser(NEW_KEYCLOAK_ID);
     }
 
     @Test
