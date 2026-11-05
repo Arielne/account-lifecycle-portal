@@ -7,16 +7,18 @@ import NotFoundPage from './components/NotFoundPage.tsx'
 import RequireRole from './components/RequireRole.tsx'
 import AppShell from './layout/AppShell.tsx'
 import { PAGES, type PageEntry } from './layout/menuItems.tsx'
+import {
+  AccountDetailPage,
+  AccountListPage,
+  AccountTypePage,
+  AuditLogPage,
+  BranchPage,
+  CustomerDetailPage,
+  CustomerListPage,
+  EmployeePage,
+} from './lazyPages.ts'
 import CurrentUserProvider from './pages/auth/CurrentUserProvider.tsx'
 import LoginErrorPage, { LOGIN_ERROR_PATH } from './pages/auth/LoginErrorPage.tsx'
-import AccountDetailPage from './pages/account/AccountDetailPage.tsx'
-import AccountListPage from './pages/account/AccountListPage.tsx'
-import AuditLogPage from './pages/audit/AuditLogPage.tsx'
-import CustomerDetailPage from './pages/customer/CustomerDetailPage.tsx'
-import CustomerListPage from './pages/customer/CustomerListPage.tsx'
-import AccountTypePage from './pages/catalog/AccountTypePage.tsx'
-import BranchPage from './pages/catalog/BranchPage.tsx'
-import EmployeePage from './pages/employee/EmployeePage.tsx'
 
 // Màn đã làm thật, theo route. Route không có ở đây hiện trang chờ ComingSoonPage.
 const PAGE_ELEMENTS: Record<string, ReactNode> = {
