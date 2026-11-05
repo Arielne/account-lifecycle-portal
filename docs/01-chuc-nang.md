@@ -27,7 +27,7 @@ Ghi chú:
 
 - Một nhân viên có thể giữ cả `MAKER` và `CHECKER` (tài khoản demo `anh.vd`). Menu là hợp các role, nhưng người đó vẫn không duyệt được phiếu do chính mình tạo.
 - Admin chỉ gán được role Giao dịch viên hoặc Kiểm soát viên khi nhân viên đã có chi nhánh.
-- Đổi role xong, nhân viên phải đăng nhập lại mới nhận quyền mới.
+- Được thêm role thì nhân viên phải đăng nhập lại mới nhận quyền mới. Bị bỏ role thì phiên đang mở bị đẩy ra ở thao tác kế tiếp, để role vừa bỏ không còn dùng được.
 - Không có nút đổi người dùng. Muốn đổi tài khoản thì đăng xuất rồi đăng nhập tài khoản khác.
 
 ## 2. Đối tượng nghiệp vụ
