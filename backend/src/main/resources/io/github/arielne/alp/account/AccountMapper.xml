@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- SQL cho AccountMapper (CN-09, CN-10). Chỉ đọc; đọc chéo bảng customer, account_type, branch, ticket. -->
+<mapper namespace="io.github.arielne.alp.account.AccountMapper">
+
+    <!-- Cột và bảng dùng chung cho findPage và findById.
+         LEFT JOIN ticket: phiếu đang Chờ duyệt hoặc Bị từ chối của tài khoản. Index uq_ticket_open_per_account (QT-03)
+         bảo đảm mỗi tài khoản có tối đa 1 phiếu như vậy, nên JOIN không làm nhân dòng. Phiếu lô không gắn tài khoản. -->
+    <sql id="accountSelect">
+        SELECT a.id, a.account_number, a.customer_id, c.full_name AS customer_name, c.cccd AS customer_cccd,
+               t.name AS account_type_name, b.name AS branch_name, a.status, a.opened_at, a.closed_at,
+               a.last_transaction_at,
+               open_ticket.code AS open_ticket_code, open_ticket.type AS open_ticket_type,
+               open_ticket.status AS open_ticket_status
+        FROM app.account a
+        JOIN app.customer c ON c.id = a.customer_id
+        JOIN app.account_type t ON t.id = a.account_type_id
+        JOIN app.branch b ON b.id = a.branch_id
+        LEFT JOIN app.ticket open_ticket ON open_ticket.account_id = a.id
+            AND open_ticket.status IN ('PENDING_APPROVAL', 'REJECTED')
+    </sql>
+
+    <!-- Điều kiện lọc dùng chung cho findPage và count.
+         starts_with: số tài khoản bắt đầu bằng chuỗi đã gõ; không dùng LIKE nên không có ký tự đại diện.
+         = ANY(mảng): trạng thái nằm trong danh sách đã chọn. ArrayTypeHandler gửi mảng Java thành mảng của Postgres. -->
+    <sql id="accountFilter">
+        <where>
+            <if test="accountNumberPrefix != null">AND starts_with(a.account_number, #{accountNumberPrefix})</if>
+            <if test="statuses != null">
+                AND a.status = ANY(#{statuses,typeHandler=org.apache.ibatis.type.ArrayTypeHandler})
+            </if>
+            <if test="accountTypeId != null">AND a.account_type_id = #{accountTypeId}</if>
+            <if test="branchId != null">AND a.branch_id = #{branchId}</if>
+            <if test="customerId != null">AND a.customer_id = #{customerId}</if>
+        </where>
+    </sql>
+
+    <!-- Tài khoản mới tạo ở trên; cùng thời điểm thì id lớn hơn ở trên. -->
+    <select id="findPage" resultType="AccountRow">
+        <include refid="accountSelect"/>
+        <include refid="accountFilter"/>
+        ORDER BY a.created_at DESC, a.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT count(*)
+        FROM app.account a
+        <include refid="accountFilter"/>
+    </select>
+
+    <select id="findById" resultType="AccountRow">
+        <include refid="accountSelect"/>
+        WHERE a.id = #{id}
+    </select>
+</mapper>

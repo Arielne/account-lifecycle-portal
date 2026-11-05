@@ -40,6 +40,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/account-types/**", "/api/branches/**").hasRole("ADMIN")
                         // Nhân viên (CN-22) và Audit log (CN-23): chỉ ADMIN, kể cả đọc.
                         .requestMatchers("/api/employees/**", "/api/audit-logs/**").hasRole("ADMIN")
+                        // Khách hàng, tài khoản (CN-07 đến CN-10): Admin không được xem (docs/01-chuc-nang.md mục 1).
+                        .requestMatchers("/api/customers/**", "/api/accounts/**").hasAnyRole("MAKER", "CHECKER")
                         .requestMatchers("/api/**").hasAnyRole("MAKER", "CHECKER", "ADMIN")
                         .anyRequest().authenticated())
                 // OAuth2 Login: tự có /oauth2/authorization/keycloak và /login/oauth2/code/keycloak.
