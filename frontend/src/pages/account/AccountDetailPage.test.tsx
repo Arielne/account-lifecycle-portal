@@ -75,6 +75,14 @@ describe('AccountDetailPage', () => {
     expect(await screen.findByText('Đã sang /phieu/tao-moi?loai=PHONG_TOA&taiKhoan=1099000001')).toBeInTheDocument()
   })
 
+  it('Chủ tài khoản là link sang chi tiết khách hàng', async () => {
+    // Chuẩn bị, chạy
+    renderPage(account({}), ['CHECKER'])
+
+    // Kiểm tra kết quả
+    expect(await screen.findByRole('link', { name: 'Phạm Văn An' })).toHaveAttribute('href', '/khach-hang/1')
+  })
+
   it('Tài khoản Ngủ đông có nút Kích hoạt lại và Đóng tài khoản, không có nút Phong tỏa', async () => {
     // Chuẩn bị, chạy
     renderPage(account({ status: 'DORMANT' }), ['MAKER'])
