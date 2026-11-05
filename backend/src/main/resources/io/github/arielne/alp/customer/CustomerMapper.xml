@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- SQL cho CustomerMapper (CN-07, CN-08). Chỉ đọc; đọc chéo bảng branch và account. -->
+<mapper namespace="io.github.arielne.alp.customer.CustomerMapper">
+
+    <!-- Cột và bảng dùng chung cho findPage và findById. -->
+    <sql id="customerSelect">
+        SELECT c.id, c.cccd, c.full_name, c.date_of_birth, c.gender, c.id_issue_date, c.id_issue_place, c.phone,
+               c.email, b.name AS branch_name, c.created_at
+        FROM app.customer c
+        JOIN app.branch b ON b.id = c.branch_id
+    </sql>
+
+    <!-- Điều kiện tìm dùng chung cho findPage và count.
+         nameKeyword: so cột sinh sẵn full_name_search với từ khóa đã qua cùng hàm app.unaccent_vi (V11).
+         strpos(a, b) > 0 nghĩa là chuỗi a có chứa b; không dùng LIKE nên % và _ người dùng gõ chỉ là ký tự thường.
+         &gt; là cách viết > trong file XML. -->
+    <sql id="customerFilter">
+        <where>
+            <if test="nameKeyword != null">
+                AND strpos(c.full_name_search, app.unaccent_vi(#{nameKeyword})) &gt; 0
+            </if>
+            <if test="cccd != null">AND c.cccd = #{cccd}</if>
+        </where>
+    </sql>
+
+    <!-- Hồ sơ mới tạo ở trên; cùng thời điểm thì id lớn hơn ở trên. Chỉ lấy khách, không JOIN account,
+         để LIMIT cắt đúng 10 khách chứ không cắt theo dòng tài khoản. -->
+    <select id="findPage" resultType="CustomerRow">
+        <include refid="customerSelect"/>
+        <include refid="customerFilter"/>
+        ORDER BY c.created_at DESC, c.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT count(*)
+        FROM app.customer c
+        <include refid="customerFilter"/>
+    </select>
+
+    <!-- Câu thứ hai của danh sách: tài khoản của đúng các khách trong trang (= ANY(mảng id)).
+         Tài khoản mở trước đứng trước, để thứ tự Tag không đổi giữa các lần tải. -->
+    <select id="findAccountStatuses" resultType="CustomerAccountRow">
+        SELECT a.customer_id, a.status
+        FROM app.account a
+        WHERE a.customer_id = ANY(#{customerIds,typeHandler=org.apache.ibatis.type.ArrayTypeHandler})
+        ORDER BY a.created_at, a.id
+    </select>
+
+    <select id="findById" resultType="CustomerRow">
+        <include refid="customerSelect"/>
+        WHERE c.id = #{id}
+    </select>
+</mapper>
