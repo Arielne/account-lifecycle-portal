@@ -8,7 +8,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.time.Instant;
-import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
@@ -19,8 +18,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * hoặc nhân viên vừa bị Admin bỏ role. Session trong Redis chỉ hết hạn sau 30 phút không hoạt động, và role
  * trong session là role lúc đăng nhập, nên thiếu bộ lọc này thì người bị bỏ role vẫn dùng role đó tới khi tự đăng xuất.
  * Mỗi request vào /api của người đã đăng nhập hỏi EmployeeService; phiên bị thu hồi thì xóa session và trả 401
- * dạng JSON. React hiện hộp thoại phiên hết hạn; đăng nhập lại thì KeyCloak từ chối (bị khóa) hoặc cấp token
- * có role mới (bị bỏ role).
+ * dạng JSON, giống hệt phiên hết hạn vì spec không có thông báo riêng cho việc bị thu hồi. React cũng xử lý như
+ * phiên hết hạn: mở trang hoặc F5 (/api/me) thì chuyển sang đăng nhập, API khác thì hiện hộp thoại. Đăng nhập lại
+ * thì KeyCloak từ chối (bị khóa) hoặc cấp token có role mới (bị bỏ role).
  * Không gắn @Component: SecurityConfig tự tạo và đặt filter này vào chuỗi filter của Spring Security,
  * nếu là bean thì Spring Boot đăng ký thêm một lần nữa ở ngoài chuỗi đó.
  */
@@ -51,8 +51,7 @@ public class RevokedSessionFilter extends OncePerRequestFilter {
                 session.invalidate();
             }
             SecurityContextHolder.clearContext();
-            apiAuthenticationEntryPoint.commence(request, response,
-                    new InsufficientAuthenticationException("Phiên đăng nhập đã bị thu hồi"));
+            apiAuthenticationEntryPoint.writeUnauthorized(response);
             return;
         }
         filterChain.doFilter(request, response);

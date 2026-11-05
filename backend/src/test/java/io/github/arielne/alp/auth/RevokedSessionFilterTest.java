@@ -54,9 +54,10 @@ class RevokedSessionFilterTest {
                 .with(oidcLogin().idToken(token -> token.subject(KHOA_KEYCLOAK_ID))
                         .authorities(new SimpleGrantedAuthority("ROLE_CHECKER"))));
 
-        // Kiểm tra kết quả
+        // Kiểm tra kết quả: cùng câu trả lời với phiên hết hạn, spec không có thông báo riêng cho việc bị thu hồi
         result.andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.status").value(401));
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.message").value("Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn."));
         assertTrue(session.isInvalid());
     }
 
