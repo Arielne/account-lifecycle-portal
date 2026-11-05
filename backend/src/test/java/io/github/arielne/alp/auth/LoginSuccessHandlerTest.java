@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.arielne.alp.employee.Employee;
 import io.github.arielne.alp.employee.EmployeeService;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -54,7 +55,7 @@ class LoginSuccessHandlerTest {
         // Chuẩn bị: hồ sơ khác đã dùng email này; lưu hồ sơ sẽ vi phạm UNIQUE như database thật
         when(employeeService.isEmailUsedByOtherEmployee(EMAIL, NEW_KEYCLOAK_ID)).thenReturn(true);
         doThrow(new DuplicateKeyException("employee_email_key"))
-                .when(employeeService).saveProfileFromLogin(any(), any(), any());
+                .when(employeeService).updateProfileFromLogin(any(), any(), any());
         doThrow(new DuplicateKeyException("employee_email_key"))
                 .when(employeeService).registerFromFirstLogin(any(), any(), any());
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -71,7 +72,7 @@ class LoginSuccessHandlerTest {
         assertTrue(redirectUrl.startsWith("http://localhost:8080/realms/alp/protocol/openid-connect/logout?"));
         assertTrue(redirectUrl.contains("post_logout_redirect_uri=http://localhost/loi-dang-nhap"));
         assertTrue(redirectUrl.contains("id_token_hint=id-token-value"));
-        verify(employeeService, never()).saveProfileFromLogin(any(), any(), any());
+        verify(employeeService, never()).updateProfileFromLogin(any(), any(), any());
         verify(employeeService, never()).registerFromFirstLogin(any(), any(), any());
     }
 
@@ -87,15 +88,15 @@ class LoginSuccessHandlerTest {
 
         // Kiểm tra kết quả
         verify(employeeService).registerFromFirstLogin(NEW_KEYCLOAK_ID, EMAIL, "Bắc Đẩu Thu");
-        verify(employeeService, never()).saveProfileFromLogin(any(), any(), any());
+        verify(employeeService, never()).updateProfileFromLogin(any(), any(), any());
         assertEquals("/", response.getRedirectedUrl());
     }
 
     @Test
-    @DisplayName("Người đã có hồ sơ đăng nhập lại thì chỉ cập nhật hồ sơ, không ghi audit Tự đăng ký")
-    void laterLoginUpdatesProfile() throws Exception {
-        // Chuẩn bị: hồ sơ đã có
-        when(employeeService.findByKeycloakId(NEW_KEYCLOAK_ID)).thenReturn(new Employee());
+    @DisplayName("Đăng nhập lại, email và họ tên như hồ sơ: không ghi gì vào database, không có dòng audit")
+    void laterLoginWithSameProfileWritesNothing() throws Exception {
+        // Chuẩn bị: hồ sơ đã có, đúng email và họ tên trong token
+        when(employeeService.findByKeycloakId(NEW_KEYCLOAK_ID)).thenReturn(profile(EMAIL, "Bắc Đẩu Thu"));
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         // Chạy
@@ -103,9 +104,51 @@ class LoginSuccessHandlerTest {
                 loggedIn(NEW_KEYCLOAK_ID, EMAIL));
 
         // Kiểm tra kết quả
-        verify(employeeService).saveProfileFromLogin(NEW_KEYCLOAK_ID, EMAIL, "Bắc Đẩu Thu");
+        verify(employeeService, never()).updateProfileFromLogin(any(), any(), any());
         verify(employeeService, never()).registerFromFirstLogin(any(), any(), any());
         assertEquals("/", response.getRedirectedUrl());
+    }
+
+    @Test
+    @DisplayName("Đăng nhập lại sau khi tự đổi email trên KeyCloak: cập nhật hồ sơ qua hàm có ghi audit")
+    void laterLoginWithChangedEmailUpdatesProfileWithAudit() throws Exception {
+        // Chuẩn bị: hồ sơ còn email cũ
+        Employee employee = profile("thu.cu@nhdemo.local", "Bắc Đẩu Thu");
+        when(employeeService.findByKeycloakId(NEW_KEYCLOAK_ID)).thenReturn(employee);
+
+        // Chạy
+        loginSuccessHandler.onAuthenticationSuccess(new MockHttpServletRequest(), new MockHttpServletResponse(),
+                loggedIn(NEW_KEYCLOAK_ID, EMAIL));
+
+        // Kiểm tra kết quả
+        verify(employeeService).updateProfileFromLogin(employee, EMAIL, "Bắc Đẩu Thu");
+    }
+
+    private Employee profile(String email, String fullName) {
+        Employee employee = new Employee();
+        employee.setKeycloakId(NEW_KEYCLOAK_ID);
+        employee.setEmail(email);
+        employee.setFullName(fullName);
+        return employee;
+    }
+
+    @Test
+    @DisplayName("Đăng nhập xong thì chép giờ bắt đầu đăng nhập (LoginStartTimeFilter ghi ở request) vào session")
+    void loginStartTimeIsCopiedToSession() throws Exception {
+        // Chuẩn bị: hồ sơ đã có; filter đã ghi giờ bắt đầu đăng nhập vào request
+        when(employeeService.findByKeycloakId(NEW_KEYCLOAK_ID)).thenReturn(new Employee());
+        Instant loginStartedAt = Instant.parse("2026-11-05T09:30:00Z");
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute(LoginStartTimeFilter.LOGIN_STARTED_AT, loginStartedAt);
+        MockHttpSession session = new MockHttpSession();
+        request.setSession(session);
+
+        // Chạy
+        loginSuccessHandler.onAuthenticationSuccess(request, new MockHttpServletResponse(),
+                loggedIn(NEW_KEYCLOAK_ID, EMAIL));
+
+        // Kiểm tra kết quả
+        assertEquals(loginStartedAt.toEpochMilli(), session.getAttribute(LoginStartTimeFilter.LOGIN_STARTED_AT));
     }
 
     /** Người vừa đăng nhập qua KeyCloak, giống object Spring Security tạo ra sau khi đổi mã lấy token. */

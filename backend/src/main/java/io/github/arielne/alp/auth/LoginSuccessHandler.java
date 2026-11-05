@@ -1,10 +1,12 @@
 package io.github.arielne.alp.auth;
 
+import io.github.arielne.alp.employee.Employee;
 import io.github.arielne.alp.employee.EmployeeService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -14,8 +16,10 @@ import org.springframework.stereotype.Component;
 
 /**
  * Chạy ngay sau khi đăng nhập qua KeyCloak thành công (CN-01, CN-03):
- * thêm hoặc cập nhật hồ sơ nhân viên theo ID token, rồi chuyển trình duyệt về trang chủ "/".
+ * thêm hoặc cập nhật hồ sơ nhân viên theo ID token, lưu giờ bắt đầu đăng nhập vào session (xem LoginStartTimeFilter),
+ * rồi chuyển trình duyệt về trang chủ "/".
  * Người tự đăng ký đăng nhập lần đầu cũng có hồ sơ từ đây, chưa có chi nhánh, và có dòng audit "Tự đăng ký".
+ * Đăng nhập lại mà email, họ tên đã tự sửa trên KeyCloak thì cập nhật hồ sơ kèm dòng audit "Sửa"; không đổi thì không ghi gì.
  * Email trong token đã thuộc hồ sơ khác (spec admin mục 6): không lưu hồ sơ, xóa session, đăng xuất khỏi
  * KeyCloak rồi về trang /loi-dang-nhap của React. Không nối hồ sơ theo email, vì realm không bắt xác minh email.
  */
@@ -39,12 +43,26 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
             return;
         }
         String fullName = VietnameseFullName.fromToken(user);
-        if (employeeService.findByKeycloakId(keycloakId) == null) {
+        Employee employee = employeeService.findByKeycloakId(keycloakId);
+        if (employee == null) {
             employeeService.registerFromFirstLogin(keycloakId, user.getEmail(), fullName);
-        } else {
-            employeeService.saveProfileFromLogin(keycloakId, user.getEmail(), fullName);
+        } else if (employee.differsFrom(user.getEmail(), fullName)) {
+            employeeService.updateProfileFromLogin(employee, user.getEmail(), fullName);
         }
+        rememberLoginStartTime(request);
         response.sendRedirect("/");
+    }
+
+    /**
+     * Chép giờ bắt đầu đăng nhập (LoginStartTimeFilter ghi ở request) vào session, để RevokedSessionFilter so với
+     * mốc thu hồi. Lưu số mili giây cho gọn khi Spring Session ghi xuống Redis.
+     */
+    private void rememberLoginStartTime(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        Object startedAt = request.getAttribute(LoginStartTimeFilter.LOGIN_STARTED_AT);
+        if (session != null && startedAt instanceof Instant loginStartedAt) {
+            session.setAttribute(LoginStartTimeFilter.LOGIN_STARTED_AT, loginStartedAt.toEpochMilli());
+        }
     }
 
     /** Xóa session của app, rồi đi qua trang đăng xuất của KeyCloak để kết thúc luôn phiên SSO trước khi về trang lỗi. */

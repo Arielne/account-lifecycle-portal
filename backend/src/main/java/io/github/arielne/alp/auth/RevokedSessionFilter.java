@@ -46,7 +46,7 @@ public class RevokedSessionFilter extends OncePerRequestFilter {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         HttpSession session = request.getSession(false);
         if (authentication != null && authentication.getPrincipal() instanceof OidcUser user
-                && employeeService.isSessionRevoked(user.getSubject(), sessionCreatedAt(session))) {
+                && employeeService.isSessionRevoked(user.getSubject(), loginStartedAt(session))) {
             if (session != null) {
                 session.invalidate();
             }
@@ -58,12 +58,17 @@ public class RevokedSessionFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Lúc session được tạo, tức lúc bắt đầu đăng nhập (Spring Session giữ nguyên lúc tạo khi đổi mã session sau đăng nhập).
+     * Giờ bắt đầu đổi code lấy token của lần đăng nhập này (LoginSuccessHandler lưu, xem LoginStartTimeFilter).
+     * Session chưa có giờ đó (đăng nhập trước khi có code này) thì dùng giờ tạo session: sớm hơn giờ đăng nhập,
+     * nên chỉ có thể đẩy ra thừa, không để lọt phiên đã bị thu hồi.
      * Không có session (đăng nhập OAuth2 luôn có) thì coi như phiên vừa tạo.
      */
-    private Instant sessionCreatedAt(HttpSession session) {
+    private Instant loginStartedAt(HttpSession session) {
         if (session == null) {
             return Instant.now();
+        }
+        if (session.getAttribute(LoginStartTimeFilter.LOGIN_STARTED_AT) instanceof Long startedAtMillis) {
+            return Instant.ofEpochMilli(startedAtMillis);
         }
         return Instant.ofEpochMilli(session.getCreationTime());
     }

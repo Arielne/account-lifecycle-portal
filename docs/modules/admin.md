@@ -159,10 +159,10 @@ Quy tắc:
 
 ### Thêm nhân viên
 
-1. Kiểm tra: họ tên có ít nhất 2 từ; email đúng dạng và chưa có trong `employee` (trùng thì 409 "Email đã có hồ sơ nhân viên"); muốn gán `MAKER` hoặc `CHECKER` thì phải chọn chi nhánh.
+1. Kiểm tra: họ tên có ít nhất 2 từ; email đúng dạng và chưa có trong `employee` (trùng thì 409 "Email đã có hồ sơ nhân viên"); muốn gán `MAKER` hoặc `CHECKER` thì phải chọn chi nhánh; `ADMIN` không đi cùng `MAKER` hoặc `CHECKER` (409).
 2. Admin API tạo user: username và email là email đã nhập; Họ là phần trước từ cuối, Tên là từ cuối của họ tên ("Nguyễn Thị Lan" → Họ "Nguyễn Thị", Tên "Lan"); `enabled = true`. KeyCloak báo email đã có tài khoản thì trả 409 với câu tiếng Việt.
 3. Lưu dòng `employee` (`status = ACTIVE`, chi nhánh đã chọn) và gán role đã chọn qua Admin API.
-4. Gửi mail để người đó tự đặt mật khẩu (execute actions email, `UPDATE_PASSWORD`); KeyCloak gửi qua SMTP của realm tới Mailpit.
+4. Gửi mail để người đó tự đặt mật khẩu (execute actions email, `UPDATE_PASSWORD`); KeyCloak gửi qua SMTP của realm tới Mailpit. Mail này gửi ngay trong transaction, không đợi commit: gửi lỗi thì hủy cả việc thêm, vì chưa có chức năng gửi lại mail.
 5. Bước 3 hoặc 4 lỗi, hay transaction bị hủy ở bước sau (ghi audit, commit), thì transaction hủy dòng `employee`, và backend xóa user vừa tạo trên KeyCloak để hai bên không lệch.
 
 Mỗi lần ghi lên KeyCloak, Service đăng ký luôn việc làm ngược lại; Spring chạy việc đó sau khi transaction bị hủy hoặc commit lỗi, commit được thì bỏ qua (`TransactionSynchronization`). Áp dụng cho mọi thao tác ở mục này: thêm (xóa user), sửa (trả email, họ tên cũ), gán role (bỏ role vừa thêm, thêm lại role vừa bỏ), khóa và mở khóa (đặt lại `enabled`). Làm ngược lại cũng lỗi thì ghi log kèm dữ liệu để sửa tay trên KeyCloak (`keycloak_id`, tên role, email và họ tên cũ). Mất kết nối database đúng lúc commit thì không rõ database đã lưu hay chưa (Spring báo `STATUS_UNKNOWN`), nên vẫn làm ngược lại và ghi log để đối chiếu hồ sơ với KeyCloak.
@@ -177,10 +177,11 @@ Mỗi lần ghi lên KeyCloak, Service đăng ký luôn việc làm ngược l�
 
 - Danh sách role mới thay cho danh sách cũ: backend so với role hiện có trên KeyCloak rồi thêm hoặc bỏ từng role. Mỗi lần gán ghi 1 dòng audit.
 - `MAKER`, `CHECKER` chỉ gán được khi đã có chi nhánh; `ADMIN` không cần chi nhánh.
-- Người đang Chờ cấp quyền được gán role đầu tiên thì gửi mail "Tài khoản đã được kích hoạt", nhắc đăng nhập lại (CN-05). Tuần 4 gửi thẳng bằng Spring Mail tới Mailpit qua một class trong `notification`, comment ghi rõ là tạm; tuần 9 đổi sang Outbox + Kafka (B2). Trên máy gửi tới `localhost:1025`; trong Docker gửi tới `mailpit:1025`.
+- `ADMIN` không đi cùng `MAKER` hoặc `CHECKER` (docs/01-chuc-nang.md mục 1): backend trả 409, Drawer báo lỗi dưới ô Role trước khi gửi.
+- Người đang Chờ cấp quyền được gán role đầu tiên thì gửi mail "Tài khoản đã được kích hoạt", nhắc đăng nhập lại (CN-05). Mail chỉ gửi sau khi transaction commit (`afterCommit`): commit lỗi thì role trên KeyCloak được trả lại, nên không được báo đã kích hoạt. Hiện gửi thẳng bằng Spring Mail tới Mailpit qua một class trong `notification`, comment ghi rõ là tạm; sau đổi sang Outbox + Kafka (B2). Trên máy gửi tới `localhost:1025`; trong Docker gửi tới `mailpit:1025`.
 - Role nằm trong token nên nhân viên phải đăng nhập lại mới nhận quyền mới.
 - Có bỏ role thì backend ghi `employee.sessions_invalid_before` (thời điểm ngay sau khi KeyCloak bỏ role): phiên đang mở của người đó bị bộ lọc trong `auth` đẩy ra ở thao tác kế tiếp, để role vừa bỏ không còn dùng được. Chỉ thêm role thì không đẩy ra.
-- Màn hình: một Drawer dùng chung cho Thêm, Sửa, Gán role theo bản thiết kế. Drawer Gán role có cả ô Chi nhánh; đổi chi nhánh thì lưu chi nhánh trước rồi mới gán role.
+- Màn hình: một Drawer dùng chung cho Thêm, Sửa, Gán role theo bản thiết kế. Drawer Gán role có cả ô Chi nhánh; đổi chi nhánh thì lưu chi nhánh trước rồi mới gán role. Lưu chi nhánh xong mà gán role lỗi thì bảng tải lại (chi nhánh đã đổi), Drawer giữ nguyên; bấm Lưu lần nữa chỉ gán role, không lưu lại chi nhánh.
 
 ### Khóa và mở khóa (A1 của tuần 3)
 
@@ -188,13 +189,15 @@ Mỗi lần ghi lên KeyCloak, Service đăng ký luôn việc làm ngược l�
 - Đăng xuất trên KeyCloak lỗi thì chỉ ghi log, không hủy việc khóa: tài khoản đã tắt nên KeyCloak không cho đăng nhập lại (kể cả bằng phiên SSO còn lại), và phiên của app đã bị thu hồi.
 - Mở khóa: `status = ACTIVE`, `enabled = true`.
 - Khóa cũng ghi `sessions_invalid_before`, nên mở khóa trước khi người đó gọi API thì phiên cũ vẫn không dùng lại được.
-- Bộ lọc trong `auth` (`RevokedSessionFilter`): mỗi request vào `/api` của người đã đăng nhập đọc `employee.status` và `sessions_invalid_before` theo `keycloak_id`; gặp `LOCKED`, hoặc session tạo trước `sessions_invalid_before`, thì xóa session và trả 401 dạng JSON. React xử lý như phiên hết hạn: mở trang hoặc F5 (`/api/me`) thì chuyển sang đăng nhập, API khác thì hiện hộp thoại phiên hết hạn; không có thông báo riêng cho việc bị thu hồi. Đăng nhập lại thì KeyCloak từ chối vì tài khoản đã tắt (bị khóa), hoặc cấp token có role mới (bị bỏ role).
+- Bộ lọc trong `auth` (`RevokedSessionFilter`): mỗi request vào `/api` của người đã đăng nhập đọc `employee.status` và `sessions_invalid_before` theo `keycloak_id`; gặp `LOCKED`, hoặc phiên đăng nhập trước `sessions_invalid_before`, thì xóa session và trả 401 dạng JSON.
+- Giờ đăng nhập so với mốc là lúc bắt đầu đổi code lấy token (`LoginStartTimeFilter` ghi ở request KeyCloak chuyển về, đăng nhập thành công thì chép vào session). Không dùng giờ tạo session: session có từ lúc mở trang đăng nhập KeyCloak, đổi mã session sau đăng nhập vẫn giữ giờ tạo cũ, nên người đăng nhập xong sau mốc bị đẩy ra thêm 1 lần. Session chưa có giờ đăng nhập thì dùng giờ tạo session. React xử lý như phiên hết hạn: mở trang hoặc F5 (`/api/me`) thì chuyển sang đăng nhập, API khác thì hiện hộp thoại phiên hết hạn; không có thông báo riêng cho việc bị thu hồi. Đăng nhập lại thì KeyCloak từ chối vì tài khoản đã tắt (bị khóa), hoặc cấp token có role mới (bị bỏ role).
 
 ### Email trùng khi đăng nhập (lỗi phát hiện ở tuần 3)
 
 - Tình huống: đăng nhập KeyCloak thành công nhưng email trong token đã thuộc một hồ sơ `employee` có `keycloak_id` khác (đăng ký lại sau khi xóa realm, hoặc đổi email trên KeyCloak trùng người khác). Hiện tại câu `INSERT` vi phạm UNIQUE của cột `email` và người dùng thấy trang lỗi.
 - Sửa: không lưu hồ sơ, xóa session, chuyển trình duyệt tới route `/loi-dang-nhap` của React. Trang này nằm ngoài phần cần đăng nhập (không gọi `/api/me`), hiện Result "Email ... đã gắn với một hồ sơ nhân viên khác. Liên hệ Admin để được hỗ trợ." kèm cách đăng xuất khỏi KeyCloak để đăng nhập tài khoản khác.
 - Không nối hồ sơ theo email: realm không bắt xác minh email, nên ai cũng đăng ký được bằng email của người khác.
+- Nhân viên tự sửa email, họ tên trên trang tài khoản của KeyCloak: lần đăng nhập sau, email hoặc họ tên trong token khác hồ sơ thì lưu giá trị mới và ghi 1 dòng audit "Sửa", người làm là chính người đó. Không đổi gì thì không ghi database, không có dòng audit.
 - Viết test tái hiện đúng lỗi trước, chạy thấy đỏ, rồi mới sửa.
 
 ### Gọi Admin API
@@ -221,10 +224,10 @@ Backend, test nhanh (`*Test`, `@WebMvcTest`, service KeyCloak và mail thay bằ
 2. Thêm loại tài khoản sai mã → 400 có `fieldErrors`; mã trùng → 409; sửa không đổi được mã.
 3. Xóa loại tài khoản, chi nhánh đang được dùng → 409.
 4. Thêm nhân viên trùng email → 409; tạo trên KeyCloak xong mà lưu hồ sơ lỗi, hoặc transaction bị hủy ở bước sau → user trên KeyCloak bị xóa. Sửa, gán role, khóa, mở khóa mà transaction bị hủy → KeyCloak được trả về như cũ; đăng xuất trên KeyCloak lỗi → vẫn khóa. Mất kết nối database lúc commit → vẫn làm ngược lại và ghi log để đối chiếu; làm ngược lại lỗi → log ghi đủ dữ liệu để sửa tay.
-5. Gán `MAKER` cho người chưa có chi nhánh → 409; Admin tự khóa mình hoặc tự đổi role của mình → 409.
-6. Gán role đầu tiên cho người Chờ cấp quyền → gửi mail kích hoạt; thêm role cho người đã có role → không gửi.
-7. Khóa → gọi tắt tài khoản và đăng xuất phiên trên KeyCloak; người bị khóa gọi `/api` → 401 và session bị xóa. Bỏ role → ghi `sessions_invalid_before` sau khi KeyCloak bỏ role; chỉ thêm role → không ghi; session tạo trước mốc đó gọi `/api` → 401, tạo sau → đi qua.
-8. Đăng nhập bằng email đã thuộc hồ sơ khác → chuyển tới `/loi-dang-nhap`, không có session, không lỗi 500.
+5. Gán `MAKER` cho người chưa có chi nhánh → 409; gán `ADMIN` cùng `MAKER` hoặc `CHECKER` → 409; Admin tự khóa mình hoặc tự đổi role của mình → 409.
+6. Gán role đầu tiên cho người Chờ cấp quyền → gửi mail kích hoạt sau khi commit, transaction bị hủy → không gửi; thêm role cho người đã có role → không gửi.
+7. Khóa → gọi tắt tài khoản và đăng xuất phiên trên KeyCloak; người bị khóa gọi `/api` → 401 và session bị xóa. Bỏ role → ghi `sessions_invalid_before` sau khi KeyCloak bỏ role; chỉ thêm role → không ghi; đăng nhập trước mốc đó gọi `/api` → 401, đăng nhập sau → đi qua, kể cả khi session tạo trước mốc.
+8. Đăng nhập bằng email đã thuộc hồ sơ khác → chuyển tới `/loi-dang-nhap`, không có session, không lỗi 500. Đăng nhập với email đã tự đổi trên KeyCloak → cập nhật hồ sơ kèm 1 dòng audit "Sửa"; không đổi gì → không có dòng audit.
 
 Backend, test chậm (`*IT`, Testcontainers):
 
@@ -235,7 +238,7 @@ Backend, test chậm (`*IT`, Testcontainers):
 Frontend (Vitest + React Testing Library):
 
 12. Form danh mục: báo lỗi đúng ô khi backend trả `fieldErrors`; nút Xóa loại tài khoản bị khóa khi còn tài khoản dùng.
-13. Màn Nhân viên: người Chờ cấp quyền ở đầu; dòng "(bạn)" chỉ có nút Sửa; Khóa phải xác nhận.
+13. Màn Nhân viên: người Chờ cấp quyền ở đầu; dòng "(bạn)" chỉ có nút Sửa; Khóa phải xác nhận. Drawer Gán role: chọn Admin cùng Kiểm soát viên thì báo lỗi, không gọi API; đổi chi nhánh mà gán role lỗi thì bảng tải lại, bấm Lưu lần nữa chỉ gán role.
 14. Màn Audit log: chỉ dòng có từ 2 trường thay đổi mới mở rộng được; hiện nhãn, không hiện mã.
 
 ## 9. Nhánh và Pull Request

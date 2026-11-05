@@ -62,7 +62,31 @@ class RevokedSessionFilterTest {
     }
 
     @Test
-    @DisplayName("Phiên chưa bị thu hồi thì đi qua bộ lọc bình thường; bộ lọc gửi đúng lúc session được tạo")
+    @DisplayName("Session tạo trước mốc thu hồi nhưng đăng nhập xong sau mốc thì đi qua, không bị đẩy ra thêm lần nữa")
+    void sessionCreatedBeforeRevocationButLoggedInAfterPassesThrough() throws Exception {
+        // Chuẩn bị: session tạo lúc mở trang đăng nhập KeyCloak; Admin thu hồi 5 phút sau; 10 phút sau mới đăng nhập xong.
+        // Mock làm đúng quy tắc của EmployeeService: thu hồi khi giờ được gửi sang sớm hơn mốc.
+        MockHttpSession session = new MockHttpSession();
+        Instant sessionCreatedAt = Instant.ofEpochMilli(session.getCreationTime());
+        Instant revokedAt = sessionCreatedAt.plusSeconds(5 * 60);
+        Instant loginStartedAt = sessionCreatedAt.plusSeconds(10 * 60);
+        session.setAttribute(LoginStartTimeFilter.LOGIN_STARTED_AT, loginStartedAt.toEpochMilli());
+        when(employeeService.isSessionRevoked(eq(KHOA_KEYCLOAK_ID), any()))
+                .thenAnswer(invocation -> invocation.<Instant>getArgument(1).isBefore(revokedAt));
+
+        // Chạy
+        ResultActions result = mockMvc.perform(get("/api/me").session(session)
+                .with(oidcLogin().idToken(token -> token.subject(KHOA_KEYCLOAK_ID))
+                        .authorities(new SimpleGrantedAuthority("ROLE_CHECKER"))));
+
+        // Kiểm tra kết quả: bộ lọc gửi giờ đăng nhập, không gửi giờ tạo session
+        result.andExpect(status().isOk());
+        assertFalse(session.isInvalid());
+        verify(employeeService).isSessionRevoked(KHOA_KEYCLOAK_ID, loginStartedAt);
+    }
+
+    @Test
+    @DisplayName("Session chưa có giờ đăng nhập (đăng nhập từ trước khi có giờ này) thì bộ lọc gửi lúc session được tạo")
     void validSessionPassesThrough() throws Exception {
         // Chuẩn bị: không thu hồi (mock trả false)
         MockHttpSession session = new MockHttpSession();

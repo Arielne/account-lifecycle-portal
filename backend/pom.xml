@@ -167,7 +167,7 @@
                 <artifactId>maven-failsafe-plugin</artifactId>
             </plugin>
             <!-- JaCoCo đo test đã chạy qua những dòng code nào; báo cáo ở target/site/jacoco/index.html.
-                 Chưa đặt ngưỡng coverage tối thiểu, sẽ đặt khi đã có số liệu thật. -->
+                 Có ngưỡng coverage tối thiểu (execution check bên dưới). -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
@@ -187,6 +187,34 @@
                         <goals>
                             <goal>report</goal>
                         </goals>
+                    </execution>
+                    <!-- Ngưỡng tối thiểu cho cả backend, xét sau khi đã tạo báo cáo: thấp hơn thì mvnw verify và CI báo lỗi.
+                         Lúc đặt ngưỡng đo được dòng 81,9%, nhánh 74,2%; ngưỡng thấp hơn một chút để code mới phải có test đi kèm. -->
+                    <execution>
+                        <id>check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.70</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

@@ -1,5 +1,6 @@
 // Drawer dùng chung cho Thêm nhân viên, Sửa hồ sơ, Gán role (CN-22, màn 3.4).
 // Form kiểm tra trước cùng quy tắc với backend; backend vẫn kiểm lại, lỗi trả về hiện dưới đúng ô (QT-07).
+import { useState } from 'react'
 import { Alert, App, Badge, Button, Checkbox, Drawer, Flex, Form, Input, Select, Typography } from 'antd'
 import type { FormRule } from 'antd'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -49,15 +50,37 @@ function EmployeeDrawer({ mode, employee, branches, onClose }: EmployeeDrawerPro
   const [form] = Form.useForm<EmployeeFormValues>()
   const { message } = App.useApp()
   const queryClient = useQueryClient()
+  // Chi nhánh đang lưu trong database. Gán role mà lưu chi nhánh xong, gán role lỗi, thì bấm Lưu lần nữa
+  // chỉ gán role, không lưu lại chi nhánh (nếu lưu lại sẽ thừa một dòng audit "Không có trường nào thay đổi").
+  const [savedBranchId, setSavedBranchId] = useState<number | null>(employee?.branchId ?? null)
+
+  /** Gán role mà đổi chi nhánh thì lưu chi nhánh trước rồi mới gán role (spec admin mục 6). */
+  async function saveBranchThenRoles(target: Employee, values: EmployeeFormValues) {
+    const branchId = values.branchId ?? null
+    if (branchId !== savedBranchId) {
+      await updateEmployee(target.id, { fullName: target.fullName, email: target.email, branchId })
+      setSavedBranchId(branchId)
+    }
+    await assignEmployeeRoles(target.id, values.roles)
+  }
 
   const saveMutation = useMutation({
-    mutationFn: (values: EmployeeFormValues) => saveEmployee(mode, employee, values),
+    mutationFn: (values: EmployeeFormValues) => {
+      if (mode === 'assign' && employee !== null) {
+        return saveBranchThenRoles(employee, values)
+      }
+      return saveProfile(mode, employee, values)
+    },
     onSuccess: () => {
       message.success(SUCCESS_MESSAGES[mode])
       queryClient.invalidateQueries({ queryKey: EMPLOYEES_QUERY_KEY })
       onClose()
     },
-    onError: (error) => showApiError(error, message, form),
+    onError: (error) => {
+      showApiError(error, message, form)
+      // Lỗi ở bước gán role thì chi nhánh có thể đã lưu, nên tải lại bảng để bảng không hiện chi nhánh cũ.
+      queryClient.invalidateQueries({ queryKey: EMPLOYEES_QUERY_KEY })
+    },
   })
 
   const footer = (
@@ -86,21 +109,13 @@ function EmployeeDrawer({ mode, employee, branches, onClose }: EmployeeDrawerPro
   )
 }
 
-/** Gọi API theo chế độ của Drawer. Gán role mà đổi chi nhánh thì lưu chi nhánh trước rồi mới gán role (spec mục 6). */
-async function saveEmployee(mode: DrawerMode, employee: Employee | null, values: EmployeeFormValues) {
+/** Drawer Thêm và Sửa: mỗi lần lưu gọi đúng một API. */
+async function saveProfile(mode: DrawerMode, employee: Employee | null, values: EmployeeFormValues) {
   if (mode === 'create' || employee === null) {
     await createEmployee(values)
     return
   }
-  const branchId = values.branchId ?? null
-  if (mode === 'edit') {
-    await updateEmployee(employee.id, { fullName: values.fullName, email: values.email, branchId })
-    return
-  }
-  if (branchId !== employee.branchId) {
-    await updateEmployee(employee.id, { fullName: employee.fullName, email: employee.email, branchId })
-  }
-  await assignEmployeeRoles(employee.id, values.roles)
+  await updateEmployee(employee.id, { fullName: values.fullName, email: values.email, branchId: values.branchId ?? null })
 }
 
 function okLabel(mode: DrawerMode, employee: Employee | null): string {
@@ -188,10 +203,26 @@ function BranchField({ branches, fixedRoles }: { branches: Branch[]; fixedRoles:
   )
 }
 
+/** Admin không giữ thêm Giao dịch viên hoặc Kiểm soát viên (docs/01-chuc-nang.md mục 1); backend cũng chặn (409). */
+const adminNotCombinedRule: FormRule = {
+  validator(_rule, roles: AppRole[] | undefined) {
+    const selectedRoles = roles ?? []
+    const hasBranchRole = selectedRoles.includes('MAKER') || selectedRoles.includes('CHECKER')
+    if (selectedRoles.includes('ADMIN') && hasBranchRole) {
+      return Promise.reject(new Error('Admin không giữ thêm role Giao dịch viên hoặc Kiểm soát viên'))
+    }
+    return Promise.resolve()
+  },
+}
+
 function RoleField() {
   return (
     <>
-      <Form.Item name="roles" label="Role" rules={[{ required: true, message: 'Chọn ít nhất một role' }]}>
+      <Form.Item
+        name="roles"
+        label="Role"
+        rules={[{ required: true, message: 'Chọn ít nhất một role' }, adminNotCombinedRule]}
+      >
         <Checkbox.Group>
           <Flex vertical gap={12}>
             {ROLE_OPTIONS.map((option) => (

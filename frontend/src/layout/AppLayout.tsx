@@ -1,6 +1,7 @@
 // Layout chung cho người đã có role (màn 2.1): Sider rộng 232 với menu theo role, Header, phần nội dung.
 // Trang con hiện ở chỗ <Outlet /> (React Router).
-import { Layout, Menu } from 'antd'
+import { Suspense } from 'react'
+import { Flex, Layout, Menu, Spin } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import { useCurrentUser } from '../pages/auth/useCurrentUser.ts'
 import AppHeader from './AppHeader.tsx'
@@ -33,7 +34,17 @@ function AppLayout() {
           <AppHeader />
         </Layout.Header>
         <Layout.Content className={styles.content}>
-          <Outlet />
+          {/* Suspense: trong lúc tải file JS của màn (React.lazy trong router.tsx) thì hiện Spin ở vùng nội dung,
+              menu và header vẫn giữ nguyên. */}
+          <Suspense
+            fallback={
+              <Flex justify="center" style={{ padding: 48 }}>
+                <Spin />
+              </Flex>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </Layout.Content>
       </Layout>
     </Layout>

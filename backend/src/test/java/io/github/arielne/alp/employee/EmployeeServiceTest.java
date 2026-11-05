@@ -1,8 +1,10 @@
 package io.github.arielne.alp.employee;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.arielne.alp.common.AuditNote;
@@ -14,8 +16,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test nhanh cho việc quyết định phiên đăng nhập còn dùng được không (spec admin mục 6):
- * bị khóa, hoặc phiên tạo trước lần bị bỏ role gần nhất, thì phiên bị thu hồi.
+ * Test nhanh cho EmployeeService (spec admin mục 6): phiên đăng nhập còn dùng được không (bị khóa, hoặc đăng nhập
+ * trước lần bị bỏ role gần nhất, thì phiên bị thu hồi), và cập nhật hồ sơ lúc đăng nhập kèm nội dung audit.
  */
 class EmployeeServiceTest {
 
@@ -23,12 +25,33 @@ class EmployeeServiceTest {
     private static final OffsetDateTime REVOKED_AT = OffsetDateTime.of(2026, 10, 30, 9, 0, 0, 0, ZoneOffset.ofHours(7));
 
     private EmployeeMapper employeeMapper;
+    private AuditNote auditNote;
     private EmployeeService service;
 
     @BeforeEach
     void setUp() {
         employeeMapper = mock(EmployeeMapper.class);
-        service = new EmployeeService(employeeMapper, new AuditNote());
+        auditNote = new AuditNote();
+        service = new EmployeeService(employeeMapper, auditNote);
+    }
+
+    @Test
+    @DisplayName("Đăng nhập với email đã tự đổi trên KeyCloak: lưu email mới, audit ghi Email cũ → mới")
+    void updateProfileFromLoginRecordsEmailChange() {
+        // Chuẩn bị: hồ sơ còn email cũ
+        Employee employee = new Employee();
+        employee.setKeycloakId(KEYCLOAK_ID);
+        employee.setEmail("khoa.cu@nhdemo.local");
+        employee.setFullName("Trần Minh Khoa");
+
+        // Chạy
+        service.updateProfileFromLogin(employee, "khoa.tm@nhdemo.local", "Trần Minh Khoa");
+
+        // Kiểm tra kết quả: chỉ email đổi nên mô tả nói đúng trường đó
+        verify(employeeMapper).upsertFromLogin(KEYCLOAK_ID, "khoa.tm@nhdemo.local", "Trần Minh Khoa");
+        assertEquals("khoa.tm@nhdemo.local", auditNote.getObjectId());
+        assertEquals("Email: khoa.cu@nhdemo.local → khoa.tm@nhdemo.local", auditNote.getDescription());
+        assertEquals(1, auditNote.getChanges().size());
     }
 
     @Test
