@@ -18,6 +18,7 @@ Tuần 1 (21–24/10/2026): làm tài liệu và sơ đồ. Chưa có code.
 ## Công nghệ
 
 - Frontend: React 19 + TypeScript + Vite, Ant Design 6, TanStack Query
+- Frontend 2 màn báo cáo (Import Excel, Xuất báo cáo): Angular + NG-ZORRO, thư mục `frontend-angular/`, dùng chung cookie phiên với app React
 - Backend: Java 21, Spring Boot 3.5, MyBatis, Camunda 7.24 (embedded)
 - Đăng nhập: KeyCloak 26, session phía server (Spring Session trên Redis)
 - Dữ liệu: Supabase (Postgres 17 và Storage)

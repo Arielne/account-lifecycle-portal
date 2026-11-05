@@ -27,6 +27,7 @@ Ghi chú:
 
 - Một nhân viên có thể giữ cả `MAKER` và `CHECKER` (tài khoản demo `anh.vd`). Menu là hợp các role, nhưng người đó vẫn không duyệt được phiếu do chính mình tạo.
 - Admin chỉ gán được role Giao dịch viên hoặc Kiểm soát viên khi nhân viên đã có chi nhánh.
+- Admin không giữ thêm role Giao dịch viên hoặc Kiểm soát viên, vì Admin không được xem khách hàng, tài khoản, phiếu. Gán role có Admin đi cùng 1 trong 2 role đó thì báo lỗi.
 - Được thêm role thì nhân viên phải đăng nhập lại mới nhận quyền mới. Bị bỏ role thì phiên đang mở bị đẩy ra ở thao tác kế tiếp, để role vừa bỏ không còn dùng được.
 - Không có nút đổi người dùng. Muốn đổi tài khoản thì đăng xuất rồi đăng nhập tài khoản khác.
 
@@ -120,7 +121,9 @@ Luồng quy trình: Giao dịch viên tạo phiếu → Kiểm soát viên duy�
 
 Màn dùng chung: 2.1 Layout (menu theo role, header có tên, chi nhánh, role và nút Đăng xuất), 3.1 Đăng nhập (trang của KeyCloak), 3.13 Trạng thái phụ (bảng rỗng, đang tải, 403, 404, 500, chờ cấp quyền), 3.14 Mẫu báo cáo PDF.
 
-Ẩn menu chưa đủ: route trong React cũng chặn theo role, và backend chặn thêm một lần nữa. Gõ thẳng URL trái quyền thì ra trang 403.
+Ẩn menu chưa đủ: route trong React (và Angular với 2 màn báo cáo) cũng chặn theo role, và backend chặn thêm một lần nữa. Gõ thẳng URL trái quyền thì ra trang 403.
+
+Hai màn 3.11 Import Excel và 3.12 Xuất báo cáo là một app Angular riêng (thư mục `frontend-angular/`, giao diện NG-ZORRO); mọi màn còn lại là app React. Nginx chuyển `/bao-cao/` tới app Angular, còn lại tới app React; hai app cùng domain nên dùng chung cookie phiên. App Angular có header và menu giống app React, chặn route theo role, xử lý 401 và có trang 403, 404 riêng. Mục menu thuộc app kia thì mở bằng chuyển trang (tải lại trang), không đi qua router.
 
 ## 4. Chức năng chi tiết
 
@@ -142,7 +145,7 @@ Phần này do KeyCloak làm, app không tự viết trang đăng nhập hay lư
 
 | Mã | Chức năng | Ai | Ghi chú |
 | --- | --- | --- | --- |
-| CN-06 | Xem tổng quan | Mọi role | Giao dịch viên và Kiểm soát viên thấy số tài khoản theo 5 trạng thái; bấm một thẻ thì mở danh sách Tài khoản đã lọc theo trạng thái đó. Khối giữa đổi theo role: Kiểm soát viên thấy "Phiếu chờ tôi duyệt" (phiếu của chi nhánh mình, đã loại phiếu do mình tạo); Giao dịch viên thấy "Phiếu của tôi" (phiếu bị từ chối luôn ở trên cùng); Admin thấy "Nhân viên chờ cấp quyền". Khối "Hoạt động gần đây" lấy 6 dòng mới nhất của Audit log. Số liệu tính bằng Function trong DB. |
+| CN-06 | Xem tổng quan | Mọi role | Việc đang chờ người dùng nằm trên cùng. Kiểm soát viên: số phiếu đang chờ mình duyệt và số phiếu đã chờ quá 24 giờ (cách tính ở CN-14), nút "Duyệt từ phiếu cũ nhất" mở màn Chờ duyệt ở phiếu gửi sớm nhất; dưới là danh sách phiếu chờ, phiếu quá 24 giờ tô màu cảnh báo. Chỉ tính phiếu của chi nhánh mình, đã loại phiếu do mình tạo. Giao dịch viên: thẻ "Phiếu bị trả lại, cần sửa" (chỉ hiện khi có phiếu Bị từ chối; có lý do từ chối và nút "Sửa và gửi lại"; nhiều phiếu thì xếp dọc, bị từ chối sớm nhất ở trên); hàng "Tạo phiếu nhanh", mỗi ô một loại phiếu, bấm vào thì vào thẳng bước 2 của Tạo phiếu (CN-11); khối "Phiếu của tôi" gồm phiếu đang chờ duyệt (kèm thời gian chờ) và phiếu xong gần đây. Admin: số nhân viên chờ cấp quyền và danh sách của họ. Người giữ cả Giao dịch viên và Kiểm soát viên thấy các khối theo thứ tự: phiếu bị trả lại, phiếu chờ mình duyệt, Tạo phiếu nhanh, Phiếu của tôi. Giao dịch viên và Kiểm soát viên có thêm 1 hàng nhỏ cuối màn: số tài khoản theo 5 trạng thái, bấm một trạng thái thì mở danh sách Tài khoản đã lọc theo trạng thái đó. Không có khối "Hoạt động gần đây" ở role nào. Số liệu tính bằng Function trong DB. |
 
 ### 4.3 Khách hàng và tài khoản
 
@@ -157,12 +160,12 @@ Phần này do KeyCloak làm, app không tự viết trang đăng nhập hay lư
 
 | Mã | Chức năng | Ai | Ghi chú |
 | --- | --- | --- | --- |
-| CN-11 | Tạo phiếu | Giao dịch viên | 4 bước: chọn loại phiếu → khách hàng hoặc tài khoản → lý do và giấy tờ → xác nhận. Chi tiết ở dưới bảng. |
+| CN-11 | Tạo phiếu | Giao dịch viên | 4 bước: chọn loại phiếu → khách hàng hoặc tài khoản → lý do và giấy tờ → xác nhận. Bắt đầu từ hàng "Tạo phiếu nhanh" ở Tổng quan thì loại phiếu đã chọn sẵn, bỏ bước 1. Chi tiết ở dưới bảng. |
 | CN-12 | Sửa và gửi lại phiếu bị từ chối | Giao dịch viên (người tạo) | Sửa theo lý do từ chối rồi gửi lại; phiếu quay về Chờ duyệt, số lần gửi tăng thêm 1. Phiếu lô chỉ được bỏ dòng, không sửa dòng (xem CN-18). |
 | CN-13 | Hủy phiếu | Giao dịch viên (người tạo) | Chỉ khi phiếu Chờ duyệt hoặc Bị từ chối. Phiếu sang Đã hủy, backend dừng quy trình Camunda. Phiếu Mở tài khoản bị hủy thì tài khoản Chờ mở sang Đã đóng. Phiếu bị từ chối mà người tạo không sửa, không hủy thì tài khoản giữ nguyên Chờ mở; hệ thống không tự hủy. |
-| CN-14 | Xem danh sách phiếu | Giao dịch viên, Kiểm soát viên | Tab theo trạng thái (Tất cả, Chờ duyệt, Đã duyệt, Bị từ chối, Hoàn tất, Đã hủy); lọc theo mã phiếu, loại phiếu, chi nhánh, khoảng ngày. "Tất cả phiếu" xem được phiếu của mọi chi nhánh. Danh sách Chờ duyệt của Kiểm soát viên: chỉ phiếu thuộc chi nhánh mình (không có bộ lọc chi nhánh), không gồm phiếu do mình tạo, phiếu gửi sớm nhất ở trên, chờ quá 24 giờ thì tô màu cảnh báo, không có nút duyệt nhanh. |
-| CN-15 | Xem chi tiết phiếu | Giao dịch viên, Kiểm soát viên | Steps cho biết phiếu đang ở bước nào; nội dung yêu cầu (trạng thái trước → sau); giấy tờ đính kèm (xem và tải, không xóa); Timeline lịch sử xử lý. Phiếu lô có thêm bảng khách trong lô, phân trang ở backend. |
-| CN-16 | Duyệt phiếu | Kiểm soát viên | Hỏi xác nhận trước khi duyệt. Backend kiểm tra người duyệt khác người tạo và cùng chi nhánh với phiếu rồi mới báo Camunda hoàn thành task. Phiếu lô: xem CN-18. |
+| CN-14 | Xem danh sách phiếu | Giao dịch viên, Kiểm soát viên | Tab theo trạng thái (Tất cả, Chờ duyệt, Đã duyệt, Bị từ chối, Hoàn tất, Đã hủy); lọc theo mã phiếu, loại phiếu, chi nhánh, khoảng ngày. "Tất cả phiếu" xem được phiếu của mọi chi nhánh. Màn Chờ duyệt của Kiểm soát viên chia 2 cột: bên trái là danh sách, bên phải là chi tiết phiếu đang chọn (CN-15) kèm nút Duyệt, Từ chối. Duyệt hoặc từ chối xong thì tải lại danh sách từ backend theo bộ lọc đang bật rồi tự mở phiếu đầu danh sách; nút Duyệt, Từ chối khóa trong lúc đang gửi và tới khi phiếu kế tải xong, để bấm nhanh không xử lý nhầm phiếu kế. Phiếu vừa bị người khác xử lý (QT-11) thì hiện thông báo rồi tải lại danh sách. Không giữ chỗ phiếu cho người đang xem: 2 Kiểm soát viên cùng chi nhánh có thể cùng mở một phiếu, người bấm sau nhận thông báo của QT-11. Danh sách chỉ có phiếu thuộc chi nhánh mình (không có bộ lọc chi nhánh), không gồm phiếu do mình tạo, phiếu gửi sớm nhất ở trên, chờ quá 24 giờ thì tô màu cảnh báo, không có nút duyệt nhanh. Thời gian chờ tính từ lần gửi gần nhất (phiếu bị trả về thì tính từ lần gửi lại), theo giờ đồng hồ kể cả đêm và ngày nghỉ, backend tính sẵn theo giờ server; thứ tự "gửi sớm nhất" dùng cùng mốc. Phiếu gửi lại có nhãn "Gửi lại lần N" để thấy phiếu đã bị trả về mấy lần. Phiếu lô không duyệt hoặc từ chối ở cột phải: cột phải chỉ có số dòng và nút mở trang 2.4, nơi có bảng khách trong lô. Trên điện thoại, bấm vào phiếu thì mở trang 2.4. Duyệt hoặc từ chối ở trang 2.4 xong thì quay về màn Chờ duyệt, danh sách tải lại. Tab "Tất cả phiếu" giữ nguyên. |
+| CN-15 | Xem chi tiết phiếu | Giao dịch viên, Kiểm soát viên | Steps cho biết phiếu đang ở bước nào; ngày tạo phiếu và số lần gửi; nội dung yêu cầu (trạng thái trước → sau); giấy tờ đính kèm (xem và tải, không xóa); Timeline lịch sử xử lý. Phiếu lô có thêm bảng khách trong lô, phân trang ở backend. Phần thân chi tiết phiếu (Steps, nội dung, giấy tờ, Timeline) là một component dùng chung cho trang 2.4 và cột phải của màn Chờ duyệt (CN-14). |
+| CN-16 | Duyệt phiếu | Kiểm soát viên | Hỏi xác nhận trước khi duyệt, câu hỏi nhắc "Hãy chắc bạn đã đối chiếu giấy tờ đính kèm"; không bắt phải mở từng giấy tờ trước. Backend kiểm tra người duyệt khác người tạo và cùng chi nhánh với phiếu rồi mới báo Camunda hoàn thành task. Phiếu lô: xem CN-18. |
 | CN-17 | Từ chối phiếu | Kiểm soát viên | Bắt buộc nhập lý do (tối đa 500 ký tự). Phiếu về Bị từ chối; hệ thống gửi mail cho người tạo kèm lý do (CN-24). Trạng thái tài khoản không đổi. Cùng kiểm tra như CN-16. |
 
 Chi tiết CN-11 (Tạo phiếu):
@@ -205,7 +208,7 @@ Quy tắc của phiếu lô:
 | --- | --- | --- | --- |
 | CN-20 | Quản lý loại tài khoản | Admin | Thêm, sửa, xóa, tìm. Mã loại: 2–10 ký tự in hoa hoặc số, không trùng, không sửa được sau khi tạo. Có tên, mô tả, số tháng "Chuyển ngủ đông sau (tháng không giao dịch)". Giảm số tháng thì ngay đêm đó job có thể chuyển nhiều tài khoản sang Ngủ đông cùng lúc; mỗi lần sửa ghi Audit log. Không xóa được khi còn tài khoản dùng loại này (nút Xóa khóa, Tooltip ghi số tài khoản đang dùng). Danh mục được cache ở Redis (Cache-Aside). |
 | CN-21 | Quản lý chi nhánh | Admin | Thêm, sửa, xóa, tìm. Mã chi nhánh không trùng (kiểm tra ngay khi nhập), có tên, địa chỉ, số điện thoại 10–11 chữ số. Không xóa được khi chi nhánh còn nhân viên hoặc tài khoản. Cache ở Redis như loại tài khoản. |
-| CN-22 | Quản lý nhân viên | Admin | Xem danh sách, tìm, lọc theo chi nhánh, role, trạng thái; nhân viên Chờ cấp quyền luôn ở đầu danh sách. Thêm nhân viên: tạo tài khoản trên KeyCloak, KeyCloak gửi mail để người đó tự đặt mật khẩu, rồi lưu hồ sơ. Sửa hồ sơ. Gán chi nhánh làm việc. Gán role (ghi vào KeyCloak). Khóa hoặc mở khóa (hỏi xác nhận, đồng bộ sang KeyCloak). Trạng thái nhân viên: Hoạt động, Đã khóa, Chờ cấp quyền. Role chỉ lưu ở KeyCloak: khi tải danh sách, backend gọi Admin API lấy thành viên của từng role (3 lần gọi) rồi ghép với hồ sơ trong DB; lọc theo role thì lấy danh sách `keycloak_id` từ KeyCloak rồi lọc hồ sơ theo danh sách đó. Người không có role nào là Chờ cấp quyền. |
+| CN-22 | Quản lý nhân viên | Admin | Xem danh sách, tìm, lọc theo chi nhánh, role, trạng thái; nhân viên Chờ cấp quyền luôn ở đầu danh sách. Thêm nhân viên: tạo tài khoản trên KeyCloak, KeyCloak gửi mail để người đó tự đặt mật khẩu, rồi lưu hồ sơ. Sửa hồ sơ. Gán chi nhánh làm việc. Gán role (ghi vào KeyCloak; Admin không đi cùng Giao dịch viên hoặc Kiểm soát viên). Khóa hoặc mở khóa (hỏi xác nhận, đồng bộ sang KeyCloak). Trạng thái nhân viên: Hoạt động, Đã khóa, Chờ cấp quyền. Role chỉ lưu ở KeyCloak: khi tải danh sách, backend gọi Admin API lấy thành viên của từng role (3 lần gọi) rồi ghép với hồ sơ trong DB; lọc theo role thì lấy danh sách `keycloak_id` từ KeyCloak rồi lọc hồ sơ theo danh sách đó. Người không có role nào là Chờ cấp quyền. |
 | CN-23 | Xem Audit log | Admin | Chỉ đọc. Lọc theo người thực hiện, khoảng thời gian, hành động, đối tượng. Cột Mô tả viết bằng lời nghiệp vụ (ví dụ "Hoạt động → Phong tỏa · theo phiếu PYC-2026-0415"). Chỉ dòng sửa dữ liệu từ 2 trường trở lên mới mở rộng được, để xem bảng trước và sau; tên trường hiện bằng nhãn tiếng Việt, giá trị hiện bằng nhãn (không hiện mã như `BLOCKED`). Mã request và tên bước kỹ thuật lưu trong DB để tra lỗi, không hiện trên màn. |
 
 ### 4.7 Việc hệ thống tự làm
@@ -226,7 +229,7 @@ Quy tắc của phiếu lô:
 | QT-04 | Chi nhánh mở tài khoản là chi nhánh của giao dịch viên. Phiếu thuộc chi nhánh của người tạo, và chỉ kiểm soát viên cùng chi nhánh được duyệt hoặc từ chối. Xem khách hàng, tài khoản và phiếu thì được mọi chi nhánh. Backend lấy chi nhánh từ hồ sơ của người trong session, không nhận chi nhánh do frontend gửi lên. |
 | QT-05 | Số CCCD chỉ kiểm tra đủ 12 chữ số, không phân tích gì thêm để hạn chế xử lý thông tin cá nhân. Lưu dạng chuỗi. Màn hình hiện che phần giữa (ví dụ `0790****1234`); ô nhập hiện đủ khi đang gõ, che lại khi rời ô. |
 | QT-06 | CCCD, điện thoại, email của khách hàng che từ backend, không gửi bản đầy đủ xuống trình duyệt khi chỉ để xem. |
-| QT-07 | Phân quyền kiểm tra ở backend cho mọi API. React chỉ ẩn menu và chặn route để người dùng không thấy những gì không dùng được. |
+| QT-07 | Phân quyền kiểm tra ở backend cho mọi API. Frontend (React, Angular) chỉ ẩn menu và chặn route để người dùng không thấy những gì không dùng được. |
 | QT-08 | Danh mục đang được dùng thì không xóa được. |
 | QT-09 | Audit log không có API sửa hay xóa. |
 | QT-10 | File đính kèm và file import chỉ tải qua backend. Backend kiểm tra người đó có quyền xem phiếu rồi mới trả file; không có link công khai. Backend kiểm tra loại file thật, không chỉ xem đuôi file. Tên file khi lưu là UUID. |
@@ -245,6 +248,12 @@ Quy tắc của phiếu lô:
 - Link công khai khi demo; demo chạy trên máy bằng localhost.
 - Tự viết đăng nhập, đăng ký, hash mật khẩu (KeyCloak làm).
 
-## 7. Điểm còn mở
+## 7. Quyết định và điểm còn mở
 
-Hiện không còn điểm nào cần chốt. Các quyết định ngày 20/10/2026 đã ghi vào đúng mục ở trên.
+Các quyết định ngày 20/10/2026 đã ghi vào đúng mục ở trên. Quyết định sau đó, cũng đã ghi vào đúng mục:
+
+- 30/10/2026: giữ React cho phần chính. Angular chỉ làm 2 màn 3.11 Import Excel, 3.12 Xuất báo cáo và bộ khung: header và menu bằng NG-ZORRO, chặn route theo role, xử lý 401, trang 403, 404. Nginx chuyển `/bao-cao/` tới app Angular (thư mục `frontend-angular/`), hai app dùng chung cookie phiên (mục 3). Dựng bộ khung trước, làm 2 màn sau.
+- 31/10/2026: đổi thiết kế màn 2.2 Tổng quan và 3.10 Phiếu chờ duyệt (CN-06, CN-11, CN-14, CN-15). Tổng quan cho người dùng thấy việc đang chờ mình trước. Bỏ "Hoạt động gần đây" vì khối này trôi rất nhanh khi nhiều người cùng làm nên không giúp được ai, và Giao dịch viên, Kiểm soát viên không có quyền xem Audit log. Phiếu chờ duyệt chia 2 cột và tự mở phiếu kế tiếp, vì Kiểm soát viên duyệt nhiều phiếu liên tiếp mà bản cũ phải qua lại giữa 2 trang cho từng phiếu.
+- 05/11/2026: chốt các điểm phát sinh khi đối chiếu bản thiết kế 31/10. Thời gian chờ tính từ lần gửi gần nhất, backend tính sẵn (CN-14). Người giữ cả Giao dịch viên và Kiểm soát viên thấy phiếu bị trả lại trước (CN-06); Admin không kiêm 2 role đó (mục 1, CN-22). Phiếu lô chỉ duyệt hoặc từ chối ở trang 2.4 (CN-14). Không bắt mở giấy tờ trước khi duyệt (CN-16). Tự mở phiếu kế tiếp theo danh sách tải lại từ backend, nút khóa tới khi phiếu kế tải xong (CN-14). Thêm các trường hợp biên: duyệt ở trang 2.4 xong thì quay về màn Chờ duyệt; phiếu gửi lại có nhãn "Gửi lại lần N"; 24 giờ tính theo giờ đồng hồ; không giữ chỗ phiếu cho người đang xem (CN-14, CN-15); hộp xác nhận nhắc đối chiếu giấy tờ (CN-16). Chỗ nào bản thiết kế ghi khác thì theo file này.
+
+Hiện không còn điểm nào cần chốt.

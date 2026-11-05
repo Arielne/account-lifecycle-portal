@@ -18,6 +18,7 @@ Thiết kế phần đăng nhập của Account Lifecycle Portal: CN-01 đến C
 | KeyCloak | Trang đăng nhập, đăng ký, quên mật khẩu; lưu tài khoản và mật khẩu đã hash; quản lý role; cấp JWT | Không biết gì về dữ liệu nghiệp vụ |
 | Spring Boot | Chuyển người dùng sang KeyCloak, nhận và kiểm tra token, giữ session, kiểm tra quyền ở mỗi request, gọi Admin API của KeyCloak | Không lưu mật khẩu, không tự ký token |
 | React | Hiển thị theo role, gọi `/api` kèm cookie, xử lý lỗi 401 | Không cầm token |
+| Angular | Như React, chỉ cho 2 màn báo cáo dưới `/bao-cao/` | Không cầm token |
 | Supabase | Bảng `employee` (hồ sơ, chi nhánh), nối bằng `keycloak_id` | Không chứa mật khẩu, không chứa role |
 | Redis | Lưu session đăng nhập; cache danh mục | Không lưu dữ liệu lâu dài |
 
@@ -175,7 +176,7 @@ Trước khi báo Camunda hoàn thành task Duyệt phiếu hoặc Từ chối p
 - **Route React trùng đường dẫn của Spring:** không đặt route React là `/login`, `/logout`, `/oauth2`.
 - **Tutorial cũ:** không dùng `keycloak-spring-boot-starter`, adapter này đã ngừng hỗ trợ.
 
-## 5. React và Nginx
+## 5. React, Angular và Nginx
 
 ### React
 
@@ -187,17 +188,30 @@ Trước khi báo Camunda hoàn thành task Duyệt phiếu hoặc Từ chối p
 - Ẩn nút theo role chỉ để giao diện gọn; quyền thật kiểm tra ở backend.
 - Đăng xuất: gọi `POST /logout`, nhận địa chỉ đăng xuất của KeyCloak, rồi chuyển trình duyệt tới địa chỉ đó.
 
+### Angular (2 màn báo cáo)
+
+App Angular chỉ có 2 màn 3.11 Import Excel và 3.12 Xuất báo cáo, nằm dưới `/bao-cao/`. Cách làm việc với backend giống app React:
+
+- Không dùng `keycloak-js`, không lưu token. Gọi `/api/...` bằng `HttpClient` với đường dẫn tương đối nên cookie phiên tự được gửi.
+- CSRF: `HttpClient` mặc định đọc cookie `XSRF-TOKEN` và gắn header `X-XSRF-TOKEN` cho request ghi, khớp với cấu hình Spring ở mục 4.
+- Interceptor: gặp 401 thì chuyển trình duyệt tới `/oauth2/authorization/keycloak`.
+- Khi mở app: gọi `/api/me`. Guard chặn route theo role, vào URL trái quyền thì hiện trang 403; route không có thì hiện trang 404.
+- Header và menu làm bằng NG-ZORRO, cùng mục và cùng role với menu của app React. Mục thuộc app React thì chuyển trang bằng đường dẫn thường, không đi qua router của Angular; app React cũng làm vậy với 2 mục báo cáo.
+- Đăng xuất như app React.
+
 ### Nginx
 
-Nginx là cửa vào của portal, để React và backend dùng chung một domain thì cookie mới gửi được.
+Nginx là cửa vào của portal, để React, Angular và backend dùng chung một domain thì cookie mới gửi được. Đăng nhập ở app nào thì app kia cũng dùng được phiên đó.
 
 | Đường dẫn | Đi tới |
 | --- | --- |
 | `/api/`, `/oauth2/`, `/login/oauth2/`, `/logout` | Backend Spring Boot |
-| Còn lại | File build của React |
+| `/bao-cao/` | File build của app Angular |
+| Còn lại | File build của app React |
 
 - Nginx nén gzip file chữ (JS, CSS, JSON, SVG, HTML từ 1 KB trở lên); file JS của bản build nặng hơn 1 MB, nén còn khoảng một phần ba.
 - File trong `/assets/` có mã băm trong tên (Vite đặt) nên trình duyệt giữ 1 năm (`immutable`); thiếu file thì 404. `index.html` gửi kèm `no-cache` để bản build mới có hiệu lực ngay.
+- File build của Angular cũng có mã băm trong tên nhưng không nằm trong `/assets/`, nên `/bao-cao/` cần luật riêng: file có mã băm giữ lâu, `index.html` của Angular gửi kèm `no-cache`, route của Angular trả `index.html` của Angular chứ không phải của React.
 
 KeyCloak chạy ở cổng riêng `http://localhost:8080`; khi đăng nhập, trình duyệt sang thẳng địa chỉ đó. Demo chạy trên máy bằng localhost.
 
