@@ -9,6 +9,8 @@ import AppShell from './layout/AppShell.tsx'
 import { PAGES, type PageEntry } from './layout/menuItems.tsx'
 import CurrentUserProvider from './pages/auth/CurrentUserProvider.tsx'
 import LoginErrorPage, { LOGIN_ERROR_PATH } from './pages/auth/LoginErrorPage.tsx'
+import AccountDetailPage from './pages/account/AccountDetailPage.tsx'
+import AccountListPage from './pages/account/AccountListPage.tsx'
 import AuditLogPage from './pages/audit/AuditLogPage.tsx'
 import AccountTypePage from './pages/catalog/AccountTypePage.tsx'
 import BranchPage from './pages/catalog/BranchPage.tsx'
@@ -16,6 +18,7 @@ import EmployeePage from './pages/employee/EmployeePage.tsx'
 
 // Màn đã làm thật, theo route. Route không có ở đây hiện trang chờ ComingSoonPage.
 const PAGE_ELEMENTS: Record<string, ReactNode> = {
+  '/tai-khoan': <AccountListPage />,
   '/danh-muc/loai-tai-khoan': <AccountTypePage />,
   '/danh-muc/chi-nhanh': <BranchPage />,
   '/nhan-vien': <EmployeePage />,
@@ -33,6 +36,14 @@ function toPageRoute(page: PageEntry): RouteObject {
   return { path: page.route, element }
 }
 
+/** Route chi tiết không có trong menu: tự bọc RequireRole, dùng đúng role của màn danh sách đi kèm. */
+function toDetailRoute(path: string, listRoute: string, detailElement: ReactNode): RouteObject {
+  const listPage = PAGES.find((page) => page.route === listRoute)
+  // Không tìm thấy màn danh sách thì danh sách role rỗng, tức không ai vào được: an toàn hơn là mở cho mọi người.
+  const roles = listPage?.roles ?? []
+  return { path, element: <RequireRole roles={roles}>{detailElement}</RequireRole> }
+}
+
 export const routes: RouteObject[] = [
   // Trang lỗi đăng nhập nằm ngoài phần cần đăng nhập: không đi qua CurrentUserProvider nên không gọi /api/me.
   { path: LOGIN_ERROR_PATH, element: <LoginErrorPage /> },
@@ -44,7 +55,11 @@ export const routes: RouteObject[] = [
         <AppShell />
       </CurrentUserProvider>
     ),
-    children: [...PAGES.map(toPageRoute), { path: '*', element: <NotFoundPage /> }],
+    children: [
+      ...PAGES.map(toPageRoute),
+      toDetailRoute('/tai-khoan/:id', '/tai-khoan', <AccountDetailPage />),
+      { path: '*', element: <NotFoundPage /> },
+    ],
   },
 ]
 
