@@ -1,4 +1,4 @@
-// Định dạng số, ngày, điện thoại trên 2 màn danh mục (CN-20, CN-21), theo bản thiết kế.
+// Định dạng số, ngày, điện thoại theo bản thiết kế. Viết cho 2 màn danh mục (CN-20, CN-21), nay các màn khác dùng chung.
 
 /** 3204 → "3.204": dấu chấm ngăn hàng nghìn kiểu Việt Nam. */
 export function formatNumber(value: number): string {
@@ -12,6 +12,18 @@ export function formatDate(isoDateTime: string): string {
     month: '2-digit',
     year: 'numeric',
   })
+}
+
+/**
+ * Ngày không kèm giờ backend trả về ("2024-01-10") → "10/01/2024"; null → "—".
+ * Tách chuỗi thay vì dùng new Date(): new Date("2024-01-10") hiểu là 0 giờ UTC, máy ở múi giờ âm sẽ lùi một ngày.
+ */
+export function formatLocalDate(isoDate: string | null): string {
+  if (isoDate === null) {
+    return '—'
+  }
+  const [year, month, day] = isoDate.split('-')
+  return `${day}/${month}/${year}`
 }
 
 /** Điện thoại theo nhóm số: 11 số nhóm 3-4-4 (028 3911 2200), 10 số nhóm 4-3-3 (0901 234 567). */
