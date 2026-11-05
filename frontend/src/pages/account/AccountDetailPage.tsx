@@ -1,7 +1,7 @@
 // Màn Chi tiết tài khoản (CN-10, màn 2.3): thông tin tài khoản và nút tạo phiếu theo trạng thái cho Giao dịch viên.
 // Tài khoản đang có phiếu Chờ duyệt hoặc Bị từ chối thì khóa mọi nút (QT-03); khóa nút chỉ là lớp giao diện,
 // API tạo phiếu kiểm lại. Lịch sử phiếu, Vòng đời, Mở bởi, Duyệt mở bởi làm cùng module phiếu (spec khách hàng
-// tài khoản, C3); Chủ tài khoản là chữ thường cho tới khi có màn chi tiết khách hàng (C6).
+// tài khoản, C3).
 import { Link, useNavigate, useParams } from 'react-router'
 import { Alert, Breadcrumb, Button, Card, Descriptions, Empty, Flex, Result, Space, Typography } from 'antd'
 import { useQuery } from '@tanstack/react-query'
@@ -142,7 +142,9 @@ function AccountDescriptions({ account }: { account: AccountItem }) {
         <CodeText>{account.accountNumber}</CodeText>
       </Descriptions.Item>
       <Descriptions.Item label="Loại tài khoản">{account.accountTypeName}</Descriptions.Item>
-      <Descriptions.Item label="Chủ tài khoản">{account.customerName}</Descriptions.Item>
+      <Descriptions.Item label="Chủ tài khoản">
+        <Link to={`/khach-hang/${account.customerId}`}>{account.customerName}</Link>
+      </Descriptions.Item>
       <Descriptions.Item label="Số CCCD">
         <CodeText>{account.customerCccd}</CodeText>
       </Descriptions.Item>

@@ -43,6 +43,8 @@ export interface AccountFilters {
   statuses: AccountStatus[]
   accountTypeId?: number
   branchId?: number
+  /** Chỉ tài khoản của khách này (tab Tài khoản ở chi tiết khách hàng). */
+  customerId?: number
 }
 
 export const ACCOUNTS_QUERY_KEY = 'accounts'
@@ -55,6 +57,7 @@ export async function fetchAccounts(filters: AccountFilters, page: number): Prom
     statuses: filters.statuses.length > 0 ? filters.statuses.join(',') : undefined,
     accountTypeId: filters.accountTypeId,
     branchId: filters.branchId,
+    customerId: filters.customerId,
     page,
   }
   const response = await httpClient.get<AccountPage>('/api/accounts', { params })
