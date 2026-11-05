@@ -201,6 +201,8 @@ Một mảng mục menu, mỗi mục có route và danh sách role được th�
 
 Bản thiết kế ghi một route `/bao-cao` cho "Báo cáo & Import"; làm theo 2 route của `docs/01-chuc-nang.md` vì đó là nguồn chuẩn.
 
+2 màn báo cáo làm bằng app Angular riêng (`docs/01-chuc-nang.md`, mục 3). Trong menu React, 2 mục này là đường dẫn thường, bấm vào thì tải lại trang sang app Angular, không phải route của React Router. Khi app Angular chạy được thì bỏ route `/bao-cao/*` khỏi React.
+
 ### Chặn route
 
 - Mỗi route bọc bằng một component kiểm role, dùng chung mảng role với menu. Không đủ role thì hiện trang 403: Result 403, câu "Bạn không có quyền truy cập trang này.", nút "Về Tổng quan".

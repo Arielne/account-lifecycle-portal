@@ -58,6 +58,7 @@ Package của các module khác (bảng module trong `CLAUDE.md`) tạo khi bắ
 - Không gắn profile cho 5 dịch vụ hạ tầng; `backend` và `web` thuộc profile `app`. Hằng ngày `docker compose up -d` chỉ chạy hạ tầng; chạy đủ bộ như lúc demo thì `docker compose --profile app up -d`.
 - Không chạy `docker compose down -v` (mất user tạo thêm trong KeyCloak).
 - Hằng ngày: backend chạy từ IDE hoặc `mvnw spring-boot:run` (cổng 8081); frontend chạy `npm run dev`. Vite proxy chuyển 4 đường dẫn ở trên sang `localhost:8081`, để React và backend cùng origin như khi đi qua Nginx.
+- App Angular cho 2 màn báo cáo (`docs/01-chuc-nang.md`, mục 3) đặt ở `frontend-angular/`. Khi dựng bộ khung: `web` build thêm app này, Nginx chuyển `/bao-cao/` sang nó, CI thêm bước build và test cho app này.
 
 ## 4. Cấu hình và biến môi trường
 

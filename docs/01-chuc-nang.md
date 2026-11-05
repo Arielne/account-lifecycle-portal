@@ -120,7 +120,9 @@ Luồng quy trình: Giao dịch viên tạo phiếu → Kiểm soát viên duy�
 
 Màn dùng chung: 2.1 Layout (menu theo role, header có tên, chi nhánh, role và nút Đăng xuất), 3.1 Đăng nhập (trang của KeyCloak), 3.13 Trạng thái phụ (bảng rỗng, đang tải, 403, 404, 500, chờ cấp quyền), 3.14 Mẫu báo cáo PDF.
 
-Ẩn menu chưa đủ: route trong React cũng chặn theo role, và backend chặn thêm một lần nữa. Gõ thẳng URL trái quyền thì ra trang 403.
+Ẩn menu chưa đủ: route trong React (và Angular với 2 màn báo cáo) cũng chặn theo role, và backend chặn thêm một lần nữa. Gõ thẳng URL trái quyền thì ra trang 403.
+
+Hai màn 3.11 Import Excel và 3.12 Xuất báo cáo là một app Angular riêng (thư mục `frontend-angular/`, giao diện NG-ZORRO); mọi màn còn lại là app React. Nginx chuyển `/bao-cao/` tới app Angular, còn lại tới app React; hai app cùng domain nên dùng chung cookie phiên. App Angular có header và menu giống app React, chặn route theo role, xử lý 401 và có trang 403, 404 riêng. Mục menu thuộc app kia thì mở bằng chuyển trang (tải lại trang), không đi qua router.
 
 ## 4. Chức năng chi tiết
 
@@ -226,7 +228,7 @@ Quy tắc của phiếu lô:
 | QT-04 | Chi nhánh mở tài khoản là chi nhánh của giao dịch viên. Phiếu thuộc chi nhánh của người tạo, và chỉ kiểm soát viên cùng chi nhánh được duyệt hoặc từ chối. Xem khách hàng, tài khoản và phiếu thì được mọi chi nhánh. Backend lấy chi nhánh từ hồ sơ của người trong session, không nhận chi nhánh do frontend gửi lên. |
 | QT-05 | Số CCCD chỉ kiểm tra đủ 12 chữ số, không phân tích gì thêm để hạn chế xử lý thông tin cá nhân. Lưu dạng chuỗi. Màn hình hiện che phần giữa (ví dụ `0790****1234`); ô nhập hiện đủ khi đang gõ, che lại khi rời ô. |
 | QT-06 | CCCD, điện thoại, email của khách hàng che từ backend, không gửi bản đầy đủ xuống trình duyệt khi chỉ để xem. |
-| QT-07 | Phân quyền kiểm tra ở backend cho mọi API. React chỉ ẩn menu và chặn route để người dùng không thấy những gì không dùng được. |
+| QT-07 | Phân quyền kiểm tra ở backend cho mọi API. Frontend (React, Angular) chỉ ẩn menu và chặn route để người dùng không thấy những gì không dùng được. |
 | QT-08 | Danh mục đang được dùng thì không xóa được. |
 | QT-09 | Audit log không có API sửa hay xóa. |
 | QT-10 | File đính kèm và file import chỉ tải qua backend. Backend kiểm tra người đó có quyền xem phiếu rồi mới trả file; không có link công khai. Backend kiểm tra loại file thật, không chỉ xem đuôi file. Tên file khi lưu là UUID. |
@@ -245,6 +247,10 @@ Quy tắc của phiếu lô:
 - Link công khai khi demo; demo chạy trên máy bằng localhost.
 - Tự viết đăng nhập, đăng ký, hash mật khẩu (KeyCloak làm).
 
-## 7. Điểm còn mở
+## 7. Quyết định và điểm còn mở
 
-Hiện không còn điểm nào cần chốt. Các quyết định ngày 20/10/2026 đã ghi vào đúng mục ở trên.
+Các quyết định ngày 20/10/2026 đã ghi vào đúng mục ở trên. Quyết định sau đó, cũng đã ghi vào đúng mục:
+
+- 30/10/2026: giữ React cho phần chính. Angular chỉ làm 2 màn 3.11 Import Excel, 3.12 Xuất báo cáo và bộ khung: header và menu bằng NG-ZORRO, chặn route theo role, xử lý 401, trang 403, 404. Nginx chuyển `/bao-cao/` tới app Angular (thư mục `frontend-angular/`), hai app dùng chung cookie phiên (mục 3). Dựng bộ khung trước, làm 2 màn sau.
+
+Hiện không còn điểm nào cần chốt.
