@@ -1,9 +1,7 @@
 // Gọi API tài khoản (CN-09, CN-10): chỉ đọc. Backend tự kiểm quyền (QT-07) và che CCCD trước khi trả về (QT-06).
 import { httpClient } from '../../api/httpClient.ts'
 import type { AccountStatus } from '../../components/accountStatus.ts'
-
-/** Loại phiếu (docs/01-chuc-nang.md mục 2.2). */
-export type TicketType = 'MO_TAI_KHOAN' | 'PHONG_TOA' | 'GO_PHONG_TOA' | 'DONG_TAI_KHOAN' | 'MO_TK_THEO_LO'
+import type { TicketType } from '../../components/ticketType.ts'
 
 /** Phiếu đang Chờ duyệt hoặc Bị từ chối của tài khoản (QT-03). */
 export interface OpenTicket {

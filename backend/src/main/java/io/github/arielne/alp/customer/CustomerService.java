@@ -2,13 +2,14 @@ package io.github.arielne.alp.customer;
 
 import io.github.arielne.alp.common.BusinessException;
 import io.github.arielne.alp.common.PersonalDataMasker;
-import java.text.Normalizer;
+import io.github.arielne.alp.common.TextNormalizer;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
@@ -16,9 +17,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 /**
- * Tìm và xem khách hàng cho màn Khách hàng (CN-07) và Chi tiết khách hàng (CN-08). Chỉ đọc, không ghi bảng nào
+ * Tìm và xem khách hàng cho màn Khách hàng (CN-07) và Chi tiết khách hàng (CN-08). Tìm, xem không ghi bảng nào
  * nên không có @Audited, kể cả khi tìm theo CCCD (spec khách hàng tài khoản, C8). Xem được khách của mọi chi nhánh
  * (QT-04). CCCD, điện thoại, email được che trước khi trả về (QT-06).
+ * Tạo, ghi đè hồ sơ (create, overwrite) chỉ chạy khi account mở tài khoản cho phiếu Mở tài khoản (CN-11);
+ * audit nằm ở dòng "Tạo phiếu" của ticket.
  */
 @Service
 @RequiredArgsConstructor
@@ -58,6 +61,52 @@ public class CustomerService {
                 row.getBranchName(), toVietnamDate(row.getCreatedAt()));
     }
 
+    /**
+     * Tạo hồ sơ khách mới từ phiếu Mở tài khoản (CN-11); chỉ account gọi, trong transaction tạo phiếu.
+     * branchId: chi nhánh của người tạo phiếu, thành chi nhánh quản lý hồ sơ. Trả id hồ sơ vừa tạo.
+     */
+    public Long create(CustomerProfile profile, Long branchId) {
+        CustomerRecord record = toRecord(profile, branchId);
+        customerMapper.insert(record);
+        return record.getId();
+    }
+
+    /**
+     * Ghi đè hồ sơ chưa từng mở được tài khoản bằng dữ liệu của phiếu mới (D6): giữ id, nên các tài khoản Đã đóng
+     * cũ vẫn gắn đúng hồ sơ. Chỉ account gọi; ticket đã kiểm hồ sơ đúng là chưa từng mở được tài khoản.
+     */
+    public void overwrite(Long customerId, CustomerProfile profile, Long branchId) {
+        CustomerRecord record = toRecord(profile, branchId);
+        record.setId(customerId);
+        customerMapper.updateProfile(record);
+    }
+
+    /**
+     * Họ tên, nơi cấp, địa chỉ chuẩn hóa bằng TextNormalizer (NFC, gộp khoảng trắng) để tìm tên không dấu tìm ra
+     * (spec phiếu, mục 7.2). Email đổi về chữ thường; giới tính rỗng thì lưu null.
+     */
+    private CustomerRecord toRecord(CustomerProfile profile, Long branchId) {
+        CustomerRecord record = new CustomerRecord();
+        record.setCccd(profile.cccd());
+        record.setFullName(TextNormalizer.normalize(profile.fullName()));
+        record.setDateOfBirth(profile.dateOfBirth());
+        record.setGender(emptyToNull(profile.gender()));
+        record.setIdIssueDate(profile.idIssueDate());
+        record.setIdIssuePlace(TextNormalizer.normalize(profile.idIssuePlace()));
+        record.setPhone(profile.phone());
+        record.setEmail(profile.email().trim().toLowerCase(Locale.ROOT));
+        record.setAddress(TextNormalizer.normalize(profile.address()));
+        record.setBranchId(branchId);
+        return record;
+    }
+
+    private String emptyToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value;
+    }
+
     /** Tìm theo CCCD thì từ khóa phải đủ 12 chữ số (400); tìm theo họ tên thì từ khóa rỗng là liệt kê mọi khách. */
     private CustomerFilter toFilter(CustomerSearchRequest request) {
         CustomerFilter filter = new CustomerFilter();
@@ -80,16 +129,10 @@ public class CustomerService {
         return filter;
     }
 
-    /**
-     * Bỏ khoảng trắng hai đầu, gộp nhiều khoảng trắng thành một, chuẩn hóa Unicode NFC (chữ có dấu gõ từ bàn phím
-     * khác nhau có thể khác byte, NFC đưa về một dạng). Rỗng thì null, tức không lọc.
-     */
+    /** Chuẩn hóa từ khóa như khi lưu hồ sơ (TextNormalizer), để so được với nhau. Rỗng thì null, tức không lọc. */
     private String normalizeKeyword(String keyword) {
-        if (keyword == null) {
-            return null;
-        }
-        String normalized = Normalizer.normalize(keyword, Normalizer.Form.NFC).trim().replaceAll("\\s+", " ");
-        if (normalized.isEmpty()) {
+        String normalized = TextNormalizer.normalize(keyword);
+        if (normalized == null || normalized.isEmpty()) {
             return null;
         }
         return normalized;

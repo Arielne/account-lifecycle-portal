@@ -14,6 +14,12 @@ export function formatDate(isoDateTime: string): string {
   })
 }
 
+/** Chuỗi ngày giờ ISO backend trả về → "19/10/2026 09:12" (giờ của máy người xem). */
+export function formatDateTime(isoDateTime: string): string {
+  const time = new Date(isoDateTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+  return `${formatDate(isoDateTime)} ${time}`
+}
+
 /**
  * Ngày không kèm giờ backend trả về ("2024-01-10") → "10/01/2024"; null → "—".
  * Tách chuỗi thay vì dùng new Date(): new Date("2024-01-10") hiểu là 0 giờ UTC, máy ở múi giờ âm sẽ lùi một ngày.

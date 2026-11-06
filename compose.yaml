@@ -113,6 +113,11 @@ services:
       KEYCLOAK_BACKCHANNEL_URL: http://keycloak:8080
       # Session lưu ở Redis; trong mạng Docker, Redis có tên là redis.
       SPRING_DATA_REDIS_HOST: redis
+      # Giấy tờ của phiếu lưu trên Supabase Storage qua API S3 (bucket giay-to).
+      STORAGE_S3_ENDPOINT: ${STORAGE_S3_ENDPOINT}
+      STORAGE_S3_REGION: ${STORAGE_S3_REGION}
+      STORAGE_S3_ACCESS_KEY: ${STORAGE_S3_ACCESS_KEY}
+      STORAGE_S3_SECRET_KEY: ${STORAGE_S3_SECRET_KEY}
     depends_on:
       keycloak:
         condition: service_started

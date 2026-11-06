@@ -2,6 +2,10 @@ package io.github.arielne.alp.account;
 
 import io.github.arielne.alp.common.BusinessException;
 import io.github.arielne.alp.common.PersonalDataMasker;
+import io.github.arielne.alp.customer.CustomerProfile;
+import io.github.arielne.alp.customer.CustomerService;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -9,17 +13,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 /**
- * Đọc tài khoản cho màn Tài khoản (CN-09) và Chi tiết tài khoản (CN-10). Chỉ đọc, không ghi bảng nào nên không có
- * @Audited. Xem được tài khoản của mọi chi nhánh (QT-04): không lọc theo chi nhánh của người đang xem.
- * CCCD của chủ tài khoản được che trước khi trả về (QT-06).
+ * Đọc tài khoản cho màn Tài khoản (CN-09) và Chi tiết tài khoản (CN-10): xem được tài khoản của mọi chi nhánh
+ * (QT-04), CCCD của chủ tài khoản được che trước khi trả về (QT-06).
+ * Mở tài khoản Chờ mở cho phiếu Mở tài khoản (CN-11): chỉ ticket gọi (QT-02), audit nằm ở dòng "Tạo phiếu".
  */
 @Service
 @RequiredArgsConstructor
 public class AccountService {
 
     private static final int PAGE_SIZE = 10;
+    private static final ZoneId VIETNAM = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private final AccountMapper accountMapper;
+    private final CustomerService customerService;
 
     /** Một trang 10 tài khoản khớp điều kiện lọc, mới tạo ở trên, kèm tổng số để vẽ phân trang. */
     public AccountPage findPage(AccountQuery query) {
@@ -38,6 +44,46 @@ public class AccountService {
             throw new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản");
         }
         return toItem(row);
+    }
+
+    /**
+     * Mở tài khoản Chờ mở cho khách đã có (phiếu Mở tài khoản, CN-11). Chỉ ticket gọi, trong transaction tạo phiếu.
+     * branchId: chi nhánh của người tạo phiếu.
+     */
+    public PendingAccount openPendingForCustomer(Long customerId, Long accountTypeId, Long branchId) {
+        return insertPendingAccount(customerId, accountTypeId, branchId);
+    }
+
+    /**
+     * Khách mới: tạo hồ sơ, hoặc ghi đè hồ sơ chưa từng mở được tài khoản khi reusableCustomerId có giá trị (D6),
+     * rồi mở tài khoản Chờ mở. Ghi bảng customer qua CustomerService, vì account không tự ghi bảng của module khác.
+     */
+    public PendingAccount openPendingForNewCustomer(CustomerProfile profile, Long reusableCustomerId,
+                                                    Long accountTypeId, Long branchId) {
+        Long customerId = reusableCustomerId;
+        if (customerId == null) {
+            customerId = customerService.create(profile, branchId);
+        } else {
+            customerService.overwrite(customerId, profile, branchId);
+        }
+        return insertPendingAccount(customerId, accountTypeId, branchId);
+    }
+
+    /**
+     * Loại tài khoản không có thì 404. Ngày giao dịch gần nhất là cột bắt buộc nên tạm đặt hôm nay (giờ Việt Nam);
+     * job Ngủ đông chỉ xét tài khoản Hoạt động nên giá trị tạm này không ảnh hưởng.
+     */
+    private PendingAccount insertPendingAccount(Long customerId, Long accountTypeId, Long branchId) {
+        if (!accountMapper.accountTypeExists(accountTypeId)) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy loại tài khoản");
+        }
+        AccountRecord record = new AccountRecord();
+        record.setCustomerId(customerId);
+        record.setAccountTypeId(accountTypeId);
+        record.setBranchId(branchId);
+        record.setLastTransactionAt(LocalDate.now(VIETNAM));
+        accountMapper.insertPending(record);
+        return new PendingAccount(record.getId(), record.getAccountNumber(), customerId);
     }
 
     /** Trang nhỏ hơn 1 tính là trang 1, như màn Audit log. */

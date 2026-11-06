@@ -12,9 +12,19 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    hikari:
+      # Mỗi kết nối mới đặt search_path là camunda: câu SQL của Camunda không ghi tên schema nên tạo và đọc bảng ở đó.
+      # Câu SQL của app luôn ghi đủ app.<bảng>, nên không bị ảnh hưởng. Camunda dùng chung DataSource này
+      # để chung transaction với app (spec phiếu, T1).
+      connection-init-sql: SET search_path TO camunda
+      data-source-properties:
+        # Driver Postgres không ghép phần Detail (giá trị của dòng dữ liệu, ví dụ số CCCD trùng) vào message của lỗi,
+        # nên mọi chỗ ghi log lỗi database đều không lộ dữ liệu khách (spec phiếu, mục 11.3).
+        logServerErrorDetail: false
   flyway:
-    # Flyway chỉ quản lý schema app và tự tạo schema nếu chưa có; bảng lịch sử của Flyway cũng nằm trong app.
-    schemas: app
+    # Flyway quản lý schema app (script chỉ đụng app, bảng lịch sử của Flyway cũng ở app) và chỉ tạo thêm schema rỗng
+    # camunda cho Camunda tự tạo bảng. Schema đầu danh sách là schema mặc định của Flyway.
+    schemas: app,camunda
     # Script ở db/migrations/ (gốc repo), tính từ thư mục backend/ nơi chạy app.
     locations: filesystem:../db/migrations
     # Supabase dùng chung cho chạy thường và demo. Profile demo đã chạy các file seed R__ trong db/seeds/;
@@ -54,6 +64,36 @@ spring:
   mail:
     host: localhost
     port: 1025
+  # Giấy tờ của phiếu: mỗi file tối đa 5 MB, một lần gửi tối đa 5 file (spec phiếu, mục 11.1).
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 26MB
+
+# Camunda 7 chạy trong app (spec phiếu, mục 4.1). Bảng ở schema camunda, Camunda tự tạo lần đầu (schema-update).
+camunda:
+  bpm:
+    database:
+      # Camunda bắt khai cả 2: schema để kiểm bảng đã có chưa, tiền tố "camunda." ghép trước tên bảng ở mọi câu SQL.
+      # Lúc tự tạo bảng (schema-update), câu CREATE không có tiền tố nên bảng vào schema của search_path ở trên.
+      schema-name: camunda
+      table-prefix: camunda.
+      schema-update: true
+    # audit: lưu lịch sử process instance và task, đủ để tra cứu; không lưu từng biến như mức full.
+    history-level: audit
+    # Quy trình không có bước hẹn giờ hay chạy nền, nên tắt job executor để Camunda không hỏi database liên tục (T7).
+    job-execution:
+      enabled: false
+
+# Supabase Storage qua API S3 (FileStorage). Giá trị lấy từ .env; test dùng MinIO của Testcontainers.
+storage:
+  s3:
+    endpoint: ${STORAGE_S3_ENDPOINT:}
+    region: ${STORAGE_S3_REGION:ap-southeast-1}
+    access-key: ${STORAGE_S3_ACCESS_KEY:}
+    secret-key: ${STORAGE_S3_SECRET_KEY:}
+    # Bucket private chứa giấy tờ của phiếu (QT-10).
+    ticket-bucket: giay-to
 
 server:
   # Cổng 8080 đã dành cho KeyCloak.

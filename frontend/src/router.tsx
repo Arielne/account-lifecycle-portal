@@ -13,9 +13,11 @@ import {
   AccountTypePage,
   AuditLogPage,
   BranchPage,
+  CreateTicketPage,
   CustomerDetailPage,
   CustomerListPage,
   EmployeePage,
+  TicketDetailPage,
 } from './lazyPages.ts'
 import CurrentUserProvider from './pages/auth/CurrentUserProvider.tsx'
 import LoginErrorPage, { LOGIN_ERROR_PATH } from './pages/auth/LoginErrorPage.tsx'
@@ -24,6 +26,7 @@ import LoginErrorPage, { LOGIN_ERROR_PATH } from './pages/auth/LoginErrorPage.ts
 const PAGE_ELEMENTS: Record<string, ReactNode> = {
   '/khach-hang': <CustomerListPage />,
   '/tai-khoan': <AccountListPage />,
+  '/phieu/tao-moi': <CreateTicketPage />,
   '/danh-muc/loai-tai-khoan': <AccountTypePage />,
   '/danh-muc/chi-nhanh': <BranchPage />,
   '/nhan-vien': <EmployeePage />,
@@ -64,6 +67,8 @@ export const routes: RouteObject[] = [
       ...PAGES.map(toPageRoute),
       toDetailRoute('/khach-hang/:id', '/khach-hang', <CustomerDetailPage />),
       toDetailRoute('/tai-khoan/:id', '/tai-khoan', <AccountDetailPage />),
+      // Đoạn cố định như /phieu/tao-moi, /phieu/cho-duyet được React Router ưu tiên hơn :id.
+      toDetailRoute('/phieu/:id', '/phieu', <TicketDetailPage />),
       { path: '*', element: <NotFoundPage /> },
     ],
   },

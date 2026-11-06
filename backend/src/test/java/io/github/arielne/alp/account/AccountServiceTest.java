@@ -6,10 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.arielne.alp.common.BusinessException;
+import io.github.arielne.alp.customer.CustomerProfile;
+import io.github.arielne.alp.customer.CustomerService;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,17 +23,59 @@ import org.springframework.http.HttpStatus;
 
 /**
  * Test nhanh cho AccountService (spec khách hàng tài khoản mục 7, test 4 và 5): che CCCD của chủ tài khoản,
- * đổi tham số lọc thành AccountFilter, không có tài khoản thì 404. AccountMapper là mock; câu SQL test ở AccountMapperIT.
+ * đổi tham số lọc thành AccountFilter, không có tài khoản thì 404; mở tài khoản Chờ mở cho phiếu (spec phiếu,
+ * mục 5). AccountMapper, CustomerService là mock; câu SQL test ở AccountMapperIT.
  */
 class AccountServiceTest {
 
     private AccountMapper accountMapper;
+    private CustomerService customerService;
     private AccountService service;
 
     @BeforeEach
     void setUp() {
         accountMapper = mock(AccountMapper.class);
-        service = new AccountService(accountMapper);
+        customerService = mock(CustomerService.class);
+        service = new AccountService(accountMapper, customerService);
+    }
+
+    @Test
+    @DisplayName("Mở tài khoản cho khách mới có hồ sơ cũ chưa từng mở tài khoản: ghi đè hồ sơ đó, không tạo hồ sơ mới (D6)")
+    void openPendingForReusableCustomerOverwritesProfile() {
+        // Chuẩn bị: loại tài khoản có thật; database sinh id 50 và số 1030000001 cho tài khoản mới
+        when(accountMapper.accountTypeExists(3L)).thenReturn(true);
+        when(accountMapper.insertPending(any())).thenAnswer(invocation -> {
+            AccountRecord record = invocation.getArgument(0);
+            record.setId(50L);
+            record.setAccountNumber("1030000001");
+            return 1;
+        });
+        CustomerProfile profile = new CustomerProfile("Đỗ Thị Bình", LocalDate.of(1990, 3, 15), "Nữ",
+                "099190000002", LocalDate.of(2021, 4, 10), "Cục CS QLHC về TTXH", "0900000002",
+                "binh.dt@nhdemo.local", "12 Đường Giả, Quận 1");
+
+        // Chạy: hồ sơ id 21 là hồ sơ cũ dùng lại được
+        PendingAccount account = service.openPendingForNewCustomer(profile, 21L, 3L, 4L);
+
+        // Kiểm tra kết quả
+        verify(customerService).overwrite(21L, profile, 4L);
+        verify(customerService, never()).create(any(), any());
+        assertEquals(new PendingAccount(50L, "1030000001", 21L), account);
+    }
+
+    @Test
+    @DisplayName("Mở tài khoản với loại tài khoản không có thì 404, không thêm tài khoản")
+    void openPendingWithMissingAccountTypeThrowsNotFound() {
+        // Chuẩn bị
+        when(accountMapper.accountTypeExists(99L)).thenReturn(false);
+
+        // Chạy
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.openPendingForCustomer(21L, 99L, 4L));
+
+        // Kiểm tra kết quả
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+        verify(accountMapper, never()).insertPending(any());
     }
 
     @Test

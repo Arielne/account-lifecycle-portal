@@ -43,6 +43,17 @@ public class SecurityConfig {
                         .requestMatchers("/api/employees/**", "/api/audit-logs/**").hasRole("ADMIN")
                         // Khách hàng, tài khoản (CN-07 đến CN-10): Admin không được xem (docs/01-chuc-nang.md mục 1).
                         .requestMatchers("/api/customers/**", "/api/accounts/**").hasAnyRole("MAKER", "CHECKER")
+                        // Phiếu (CN-11 đến CN-17, spec phiếu mục 6): duyệt, từ chối, màn Chờ duyệt chỉ CHECKER;
+                        // tạo, sửa, hủy và các API kiểm trước khi tạo chỉ MAKER; xem phiếu cho cả hai. Admin không vào.
+                        // "Người tạo", "cùng chi nhánh" kiểm trong Service vì phải đọc phiếu.
+                        .requestMatchers("/api/tickets/pending-review/**", "/api/tickets/*/approve",
+                                "/api/tickets/*/reject").hasRole("CHECKER")
+                        .requestMatchers(HttpMethod.POST, "/api/tickets", "/api/tickets/customer-check",
+                                "/api/tickets/*/cancel").hasRole("MAKER")
+                        .requestMatchers(HttpMethod.PUT, "/api/tickets/*").hasRole("MAKER")
+                        .requestMatchers(HttpMethod.GET, "/api/tickets/eligibility", "/api/tickets/*/edit-data")
+                        .hasRole("MAKER")
+                        .requestMatchers("/api/tickets/**").hasAnyRole("MAKER", "CHECKER")
                         .requestMatchers("/api/**").hasAnyRole("MAKER", "CHECKER", "ADMIN")
                         .anyRequest().authenticated())
                 // OAuth2 Login: tự có /oauth2/authorization/keycloak và /login/oauth2/code/keycloak.

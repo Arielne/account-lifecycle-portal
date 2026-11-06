@@ -1,7 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<!-- SQL cho AccountMapper (CN-09, CN-10). Chỉ đọc; đọc chéo bảng customer, account_type, branch, ticket. -->
+<!-- SQL cho AccountMapper (CN-09, CN-10, CN-11). Ghi bảng account; đọc chéo bảng customer, account_type, branch,
+     ticket. -->
 <mapper namespace="io.github.arielne.alp.account.AccountMapper">
+
+    <!-- Tài khoản Chờ mở cho phiếu Mở tài khoản. Số tài khoản 10 chữ số lấy từ sequence ngay trong câu INSERT;
+         RETURNING trả lại id và số vừa sinh, MyBatis gán vào record (useGeneratedKeys, keyProperty). -->
+    <insert id="insertPending" useGeneratedKeys="true" keyProperty="id,accountNumber" keyColumn="id,account_number">
+        INSERT INTO app.account (account_number, customer_id, account_type_id, branch_id, status, last_transaction_at)
+        VALUES (nextval('app.account_number_seq')::text, #{customerId}, #{accountTypeId}, #{branchId}, 'PENDING_OPEN',
+                #{lastTransactionAt})
+    </insert>
+
+    <select id="accountTypeExists" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM app.account_type WHERE id = #{accountTypeId})
+    </select>
 
     <!-- Cột và bảng dùng chung cho findPage và findById.
          LEFT JOIN ticket: phiếu đang Chờ duyệt hoặc Bị từ chối của tài khoản. Index uq_ticket_open_per_account (QT-03)
