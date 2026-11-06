@@ -1,8 +1,11 @@
 package io.github.arielne.alp.common;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import org.postgresql.util.PSQLException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -15,6 +18,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
@@ -28,6 +32,10 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
     private static final String SYSTEM_ERROR_MESSAGE = "Lỗi hệ thống. Vui lòng thử lại sau.";
+    // Câu báo cho các constraint hay bị vi phạm khi 2 người lưu cùng lúc (tên do Postgres đặt hoặc ghi trong V3, V5).
+    private static final Map<String, String> CONSTRAINT_MESSAGES = Map.of(
+            "customer_cccd_key", "Số CCCD đã có hồ sơ khách hàng",
+            "uq_ticket_open_per_account", "Tài khoản đang có phiếu khác chờ duyệt hoặc bị từ chối");
 
     /** Dữ liệu không qua Bean Validation (@Valid trên DTO): 400 kèm lỗi của từng ô. */
     @Override
@@ -61,16 +69,52 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(exception.getStatus()).body(body);
     }
 
+    /** File quá 5 MB hoặc cả request quá 26 MB (spring.servlet.multipart): 400 nói rõ giới hạn. */
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException exception,
+                                                                         HttpHeaders headers, HttpStatusCode status,
+                                                                         WebRequest request) {
+        ApiErrorResponse body = new ApiErrorResponse(HttpStatus.BAD_REQUEST.value(),
+                "Mỗi file tối đa 5 MB, gửi tối đa 5 file");
+        return ResponseEntity.badRequest().body(body);
+    }
+
     /**
      * Database chặn vì trùng UNIQUE hoặc vướng khóa ngoại, khi hai người lưu cùng lúc nên lọt qua bước kiểm tra
-     * của Service. Trả 409 thay vì 500.
+     * của Service. Trả 409 thay vì 500. Log chỉ ghi SQLState và tên constraint, không ghi message của Postgres:
+     * message đó có thể chứa giá trị của dòng dữ liệu, ví dụ số CCCD bị trùng (spec phiếu, mục 11.3).
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
-        log.warn("Database từ chối thao tác ghi: {}", exception.getMostSpecificCause().getMessage());
-        ApiErrorResponse body = new ApiErrorResponse(HttpStatus.CONFLICT.value(),
-                "Dữ liệu vừa bị người khác thay đổi. Vui lòng tải lại trang rồi thử lại.");
+        String constraintName = constraintNameOf(exception);
+        log.warn("Database từ chối thao tác ghi: SQLState {}, constraint {}", sqlStateOf(exception), constraintName);
+        ApiErrorResponse body = new ApiErrorResponse(HttpStatus.CONFLICT.value(), messageForConstraint(constraintName));
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    /** Tên constraint Postgres báo vi phạm (PSQLException của driver Postgres); null khi không đọc được. */
+    private String constraintNameOf(DataIntegrityViolationException exception) {
+        if (exception.getMostSpecificCause() instanceof PSQLException postgresException
+                && postgresException.getServerErrorMessage() != null) {
+            return postgresException.getServerErrorMessage().getConstraint();
+        }
+        return null;
+    }
+
+    /** Mã lỗi chuẩn SQL (ví dụ 23505 là trùng UNIQUE); null khi lỗi không đến từ JDBC. */
+    private String sqlStateOf(DataIntegrityViolationException exception) {
+        if (exception.getMostSpecificCause() instanceof SQLException sqlException) {
+            return sqlException.getSQLState();
+        }
+        return null;
+    }
+
+    /** Constraint đã biết thì đổi sang câu nghiệp vụ; còn lại giữ câu chung. */
+    private String messageForConstraint(String constraintName) {
+        if (constraintName != null && CONSTRAINT_MESSAGES.containsKey(constraintName)) {
+            return CONSTRAINT_MESSAGES.get(constraintName);
+        }
+        return "Dữ liệu vừa bị người khác thay đổi. Vui lòng tải lại trang rồi thử lại.";
     }
 
     /** Lỗi không lường trước: ghi log đầy đủ (kèm mã request), chỉ trả câu chung, không lộ chi tiết ra ngoài. */

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<!-- SQL cho CustomerMapper (CN-07, CN-08). Chỉ đọc; đọc chéo bảng branch và account. -->
+<!-- SQL cho CustomerMapper (CN-07, CN-08, CN-11). Ghi bảng customer; đọc chéo bảng branch và account. -->
 <mapper namespace="io.github.arielne.alp.customer.CustomerMapper">
 
     <!-- Cột và bảng dùng chung cho findPage và findById. -->
@@ -52,4 +52,20 @@
         <include refid="customerSelect"/>
         WHERE c.id = #{id}
     </select>
+
+    <!-- useGeneratedKeys: MyBatis đọc id database vừa sinh (IDENTITY) rồi gán vào record.id. -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO app.customer (cccd, full_name, date_of_birth, gender, id_issue_date, id_issue_place, phone,
+                                  email, address, branch_id)
+        VALUES (#{cccd}, #{fullName}, #{dateOfBirth}, #{gender}, #{idIssueDate}, #{idIssuePlace}, #{phone},
+                #{email}, #{address}, #{branchId})
+    </insert>
+
+    <update id="updateProfile">
+        UPDATE app.customer
+        SET cccd = #{cccd}, full_name = #{fullName}, date_of_birth = #{dateOfBirth}, gender = #{gender},
+            id_issue_date = #{idIssueDate}, id_issue_place = #{idIssuePlace}, phone = #{phone}, email = #{email},
+            address = #{address}, branch_id = #{branchId}
+        WHERE id = #{id}
+    </update>
 </mapper>

@@ -5,8 +5,8 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 /**
- * Mapper MyBatis đọc bảng app.customer (CN-07, CN-08). Câu SQL nằm trong CustomerMapper.xml.
- * Chỉ có hàm đọc: khách hàng chỉ được tạo qua phiếu (CN-11, CN-18), phần ghi làm cùng module phiếu.
+ * Mapper MyBatis của bảng app.customer (CN-07, CN-08, CN-11). Câu SQL nằm trong CustomerMapper.xml.
+ * Khách hàng chỉ được tạo qua phiếu Mở tài khoản: insert và updateProfile chỉ chạy khi account gọi CustomerService.
  */
 @Mapper
 public interface CustomerMapper {
@@ -22,4 +22,10 @@ public interface CustomerMapper {
 
     /** Một khách theo id; không có thì trả null. */
     CustomerRow findById(Long id);
+
+    /** Thêm hồ sơ mới; id do database sinh được gán lại vào record. */
+    int insert(CustomerRecord record);
+
+    /** Ghi đè toàn bộ hồ sơ theo id (hồ sơ chưa từng mở được tài khoản, D6); giữ nguyên id và ngày tạo. */
+    int updateProfile(CustomerRecord record);
 }

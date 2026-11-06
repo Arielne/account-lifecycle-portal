@@ -1,6 +1,6 @@
 # Module phiếu yêu cầu
 
-Spec cho module `ticket` (CN-11 đến CN-17) và phần gửi mail kết quả CN-24 (module `notification`, Outbox, Kafka, Mailpit): tạo 4 loại phiếu lẻ, sửa và gửi lại, hủy, màn Chờ duyệt, Tất cả phiếu, Chi tiết phiếu, duyệt và từ chối qua Camunda, đổi trạng thái tài khoản bằng State pattern. Điều kiện xong ở mục 15; quyết định đã chốt ở mục 16; phần kỹ thuật cần mentor xem ở mục 17.
+Spec cho module `ticket` (CN-11 đến CN-17) và phần gửi mail kết quả CN-24 (module `notification`, Outbox, Kafka, Mailpit): tạo 4 loại phiếu lẻ, sửa và gửi lại, hủy, màn Chờ duyệt, Tất cả phiếu, Chi tiết phiếu, duyệt và từ chối qua Camunda, đổi trạng thái tài khoản bằng State pattern. Điều kiện xong ở mục 15; quyết định nghiệp vụ đã chốt ở mục 16; quyết định kỹ thuật đã chốt ở mục 17.
 
 Đọc kèm: `docs/01-chuc-nang.md` mục 2.1–2.3, 3, 4.4, 4.7 và 5; `docs/modules/customer-account.md` (che dữ liệu, tìm tên không dấu, 4 chỗ để trống); `docs/modules/admin.md` mục 3, 4 (dạng lỗi, audit); bản thiết kế `TaoPhieu`, `ChiTietPhieu`, `PhieuChoDuyet` (bản 31/10), `TongQuan` (bản 31/10), `ChiTietTaiKhoan`, `ChiTietKhachHang`. Chỗ nào bản thiết kế khác file này thì làm theo file này (danh sách ở mục 18).
 
@@ -61,7 +61,7 @@ docs/diagrams/        erd.drawio (cột và bảng mới), ảnh sơ đồ BPMN 
 
 ### 3.1 V12: cột mới của phiếu và giấy tờ (bảng `ticket`, `attachment`)
 
-- `last_submitted_at timestamptz NOT NULL`: lần gửi gần nhất. Lúc tạo bằng `created_at`, mỗi lần gửi lại đặt bằng `now()`. Thời gian chờ, "quá 24 giờ" và thứ tự "gửi sớm nhất" đều tính từ cột này (CN-14). Script thêm cột cho phép rỗng, chép `created_at` sang cho dòng đã có, rồi mới đặt `NOT NULL`.
+- `last_submitted_at timestamptz NOT NULL DEFAULT now()`: lần gửi gần nhất. Lúc tạo bằng `created_at` (cùng mặc định `now()` trong một câu INSERT nên bằng nhau), mỗi lần gửi lại đặt bằng `now()`. Thời gian chờ, "quá 24 giờ" và thứ tự "gửi sớm nhất" đều tính từ cột này (CN-14). Script thêm cột cho phép rỗng, chép `created_at` sang cho dòng đã có, rồi mới đặt mặc định và `NOT NULL`.
 - Đổi tên `approved_by` thành `reviewed_by`, thêm `reviewed_at timestamptz`: người và lúc duyệt hoặc từ chối lần gần nhất; gửi lại thì đặt rỗng (T4). Cột "Người duyệt" ở các bảng phiếu, ô "Duyệt mở bởi" và báo cáo "Phiếu đã duyệt" (CN-19) đọc 2 cột này.
 - `new_customer boolean NOT NULL DEFAULT false`: phiếu Mở tài khoản này đã tạo hồ sơ khách mới (hoặc ghi đè hồ sơ chưa từng mở được tài khoản, D6). Dùng để hiện "Khách hàng mới" và để biết phiếu có được sửa hồ sơ khách khi gửi lại không (D2).
 - `attachment.removed_at timestamptz`, `attachment.removed_by bigint` (FK `employee`), cùng rỗng được: giấy tờ bị bỏ khi sửa phiếu (D3). Bỏ mềm: dòng và file vẫn còn, chỉ không còn tính là giấy tờ của phiếu.
@@ -116,7 +116,7 @@ Bảng `app.account_status_history`:
 ### 4.1 Cài đặt
 
 - Camunda 7.24 chạy trong app (embedded), dùng chung DataSource và transaction manager của Spring. Vì vậy `taskService.complete(...)` gọi trong method `@Transactional` nằm chung transaction với các câu UPDATE của MyBatis: một bên lỗi thì cả hai cùng bị hủy (dùng ở mục 8).
-- Bảng của Camunda ở schema `camunda` (T1): Flyway khai `schemas: app,camunda` chỉ để tạo schema rỗng (bảng lịch sử của Flyway vẫn ở `app`, script vẫn chỉ đụng `app`); kết nối đặt `search_path` là `camunda` bằng `spring.datasource.hikari.connection-init-sql`, để Camunda tạo và đọc bảng ở đó; `camunda.bpm.database.schema-name: camunda`. Mọi câu SQL của app đã ghi đủ `app.` nên không bị ảnh hưởng. Test chậm đầu tiên của PR 1 kiểm điều này trước khi làm phần khác.
+- Bảng của Camunda ở schema `camunda` (T1): Flyway khai `schemas: app,camunda` chỉ để tạo schema rỗng (bảng lịch sử của Flyway vẫn ở `app`, script vẫn chỉ đụng `app`); kết nối đặt `search_path` là `camunda` bằng `spring.datasource.hikari.connection-init-sql`, để Camunda tạo bảng ở đó; `camunda.bpm.database.schema-name: camunda` kèm `table-prefix: camunda.` (Camunda bắt khai cả hai: tiền tố ghép trước tên bảng ở mọi câu SQL của Camunda). Mọi câu SQL của app đã ghi đủ `app.` nên không bị ảnh hưởng. Test chậm đầu tiên của PR 1 kiểm điều này trước khi làm phần khác.
 - `camunda.bpm.database.schema-update: true` (tự tạo bảng lần đầu), `history-level: audit`, `job-execution.enabled: false`: quy trình không có bước bất đồng bộ hay hẹn giờ, tắt để Camunda không hỏi database vài giây một lần (T7). Không dùng giao diện web Cockpit.
 - File `backend/src/main/resources/bpmn/ticket-approval.bpmn` vẽ bằng Camunda Modeler, tự deploy khi khởi động; xuất ảnh vào `docs/diagrams/` cho tài liệu. App không hiện sơ đồ (mục 6 của file chức năng).
 - Mỗi phiếu một process instance, business key là mã phiếu. Biến quy trình: `ticketCode`, `ticketType`, `decision` (`APPROVED` hoặc `REJECTED`). Không đưa dữ liệu khách vào biến của Camunda.
@@ -493,14 +493,14 @@ Nghiệp vụ và giao diện, người dùng chốt; đã ghi vào `docs/01-chu
 11. D11: kiểm soát viên khác chi nhánh mở chi tiết phiếu thì không thấy nút Duyệt, Từ chối, có dòng "Phiếu thuộc Chi nhánh <tên>".
 12. D12: người tạo bị khóa khi phiếu đang Chờ duyệt hoặc Bị từ chối thì Giao dịch viên cùng chi nhánh với phiếu được hủy (không được sửa) phiếu đó; lịch sử và audit ghi người hủy thật. Không có cách này thì phiếu kẹt mãi, tài khoản bị coi là "có phiếu mở" (QT-03), tài khoản Chờ mở không bao giờ mở được; Admin không được xem phiếu nên không gỡ được.
 
-## 17. Kỹ thuật cần mentor xem
+## 17. Kỹ thuật đã chốt (05/11/2026)
 
 1. T1: bảng Camunda ở schema `camunda`, cùng DataSource với app để chung transaction; Flyway chỉ tạo schema rỗng, `search_path` đặt bằng `connection-init-sql`. Không dùng DataSource riêng cho Camunda vì khi đó API duyệt không còn 1 transaction.
-2. T2: Outbox (ghi và đẩy sang Kafka) ở `common`; `notification` chỉ nhận từ Kafka. Comment của V6 ghi `outbox_event` thuộc `notification`: sửa ghi chú trên ERD cho khớp.
-3. T3: audit cho bước hệ thống. `AuditNote` đang là bean `@RequestScope` và `AuditAspect` đọc request để lấy IP, người làm, nên luồng Kafka không ghi audit được. Đề xuất `AuditAspect` tự tạo `AuditNote` cho mỗi lần gọi (giữ trong `ThreadLocal`, xóa trong `finally`); không có request thì người làm, IP, mã request để rỗng và màn 3.5 hiện "Hệ thống".
+2. T2: Outbox (ghi và đẩy sang Kafka) ở `common`; `notification` chỉ nhận từ Kafka. Comment của V6 ghi `outbox_event` thuộc `notification`: sửa ghi chú trên ERD cho khớp. Kafka giao "ít nhất một lần": chấp nhận mail có thể gửi lặp khi backend tắt giữa chừng, không thêm bảng chống gửi lặp (mục 9).
+3. T3: audit cho bước hệ thống. `AuditNote` đang là bean `@RequestScope` và `AuditAspect` đọc request để lấy IP, người làm, nên luồng Kafka không ghi audit được. `AuditAspect` tự tạo `AuditNote` cho mỗi lần gọi (giữ trong `ThreadLocal`, xóa trong `finally`); không có request thì người làm, IP, mã request để rỗng và màn 3.5 hiện "Hệ thống".
 4. T4: đổi tên `ticket.approved_by` thành `reviewed_by`, thêm `reviewed_at`, vì cột này giữ cả người từ chối.
 5. T5: bảng `account_status_history` cho Vòng đời tài khoản, thay vì ghép từ `ticket` và `audit_log`.
-6. T6: thêm AWS SDK v2 `s3` để gọi API S3 của Supabase Storage; nhận dạng file bằng byte đầu, không thêm thư viện.
+6. T6: thêm AWS SDK v2 `s3` để gọi API S3 của Supabase Storage (ghi thêm vào mục "Công nghệ" của `CLAUDE.md`); nhận dạng file bằng byte đầu, không thêm thư viện.
 7. T7: tắt job executor của Camunda; mọi service task chạy đồng bộ, phần chạy tách sau giao cho Outbox và Kafka.
 8. T8: message catch event `mailSent`, để process instance kết thúc đúng lúc phiếu Hoàn tất thay vì kết thúc ngay sau khi ghi outbox.
 

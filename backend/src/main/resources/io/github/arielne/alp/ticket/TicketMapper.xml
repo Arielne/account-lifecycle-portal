@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- SQL cho TicketMapper (CN-11, CN-15). Ghi bảng ticket, attachment, ticket_history; đọc chéo bảng account, customer,
+     account_type, employee, branch. -->
+<mapper namespace="io.github.arielne.alp.ticket.TicketMapper">
+
+    <select id="nextCodeNumber" resultType="long">
+        SELECT nextval('app.ticket_code_seq')
+    </select>
+
+    <!-- created_at, updated_at, last_submitted_at không ghi: database đặt mặc định now(), cùng một giá trị. -->
+    <insert id="insertTicket" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO app.ticket (code, type, status, account_id, branch_id, created_by, from_status, to_status, reason,
+                                submit_count, process_instance_id, new_customer)
+        VALUES (#{code}, #{type}, #{status}, #{accountId}, #{branchId}, #{createdBy}, #{fromStatus}, #{toStatus},
+                #{reason}, #{submitCount}, #{processInstanceId}, #{newCustomer})
+    </insert>
+
+    <insert id="insertAttachment">
+        INSERT INTO app.attachment (ticket_id, original_name, storage_key, content_type, size_bytes, uploaded_by,
+                                    uploaded_at)
+        VALUES (#{ticketId}, #{originalName}, #{storageKey}, #{contentType}, #{sizeBytes}, #{uploadedBy}, now())
+    </insert>
+
+    <insert id="insertHistory">
+        INSERT INTO app.ticket_history (ticket_id, action, from_status, to_status, actor_id, note)
+        VALUES (#{ticketId}, #{action}, #{fromStatus}, #{toStatus}, #{actorId}, #{note})
+    </insert>
+
+    <!-- LEFT JOIN phiếu đang Chờ duyệt hoặc Bị từ chối: index uq_ticket_open_per_account (QT-03) bảo đảm có tối đa
+         1 phiếu như vậy, nên JOIN không làm nhân dòng. -->
+    <select id="findAccountByNumber" resultType="TicketAccountRow">
+        SELECT a.id AS account_id, a.account_number, a.status, a.customer_id, c.full_name AS customer_name,
+               c.cccd AS customer_cccd, t.name AS account_type_name, b.name AS branch_name,
+               open_ticket.code AS open_ticket_code, open_ticket.status AS open_ticket_status
+        FROM app.account a
+        JOIN app.customer c ON c.id = a.customer_id
+        JOIN app.account_type t ON t.id = a.account_type_id
+        JOIN app.branch b ON b.id = a.branch_id
+        LEFT JOIN app.ticket open_ticket ON open_ticket.account_id = a.id
+            AND open_ticket.status IN ('PENDING_APPROVAL', 'REJECTED')
+        WHERE a.account_number = #{accountNumber}
+    </select>
+
+    <!-- Trạng thái hồ sơ khách cho phiếu Mở tài khoản (spec phiếu, mục 7.1):
+         pending_ticket_code: phiếu Mở tài khoản cho khách mới đang Chờ duyệt hoặc Bị từ chối trỏ tới hồ sơ (D5).
+         reusable: hồ sơ chưa từng mở được tài khoản (D6), tức không có tài khoản nào chưa Đã đóng, và không tài khoản
+         nào từng Hoạt động (opened_at chỉ có giá trị khi tài khoản đã được mở).
+         &lt;&gt; là cách viết <> (khác) trong file XML. -->
+    <select id="findCustomerState" resultType="CustomerStateRow">
+        SELECT c.id AS customer_id,
+               (SELECT t.code
+                FROM app.ticket t
+                JOIN app.account a ON a.id = t.account_id
+                WHERE a.customer_id = c.id AND t.type = 'MO_TAI_KHOAN' AND t.new_customer
+                  AND t.status IN ('PENDING_APPROVAL', 'REJECTED')
+                LIMIT 1) AS pending_ticket_code,
+               NOT EXISTS (SELECT 1
+                           FROM app.account a
+                           WHERE a.customer_id = c.id
+                             AND (a.status &lt;&gt; 'CLOSED' OR a.opened_at IS NOT NULL)) AS reusable
+        FROM app.customer c
+        <where>
+            <if test="cccd != null">AND c.cccd = #{cccd}</if>
+            <if test="customerId != null">AND c.id = #{customerId}</if>
+        </where>
+    </select>
+
+    <!-- LEFT JOIN account, customer, account_type: phiếu lô không gắn tài khoản (account_id rỗng). -->
+    <select id="findDetail" resultType="TicketDetailRow">
+        SELECT tk.id, tk.code, tk.type, tk.status, tk.account_id, a.account_number, a.customer_id,
+               c.full_name AS customer_name, c.cccd AS customer_cccd, t.name AS account_type_name,
+               tk.from_status, tk.to_status, tk.new_customer, creator.full_name AS created_by_name,
+               b.name AS branch_name, reviewer.full_name AS reviewed_by_name, tk.reason, tk.reject_reason,
+               tk.submit_count, tk.created_at, tk.last_submitted_at
+        FROM app.ticket tk
+        JOIN app.employee creator ON creator.id = tk.created_by
+        JOIN app.branch b ON b.id = tk.branch_id
+        LEFT JOIN app.employee reviewer ON reviewer.id = tk.reviewed_by
+        LEFT JOIN app.account a ON a.id = tk.account_id
+        LEFT JOIN app.customer c ON c.id = a.customer_id
+        LEFT JOIN app.account_type t ON t.id = a.account_type_id
+        WHERE tk.id = #{id}
+    </select>
+
+    <select id="findActiveAttachments" resultType="AttachmentRow">
+        SELECT id, original_name, storage_key, content_type, size_bytes
+        FROM app.attachment
+        WHERE ticket_id = #{ticketId} AND removed_at IS NULL
+        ORDER BY id
+    </select>
+
+    <select id="findActiveAttachment" resultType="AttachmentRow">
+        SELECT id, original_name, storage_key, content_type, size_bytes
+        FROM app.attachment
+        WHERE id = #{attachmentId} AND ticket_id = #{ticketId} AND removed_at IS NULL
+    </select>
+
+    <!-- Mới nhất ở trên; cùng thời điểm thì dòng ghi sau (id lớn hơn) ở trên. -->
+    <select id="findHistory" resultType="TicketHistoryRow">
+        SELECT h.action, h.from_status, h.to_status, e.full_name AS actor_name, h.note, h.created_at
+        FROM app.ticket_history h
+        LEFT JOIN app.employee e ON e.id = h.actor_id
+        WHERE h.ticket_id = #{ticketId}
+        ORDER BY h.created_at DESC, h.id DESC
+    </select>
+</mapper>

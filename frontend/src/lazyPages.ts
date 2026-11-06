@@ -13,3 +13,5 @@ export const CustomerListPage = lazy(() => import('./pages/customer/CustomerList
 export const AccountTypePage = lazy(() => import('./pages/catalog/AccountTypePage.tsx'))
 export const BranchPage = lazy(() => import('./pages/catalog/BranchPage.tsx'))
 export const EmployeePage = lazy(() => import('./pages/employee/EmployeePage.tsx'))
+export const CreateTicketPage = lazy(() => import('./pages/ticket/CreateTicketPage.tsx'))
+export const TicketDetailPage = lazy(() => import('./pages/ticket/TicketDetailPage.tsx'))

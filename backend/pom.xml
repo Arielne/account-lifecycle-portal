@@ -22,6 +22,27 @@
         <java.version>21</java.version>
     </properties>
 
+    <!-- BOM (bill of materials): chọn sẵn phiên bản khớp nhau cho cả bộ thư viện, nên các dependency bên dưới
+         của Camunda và AWS SDK không cần ghi version. -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.camunda.bpm</groupId>
+                <artifactId>camunda-bom</artifactId>
+                <version>7.24.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>2.57.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <!-- REST API: Spring MVC chạy trên Tomcat nhúng. -->
         <dependency>
@@ -56,11 +77,11 @@
             <artifactId>mybatis-spring-boot-starter</artifactId>
             <version>3.0.5</version>
         </dependency>
-        <!-- Driver JDBC để nối Postgres (Supabase). -->
+        <!-- Driver JDBC để nối Postgres (Supabase). Phạm vi compile (không phải runtime) vì ApiExceptionHandler
+             đọc tên constraint từ PSQLException của driver. -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
         </dependency>
         <!-- Flyway: tự chạy script trong db/migrations khi backend khởi động. Từ Flyway 10, Postgres cần thêm module riêng. -->
         <dependency>
@@ -101,6 +122,24 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
+        <!-- Camunda 7 chạy trong app (embedded): quy trình duyệt phiếu, dùng chung DataSource và transaction với app.
+             Không thêm giao diện web Cockpit, REST API của Camunda. -->
+        <dependency>
+            <groupId>org.camunda.bpm.springboot</groupId>
+            <artifactId>camunda-bpm-spring-boot-starter</artifactId>
+        </dependency>
+        <!-- AWS SDK v2, chỉ module s3: lưu giấy tờ lên Supabase Storage qua API S3 (FileStorage).
+             App chỉ dùng client gọi đồng bộ, nên bỏ client bất đồng bộ dựa trên Netty để gọn thư viện. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
 
         <!-- JUnit 5, Mockito, MockMvc cho test. -->
         <dependency>
@@ -128,6 +167,12 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- MinIO trong Docker thay cho Supabase Storage khi test: cùng API S3. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>minio</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

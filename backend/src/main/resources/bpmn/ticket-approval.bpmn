@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Quy trình duyệt phiếu yêu cầu (spec phiếu, mục 4.2). Mỗi phiếu một process instance, business key là mã phiếu.
+  Mở được bằng Camunda Modeler (phần BPMNDiagram ở cuối là vị trí các hình).
+  Service task gọi bean theo tên (delegateExpression), nên ticket không phụ thuộc module chứa bean đó.
+  historyTimeToLive: Camunda 7.20 trở đi bắt mọi process ghi số ngày giữ lịch sử.
+-->
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_ticketApproval"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+
+  <bpmn:message id="Message_mailSent" name="mailSent" />
+  <bpmn:error id="Error_batchRowsInvalid" name="BATCH_ROWS_INVALID" errorCode="BATCH_ROWS_INVALID" />
+
+  <bpmn:process id="ticket-approval" name="Duyệt phiếu yêu cầu" isExecutable="true" camunda:historyTimeToLive="180">
+    <bpmn:startEvent id="ticketSubmitted" name="Phiếu được gửi">
+      <bpmn:outgoing>Flow_toReview</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:userTask id="review" name="Kiểm soát viên duyệt">
+      <bpmn:incoming>Flow_toReview</bpmn:incoming>
+      <bpmn:incoming>Flow_reviseToReview</bpmn:incoming>
+      <bpmn:outgoing>Flow_toDecision</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:exclusiveGateway id="decisionGateway" name="Kết quả" default="Flow_rejected">
+      <bpmn:incoming>Flow_toDecision</bpmn:incoming>
+      <bpmn:outgoing>Flow_approved</bpmn:outgoing>
+      <bpmn:outgoing>Flow_rejected</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:exclusiveGateway id="approvedTypeGateway" name="Phiếu lô?" default="Flow_singleTicket">
+      <bpmn:incoming>Flow_approved</bpmn:incoming>
+      <bpmn:outgoing>Flow_singleTicket</bpmn:outgoing>
+      <bpmn:outgoing>Flow_batchTicket</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:serviceTask id="applyAccountChange" name="Đổi trạng thái tài khoản"
+                      camunda:delegateExpression="${applyAccountChangeDelegate}">
+      <bpmn:incoming>Flow_singleTicket</bpmn:incoming>
+      <bpmn:outgoing>Flow_singleToJoin</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="createBatchAccounts" name="Tạo khách và tài khoản của lô"
+                      camunda:delegateExpression="${batchAccountCreator}">
+      <bpmn:incoming>Flow_batchTicket</bpmn:incoming>
+      <bpmn:outgoing>Flow_batchToJoin</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:boundaryEvent id="batchRowsInvalid" name="Lô có dòng hỏng" attachedToRef="createBatchAccounts">
+      <bpmn:outgoing>Flow_batchErrorToRevise</bpmn:outgoing>
+      <bpmn:errorEventDefinition errorRef="Error_batchRowsInvalid" />
+    </bpmn:boundaryEvent>
+
+    <bpmn:exclusiveGateway id="approvedJoin">
+      <bpmn:incoming>Flow_singleToJoin</bpmn:incoming>
+      <bpmn:incoming>Flow_batchToJoin</bpmn:incoming>
+      <bpmn:outgoing>Flow_toApprovedMail</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:serviceTask id="queueApprovedMail" name="Gửi mail kết quả duyệt"
+                      camunda:delegateExpression="${queueResultMailDelegate}">
+      <bpmn:incoming>Flow_toApprovedMail</bpmn:incoming>
+      <bpmn:outgoing>Flow_toMailSent</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:intermediateCatchEvent id="mailSent" name="Chờ gửi mail xong">
+      <bpmn:incoming>Flow_toMailSent</bpmn:incoming>
+      <bpmn:outgoing>Flow_toCompleted</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="Message_mailSent" />
+    </bpmn:intermediateCatchEvent>
+
+    <bpmn:endEvent id="completed" name="Hoàn tất">
+      <bpmn:incoming>Flow_toCompleted</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:serviceTask id="queueRejectedMail" name="Gửi mail kết quả từ chối"
+                      camunda:delegateExpression="${queueResultMailDelegate}">
+      <bpmn:incoming>Flow_rejected</bpmn:incoming>
+      <bpmn:outgoing>Flow_toRevise</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask id="revise" name="Giao dịch viên sửa">
+      <bpmn:incoming>Flow_toRevise</bpmn:incoming>
+      <bpmn:incoming>Flow_batchErrorToRevise</bpmn:incoming>
+      <bpmn:outgoing>Flow_reviseToReview</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:sequenceFlow id="Flow_toReview" sourceRef="ticketSubmitted" targetRef="review" />
+    <bpmn:sequenceFlow id="Flow_toDecision" sourceRef="review" targetRef="decisionGateway" />
+    <bpmn:sequenceFlow id="Flow_approved" name="Duyệt" sourceRef="decisionGateway" targetRef="approvedTypeGateway">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression"
+                                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${decision == 'APPROVED'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_rejected" name="Từ chối" sourceRef="decisionGateway" targetRef="queueRejectedMail" />
+    <bpmn:sequenceFlow id="Flow_singleTicket" name="Phiếu lẻ" sourceRef="approvedTypeGateway" targetRef="applyAccountChange" />
+    <bpmn:sequenceFlow id="Flow_batchTicket" name="Phiếu lô" sourceRef="approvedTypeGateway" targetRef="createBatchAccounts">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression"
+                                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${ticketType == 'MO_TK_THEO_LO'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_singleToJoin" sourceRef="applyAccountChange" targetRef="approvedJoin" />
+    <bpmn:sequenceFlow id="Flow_batchToJoin" sourceRef="createBatchAccounts" targetRef="approvedJoin" />
+    <bpmn:sequenceFlow id="Flow_batchErrorToRevise" sourceRef="batchRowsInvalid" targetRef="revise" />
+    <bpmn:sequenceFlow id="Flow_toApprovedMail" sourceRef="approvedJoin" targetRef="queueApprovedMail" />
+    <bpmn:sequenceFlow id="Flow_toMailSent" sourceRef="queueApprovedMail" targetRef="mailSent" />
+    <bpmn:sequenceFlow id="Flow_toCompleted" sourceRef="mailSent" targetRef="completed" />
+    <bpmn:sequenceFlow id="Flow_toRevise" sourceRef="queueRejectedMail" targetRef="revise" />
+    <bpmn:sequenceFlow id="Flow_reviseToReview" name="Gửi lại" sourceRef="revise" targetRef="review" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_ticketApproval">
+    <bpmndi:BPMNPlane id="BPMNPlane_ticketApproval" bpmnElement="ticket-approval">
+      <bpmndi:BPMNShape id="Shape_ticketSubmitted" bpmnElement="ticketSubmitted">
+        <dc:Bounds x="152" y="282" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_review" bpmnElement="review">
+        <dc:Bounds x="240" y="260" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_decisionGateway" bpmnElement="decisionGateway" isMarkerVisible="true">
+        <dc:Bounds x="395" y="275" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_approvedTypeGateway" bpmnElement="approvedTypeGateway" isMarkerVisible="true">
+        <dc:Bounds x="495" y="145" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_applyAccountChange" bpmnElement="applyAccountChange">
+        <dc:Bounds x="600" y="60" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_createBatchAccounts" bpmnElement="createBatchAccounts">
+        <dc:Bounds x="600" y="180" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_batchRowsInvalid" bpmnElement="batchRowsInvalid">
+        <dc:Bounds x="632" y="242" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_approvedJoin" bpmnElement="approvedJoin" isMarkerVisible="true">
+        <dc:Bounds x="755" y="145" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_queueApprovedMail" bpmnElement="queueApprovedMail">
+        <dc:Bounds x="860" y="130" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_mailSent" bpmnElement="mailSent">
+        <dc:Bounds x="1012" y="152" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_completed" bpmnElement="completed">
+        <dc:Bounds x="1102" y="152" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_queueRejectedMail" bpmnElement="queueRejectedMail">
+        <dc:Bounds x="500" y="400" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_revise" bpmnElement="revise">
+        <dc:Bounds x="660" y="400" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_toReview" bpmnElement="Flow_toReview">
+        <di:waypoint x="188" y="300" />
+        <di:waypoint x="240" y="300" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_toDecision" bpmnElement="Flow_toDecision">
+        <di:waypoint x="340" y="300" />
+        <di:waypoint x="395" y="300" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_approved" bpmnElement="Flow_approved">
+        <di:waypoint x="420" y="275" />
+        <di:waypoint x="420" y="170" />
+        <di:waypoint x="495" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_rejected" bpmnElement="Flow_rejected">
+        <di:waypoint x="420" y="325" />
+        <di:waypoint x="420" y="440" />
+        <di:waypoint x="500" y="440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_singleTicket" bpmnElement="Flow_singleTicket">
+        <di:waypoint x="520" y="145" />
+        <di:waypoint x="520" y="100" />
+        <di:waypoint x="600" y="100" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_batchTicket" bpmnElement="Flow_batchTicket">
+        <di:waypoint x="520" y="195" />
+        <di:waypoint x="520" y="220" />
+        <di:waypoint x="600" y="220" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_singleToJoin" bpmnElement="Flow_singleToJoin">
+        <di:waypoint x="700" y="100" />
+        <di:waypoint x="780" y="100" />
+        <di:waypoint x="780" y="145" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_batchToJoin" bpmnElement="Flow_batchToJoin">
+        <di:waypoint x="700" y="220" />
+        <di:waypoint x="780" y="220" />
+        <di:waypoint x="780" y="195" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_batchErrorToRevise" bpmnElement="Flow_batchErrorToRevise">
+        <di:waypoint x="650" y="278" />
+        <di:waypoint x="650" y="360" />
+        <di:waypoint x="710" y="360" />
+        <di:waypoint x="710" y="400" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_toApprovedMail" bpmnElement="Flow_toApprovedMail">
+        <di:waypoint x="805" y="170" />
+        <di:waypoint x="860" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_toMailSent" bpmnElement="Flow_toMailSent">
+        <di:waypoint x="960" y="170" />
+        <di:waypoint x="1012" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_toCompleted" bpmnElement="Flow_toCompleted">
+        <di:waypoint x="1048" y="170" />
+        <di:waypoint x="1102" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_toRevise" bpmnElement="Flow_toRevise">
+        <di:waypoint x="600" y="440" />
+        <di:waypoint x="660" y="440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_reviseToReview" bpmnElement="Flow_reviseToReview">
+        <di:waypoint x="710" y="480" />
+        <di:waypoint x="710" y="520" />
+        <di:waypoint x="290" y="520" />
+        <di:waypoint x="290" y="340" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
