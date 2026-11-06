@@ -17,6 +17,7 @@ import {
   CustomerDetailPage,
   CustomerListPage,
   EmployeePage,
+  PendingReviewPage,
   TicketDetailPage,
 } from './lazyPages.ts'
 import CurrentUserProvider from './pages/auth/CurrentUserProvider.tsx'
@@ -27,6 +28,7 @@ const PAGE_ELEMENTS: Record<string, ReactNode> = {
   '/khach-hang': <CustomerListPage />,
   '/tai-khoan': <AccountListPage />,
   '/phieu/tao-moi': <CreateTicketPage />,
+  '/phieu/cho-duyet': <PendingReviewPage />,
   '/danh-muc/loai-tai-khoan': <AccountTypePage />,
   '/danh-muc/chi-nhanh': <BranchPage />,
   '/nhan-vien': <EmployeePage />,

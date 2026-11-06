@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- SQL cho OutboxMapper: ghi bảng app.outbox_event (spec phiếu mục 9). -->
+<mapper namespace="io.github.arielne.alp.common.OutboxMapper">
+
+    <!-- Cột payload kiểu jsonb: CAST đổi chuỗi JSON từ Java sang jsonb. published_at để rỗng, nghĩa là chưa gửi. -->
+    <insert id="insert">
+        INSERT INTO app.outbox_event (aggregate_type, aggregate_id, event_type, payload)
+        VALUES (#{aggregateType}, #{aggregateId}, #{eventType}, CAST(#{payload} AS jsonb))
+    </insert>
+</mapper>

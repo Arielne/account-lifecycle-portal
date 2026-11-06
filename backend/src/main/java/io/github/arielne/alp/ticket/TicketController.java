@@ -21,7 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * API phiếu yêu cầu: tạo phiếu (CN-11), kiểm trước khi tạo, xem chi tiết và tải giấy tờ (CN-15).
+ * API phiếu yêu cầu: tạo phiếu (CN-11), kiểm trước khi tạo, màn Chờ duyệt (CN-14), xem chi tiết và tải giấy tờ
+ * (CN-15), duyệt (CN-16), từ chối (CN-17).
  * Phân quyền theo role nằm ở SecurityConfig (QT-07); Admin không gọi được API nào ở đây.
  */
 @RestController
@@ -31,6 +32,7 @@ public class TicketController {
 
     private final TicketService ticketService;
     private final TicketQueryService ticketQueryService;
+    private final TicketReviewService ticketReviewService;
 
     /**
      * CN-11: multipart gồm phần "data" (JSON, TicketCreateRequest) và phần "files" (1–5 giấy tờ).
@@ -59,10 +61,37 @@ public class TicketController {
         return ticketService.checkCustomer(request.cccd());
     }
 
-    /** CN-15: chi tiết phiếu. */
+    /** CN-14, màn Chờ duyệt: phiếu chờ người xem duyệt; lọc theo phần đầu mã phiếu và loại phiếu. */
+    @GetMapping("/pending-review")
+    public List<PendingTicketItem> pendingReview(@RequestParam(required = false) String code,
+                                                 @RequestParam(required = false) TicketType type) {
+        return ticketReviewService.findPendingReview(code, type);
+    }
+
+    /** CN-14, D9: số phiếu chờ duyệt cho badge của menu. */
+    @GetMapping("/pending-review/summary")
+    public PendingReviewSummary pendingReviewSummary() {
+        return ticketReviewService.summarizePendingReview();
+    }
+
+    /** CN-15: chi tiết phiếu, kèm cờ nút Duyệt, Từ chối tính cho người đang xem. */
     @GetMapping("/{id}")
     public TicketDetail findById(@PathVariable Long id) {
         return ticketQueryService.findDetail(id);
+    }
+
+    /** CN-16: duyệt phiếu; không có thân request. */
+    @PostMapping("/{id}/approve")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void approve(@PathVariable Long id) {
+        ticketReviewService.approve(id);
+    }
+
+    /** CN-17: từ chối phiếu kèm lý do. */
+    @PostMapping("/{id}/reject")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void reject(@PathVariable Long id, @Valid @RequestBody TicketRejectRequest request) {
+        ticketReviewService.reject(id, request.reason());
     }
 
     /**

@@ -1,4 +1,5 @@
-// Gọi API phiếu (CN-11, CN-15). Backend tự kiểm quyền (QT-07), lấy chi nhánh từ hồ sơ người đang đăng nhập (QT-04)
+// Gọi API phiếu (CN-11, CN-14, CN-15, CN-16, CN-17). Backend tự kiểm quyền (QT-07), lấy chi nhánh từ hồ sơ người
+// đang đăng nhập (QT-04)
 // và che CCCD trước khi trả về (QT-06).
 import { httpClient } from '../../api/httpClient.ts'
 import type { AccountStatus } from '../../components/accountStatus.ts'
@@ -105,9 +106,38 @@ export interface TicketDetail {
   lastSubmittedAt: string
   attachments: TicketAttachment[]
   history: TicketHistoryEntry[]
+  /** Người đang xem được bấm Duyệt, Từ chối (backend tính, vẫn kiểm lại khi bấm). */
+  canApprove: boolean
+  canReject: boolean
+  /** Nút hiện nhưng bị khóa vì lý do này (người tạo phiếu, QT-01); null khi không khóa. */
+  blockedReason: string | null
+}
+
+/** Một dòng của màn Chờ duyệt (CN-14); waitingMinutes, overdue do backend tính từ lần gửi gần nhất. */
+export interface PendingTicket {
+  id: number
+  code: string
+  type: TicketType
+  fromStatus: AccountStatus | null
+  submitCount: number
+  newCustomer: boolean
+  lastSubmittedAt: string
+  waitingMinutes: number
+  overdue: boolean
+  /** null với phiếu lô. */
+  accountNumber: string | null
+  customerName: string | null
+}
+
+/** Số phiếu đang chờ người xem duyệt (badge menu, D9) và số phiếu quá 24 giờ. */
+export interface PendingReviewSummary {
+  pendingCount: number
+  overdueCount: number
 }
 
 export const TICKET_QUERY_KEY = 'ticket'
+export const PENDING_REVIEW_QUERY_KEY = 'pendingReview'
+export const PENDING_REVIEW_SUMMARY_QUERY_KEY = 'pendingReviewSummary'
 
 /**
  * Gửi phiếu dạng multipart: phần "data" là JSON (Blob có kiểu application/json để Spring đọc thành
@@ -139,6 +169,27 @@ export async function checkCustomer(cccd: string): Promise<CustomerCheckResult> 
 export async function fetchTicket(id: number): Promise<TicketDetail> {
   const response = await httpClient.get<TicketDetail>(`/api/tickets/${id}`)
   return response.data
+}
+
+/** Ô lọc rỗng thì không gửi tham số đó. */
+export async function fetchPendingReview(code: string, type: TicketType | undefined): Promise<PendingTicket[]> {
+  const response = await httpClient.get<PendingTicket[]>('/api/tickets/pending-review', {
+    params: { code: code.trim() === '' ? undefined : code.trim(), type },
+  })
+  return response.data
+}
+
+export async function fetchPendingReviewSummary(): Promise<PendingReviewSummary> {
+  const response = await httpClient.get<PendingReviewSummary>('/api/tickets/pending-review/summary')
+  return response.data
+}
+
+export async function approveTicket(id: number): Promise<void> {
+  await httpClient.post(`/api/tickets/${id}/approve`)
+}
+
+export async function rejectTicket(id: number, reason: string): Promise<void> {
+  await httpClient.post(`/api/tickets/${id}/reject`, { reason })
 }
 
 /** Đường dẫn xem (mở tab mới) hoặc tải một giấy tờ; file chỉ đi qua backend (QT-10). */

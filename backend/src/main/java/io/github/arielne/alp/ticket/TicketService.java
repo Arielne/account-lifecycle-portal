@@ -136,6 +136,10 @@ public class TicketService {
         }
         ticketMapper.insertHistory(record.getId(), TicketAction.SUBMITTED.name(), null,
                 TicketStatus.PENDING_APPROVAL.name(), creator.id(), null);
+        if (subject.fromStatus() == AccountStatus.PENDING_OPEN) {
+            // Tài khoản Chờ mở vừa tạo cho phiếu này: ghi mục đầu tiên của Vòng đời tài khoản.
+            accountService.recordPendingOpened(subject.accountId(), record.getId(), creator.id());
+        }
         return record.getId();
     }
 
@@ -225,8 +229,8 @@ public class TicketService {
 
     /** Mô tả audit theo lời nghiệp vụ, ví dụ "Phong tỏa · TK 1024118603 · Hoạt động → Phong tỏa" (spec mục 12). */
     private void recordAudit(String code, TicketType type, TicketSubject subject) {
-        String description = type.labelFor(subject.fromStatus()) + " · TK " + subject.accountNumber() + " · "
-                + subject.fromStatus().getLabel() + " → " + type.getTargetStatus().getLabel();
+        String description = TicketDescriptions.accountChange(type, subject.accountNumber(), subject.fromStatus(),
+                type.getTargetStatus());
         if (subject.reusedProfile()) {
             description = description + " · cập nhật hồ sơ chưa từng mở tài khoản";
         }

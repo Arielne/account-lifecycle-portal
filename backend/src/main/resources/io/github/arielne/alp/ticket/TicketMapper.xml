@@ -71,7 +71,8 @@
         SELECT tk.id, tk.code, tk.type, tk.status, tk.account_id, a.account_number, a.customer_id,
                c.full_name AS customer_name, c.cccd AS customer_cccd, t.name AS account_type_name,
                tk.from_status, tk.to_status, tk.new_customer, creator.full_name AS created_by_name,
-               b.name AS branch_name, reviewer.full_name AS reviewed_by_name, tk.reason, tk.reject_reason,
+               creator.keycloak_id::text AS creator_keycloak_id, tk.branch_id, b.name AS branch_name,
+               reviewer.full_name AS reviewed_by_name, tk.reason, tk.reject_reason,
                tk.submit_count, tk.created_at, tk.last_submitted_at
         FROM app.ticket tk
         JOIN app.employee creator ON creator.id = tk.created_by
@@ -103,5 +104,62 @@
         LEFT JOIN app.employee e ON e.id = h.actor_id
         WHERE h.ticket_id = #{ticketId}
         ORDER BY h.created_at DESC, h.id DESC
+    </select>
+
+    <!-- Cột dùng chung cho lockForReview và findForWorkflow. keycloak_id kiểu uuid, đổi sang chữ để so trong Java. -->
+    <sql id="reviewSelect">
+        SELECT tk.id, tk.code, tk.type, tk.status, tk.account_id, a.account_number, tk.branch_id,
+               b.name AS branch_name, tk.created_by, creator.keycloak_id::text AS creator_keycloak_id, tk.reviewed_by,
+               tk.process_instance_id, tk.from_status, tk.to_status
+        FROM app.ticket tk
+        JOIN app.employee creator ON creator.id = tk.created_by
+        JOIN app.branch b ON b.id = tk.branch_id
+        LEFT JOIN app.account a ON a.id = tk.account_id
+    </sql>
+
+    <!-- FOR UPDATE OF tk: chỉ khóa dòng phiếu, không khóa dòng của các bảng JOIN. Hai kiểm soát viên bấm Duyệt cùng
+         lúc: người sau đứng chờ ở câu này tới khi người trước commit, rồi đọc được trạng thái mới (QT-11). -->
+    <select id="lockForReview" resultType="TicketReviewRow">
+        <include refid="reviewSelect"/>
+        WHERE tk.id = #{id}
+        FOR UPDATE OF tk
+    </select>
+
+    <select id="findForWorkflow" resultType="TicketReviewRow">
+        <include refid="reviewSelect"/>
+        WHERE tk.code = #{code}
+    </select>
+
+    <update id="updateReview">
+        UPDATE app.ticket
+        SET status = #{status}, reviewed_by = #{reviewedBy}, reviewed_at = now(), reject_reason = #{rejectReason},
+            updated_at = now()
+        WHERE id = #{id}
+    </update>
+
+    <!-- Màn Chờ duyệt (CN-14): phiếu Chờ duyệt của chi nhánh người xem, trừ phiếu người xem tự tạo (QT-01, QT-04).
+         Thời gian chờ và "quá 24 giờ" tính bằng 2 hàm của V13, không tự so 24 giờ ở đây. Gửi sớm nhất ở trên.
+         starts_with: mã phiếu bắt đầu bằng chuỗi đã gõ, không có ký tự đại diện như LIKE. -->
+    <select id="findPendingReview" resultType="PendingTicketItem">
+        SELECT tk.id, tk.code, tk.type, tk.from_status, tk.submit_count, tk.new_customer, tk.last_submitted_at,
+               app.ticket_waiting_minutes(tk.last_submitted_at) AS waiting_minutes,
+               app.ticket_is_overdue(tk.last_submitted_at) AS overdue,
+               a.account_number, c.full_name AS customer_name
+        FROM app.ticket tk
+        LEFT JOIN app.account a ON a.id = tk.account_id
+        LEFT JOIN app.customer c ON c.id = a.customer_id
+        WHERE tk.status = 'PENDING_APPROVAL' AND tk.branch_id = #{branchId} AND tk.created_by &lt;&gt; #{viewerId}
+            <if test="codePrefix != null">AND starts_with(tk.code, #{codePrefix})</if>
+            <if test="type != null">AND tk.type = #{type}</if>
+        ORDER BY tk.last_submitted_at, tk.id
+        LIMIT 200
+    </select>
+
+    <!-- count(*) FILTER (WHERE ...): chỉ đếm các dòng thỏa điều kiện trong ngoặc. -->
+    <select id="countPendingReview" resultType="PendingReviewSummary">
+        SELECT count(*) AS pending_count,
+               count(*) FILTER (WHERE app.ticket_is_overdue(tk.last_submitted_at)) AS overdue_count
+        FROM app.ticket tk
+        WHERE tk.status = 'PENDING_APPROVAL' AND tk.branch_id = #{branchId} AND tk.created_by &lt;&gt; #{viewerId}
     </select>
 </mapper>

@@ -15,7 +15,8 @@ import org.springframework.stereotype.Service;
 /**
  * Đọc tài khoản cho màn Tài khoản (CN-09) và Chi tiết tài khoản (CN-10): xem được tài khoản của mọi chi nhánh
  * (QT-04), CCCD của chủ tài khoản được che trước khi trả về (QT-06).
- * Mở tài khoản Chờ mở cho phiếu Mở tài khoản (CN-11): chỉ ticket gọi (QT-02), audit nằm ở dòng "Tạo phiếu".
+ * Mở tài khoản Chờ mở cho phiếu Mở tài khoản (CN-11) và đổi trạng thái khi duyệt, hủy phiếu (CN-16, CN-13): chỉ
+ * ticket gọi (QT-02), audit nằm ở dòng của phiếu. Mỗi lần tạo hoặc đổi trạng thái ghi 1 dòng account_status_history.
  */
 @Service
 @RequiredArgsConstructor
@@ -67,6 +68,46 @@ public class AccountService {
             customerService.overwrite(customerId, profile, branchId);
         }
         return insertPendingAccount(customerId, accountTypeId, branchId);
+    }
+
+    /**
+     * Ghi dòng lịch sử "(chưa có) → Chờ mở" cho tài khoản vừa mở bằng phiếu Mở tài khoản (V14). Tách khỏi hàm mở tài
+     * khoản vì dòng lịch sử trỏ tới phiếu, mà phiếu lại trỏ tới tài khoản: tài khoản phải có trước, rồi tới phiếu,
+     * rồi mới ghi được dòng này. ticket gọi ngay sau khi INSERT phiếu, cùng transaction.
+     */
+    public void recordPendingOpened(Long accountId, Long ticketId, Long creatorId) {
+        accountMapper.insertStatusHistory(accountId, null, AccountStatus.PENDING_OPEN.name(), ticketId, creatorId);
+    }
+
+    /**
+     * Đổi trạng thái tài khoản theo phiếu (QT-02, spec phiếu mục 5). Chỉ ticket gọi, trong transaction duyệt hoặc hủy
+     * phiếu: khóa dòng tài khoản, kiểm trạng thái vẫn như lúc tạo phiếu, kiểm lần chuyển hợp lệ bằng State pattern,
+     * rồi UPDATE và ghi 1 dòng lịch sử. actorId: người duyệt (hoặc người hủy).
+     */
+    public void changeStatus(Long accountId, AccountStatus expectedFrom, AccountStatus target, Long ticketId,
+                             Long actorId) {
+        AccountStatus current = lockCurrentStatus(accountId);
+        if (current != expectedFrom) {
+            // Ví dụ job vừa chuyển Ngủ đông trong lúc phiếu Phong tỏa chờ duyệt (D7).
+            throw new BusinessException(HttpStatus.CONFLICT, "Trạng thái tài khoản đã đổi từ " + expectedFrom.getLabel()
+                    + " sang " + current.getLabel() + " sau khi tạo phiếu. Hãy từ chối phiếu này.");
+        }
+        if (!AccountState.of(current).canMoveTo(target)) {
+            throw new BusinessException(HttpStatus.CONFLICT, "Không chuyển được tài khoản từ " + current.getLabel()
+                    + " sang " + target.getLabel());
+        }
+        boolean activating = target == AccountStatus.ACTIVE;
+        boolean closing = target == AccountStatus.CLOSED;
+        accountMapper.updateStatus(accountId, target.name(), activating, closing, LocalDate.now(VIETNAM));
+        accountMapper.insertStatusHistory(accountId, current.name(), target.name(), ticketId, actorId);
+    }
+
+    private AccountStatus lockCurrentStatus(Long accountId) {
+        String status = accountMapper.lockStatus(accountId);
+        if (status == null) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản");
+        }
+        return AccountStatus.valueOf(status);
     }
 
     /**

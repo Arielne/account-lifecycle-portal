@@ -175,6 +175,13 @@
             <artifactId>minio</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- camunda-bpm-assert: câu kiểm tra dành cho quy trình BPMN (quy trình đang dừng ở bước nào, đã qua bước nào).
+             Phiên bản lấy từ camunda-bom ở trên. -->
+        <dependency>
+            <groupId>org.camunda.bpm</groupId>
+            <artifactId>camunda-bpm-assert</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

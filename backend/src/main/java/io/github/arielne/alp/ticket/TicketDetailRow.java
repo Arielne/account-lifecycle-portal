@@ -26,6 +26,9 @@ public class TicketDetailRow {
     private String toStatus;
     private boolean newCustomer;
     private String createdByName;
+    /** Chỉ dùng nội bộ để tính cờ nút cho người đang xem, không trả về trình duyệt. */
+    private String creatorKeycloakId;
+    private Long branchId;
     private String branchName;
     private String reviewedByName;
     private String reason;

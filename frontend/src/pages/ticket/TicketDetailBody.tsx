@@ -12,11 +12,17 @@ import { formatDateTime } from '../catalog/format.ts'
 import { attachmentUrl, type TicketDetail } from './ticketApi.ts'
 import { formatFileSize, HISTORY_ACTION_TEXTS } from './ticketFormat.ts'
 
-function TicketDetailBody({ ticket }: { ticket: TicketDetail }) {
+interface TicketDetailBodyProps {
+  ticket: TicketDetail
+  /** Cột hẹp (cột phải màn Chờ duyệt): Steps nhỏ, chữ nằm dưới biểu tượng để 4 bước không bị ngắt dòng. */
+  compact?: boolean
+}
+
+function TicketDetailBody({ ticket, compact = false }: TicketDetailBodyProps) {
   return (
     <Flex vertical gap={16}>
       <Card>
-        <TicketSteps ticket={ticket} />
+        <TicketSteps ticket={ticket} compact={compact} />
       </Card>
       <RequestContent ticket={ticket} />
       <Attachments ticket={ticket} />
@@ -26,7 +32,7 @@ function TicketDetailBody({ ticket }: { ticket: TicketDetail }) {
 }
 
 /** Tạo phiếu → Kiểm soát viên duyệt → Gửi mail → Hoàn tất; Bị từ chối, Đã hủy thì bước đang dừng báo lỗi. */
-function TicketSteps({ ticket }: { ticket: TicketDetail }) {
+function TicketSteps({ ticket, compact }: { ticket: TicketDetail; compact: boolean }) {
   let current = 1
   let status: StepsProps['status'] = 'process'
   let reviewDescription = 'Đang chờ duyệt'
@@ -50,6 +56,9 @@ function TicketSteps({ ticket }: { ticket: TicketDetail }) {
     { title: 'Gửi mail thông báo', content: 'Tự động sau khi duyệt' },
     { title: 'Hoàn tất', content: ticket.status === 'COMPLETED' ? 'Đã hoàn tất' : '' },
   ]
+  if (compact) {
+    return <Steps current={current} status={status} items={items} size="small" titlePlacement="vertical" />
+  }
   return <Steps current={current} status={status} items={items} />
 }
 
