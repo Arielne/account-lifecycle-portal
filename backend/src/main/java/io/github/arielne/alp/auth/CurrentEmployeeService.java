@@ -6,6 +6,7 @@ import io.github.arielne.alp.employee.EmployeeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -29,5 +30,19 @@ public class CurrentEmployeeService {
         }
         return new CurrentEmployee(employee.getId(), keycloakId, employee.getFullName(), employee.getBranchId(),
                 employee.getBranchName());
+    }
+
+    /**
+     * Người đang đăng nhập có role này không (MAKER, CHECKER, ADMIN). Role lấy từ KeyCloak lúc đăng nhập,
+     * KeycloakRoleMapper ghi thành quyền ROLE_<tên>. Dùng để tính cờ hiện nút; quyền gọi API vẫn kiểm ở SecurityConfig.
+     */
+    public boolean currentUserHasRole(String role) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        for (GrantedAuthority authority : authentication.getAuthorities()) {
+            if (authority.getAuthority().equals("ROLE_" + role)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

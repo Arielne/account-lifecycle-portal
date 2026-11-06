@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Test chậm cho các script Flyway trong db/migrations, chạy trên Postgres của Testcontainers.
- * Kiểm tra Flyway tạo đủ 12 bảng theo ERD, và 2 lớp chặn nằm ở database:
+ * Kiểm tra Flyway tạo đủ 13 bảng theo ERD, và 2 lớp chặn nằm ở database:
  * CHECK của cột trạng thái và index UNIQUE có điều kiện của QT-03.
  * @Transactional: mỗi test chạy trong 1 transaction và tự rollback, nên dữ liệu test không ảnh hưởng nhau.
  * Dữ liệu test là dữ liệu giả; CCCD bắt đầu bằng 099 là mã tỉnh không tồn tại (QT-12).
@@ -31,11 +31,11 @@ class DatabaseMigrationIT {
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    @DisplayName("Flyway tạo đủ 12 bảng của app trong schema app")
-    void flywayCreatesAllTwelveTablesInAppSchema() {
-        // Chuẩn bị: 12 bảng theo ERD, xếp theo thứ tự chữ cái
+    @DisplayName("Flyway tạo đủ 13 bảng của app trong schema app")
+    void flywayCreatesAllThirteenTablesInAppSchema() {
+        // Chuẩn bị: 13 bảng theo ERD (V14 thêm account_status_history), xếp theo thứ tự chữ cái
         List<String> expectedTables = List.of(
-                "account", "account_type", "attachment", "audit_log", "branch", "customer",
+                "account", "account_status_history", "account_type", "attachment", "audit_log", "branch", "customer",
                 "employee", "import_batch", "import_batch_row", "outbox_event", "ticket", "ticket_history");
 
         // Chạy

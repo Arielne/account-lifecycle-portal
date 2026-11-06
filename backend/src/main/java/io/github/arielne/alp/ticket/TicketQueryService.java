@@ -1,5 +1,7 @@
 package io.github.arielne.alp.ticket;
 
+import io.github.arielne.alp.auth.CurrentEmployee;
+import io.github.arielne.alp.auth.CurrentEmployeeService;
 import io.github.arielne.alp.common.BusinessException;
 import io.github.arielne.alp.common.PersonalDataMasker;
 import java.util.ArrayList;
@@ -18,19 +20,41 @@ public class TicketQueryService {
 
     private final TicketMapper ticketMapper;
     private final TicketAttachmentService attachmentService;
+    private final CurrentEmployeeService currentEmployeeService;
 
-    /** Chi tiết một phiếu kèm giấy tờ đang dùng và lịch sử xử lý; không có thì 404. */
+    /** Chi tiết một phiếu kèm giấy tờ đang dùng, lịch sử xử lý và cờ nút cho người đang xem; không có thì 404. */
     public TicketDetail findDetail(Long id) {
         TicketDetailRow row = ticketMapper.findDetail(id);
         if (row == null) {
             throw new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy phiếu");
         }
+        ReviewFlags review = reviewFlagsFor(row);
         return new TicketDetail(row.getId(), row.getCode(), row.getType(), row.getStatus(), row.getAccountId(),
                 row.getAccountNumber(), row.getCustomerId(), row.getCustomerName(),
                 PersonalDataMasker.maskCccd(row.getCustomerCccd()), row.getAccountTypeName(), row.getFromStatus(),
                 row.getToStatus(), row.isNewCustomer(), row.getCreatedByName(), row.getBranchName(),
                 row.getReviewedByName(), row.getReason(), row.getRejectReason(), row.getSubmitCount(),
-                row.getCreatedAt(), row.getLastSubmittedAt(), attachmentsOf(id), historyOf(id));
+                row.getCreatedAt(), row.getLastSubmittedAt(), attachmentsOf(id), historyOf(id),
+                review.allowed(), review.allowed(), review.blockedReason());
+    }
+
+    /**
+     * Cờ nút Duyệt, Từ chối (spec phiếu mục 8.3), cùng luật với TicketReviewService: chỉ kiểm soát viên, chỉ phiếu
+     * Chờ duyệt. Người tạo phiếu thấy nút bị khóa kèm lý do (QT-01); kiểm soát viên khác chi nhánh không thấy nút (D11).
+     */
+    private ReviewFlags reviewFlagsFor(TicketDetailRow row) {
+        boolean pending = TicketStatus.PENDING_APPROVAL.name().equals(row.getStatus());
+        if (!pending || !currentEmployeeService.currentUserHasRole("CHECKER")) {
+            return new ReviewFlags(false, null);
+        }
+        CurrentEmployee viewer = currentEmployeeService.get();
+        if (viewer.keycloakId().equals(row.getCreatorKeycloakId())) {
+            return new ReviewFlags(false, TicketReviewService.SELF_REVIEW);
+        }
+        if (!row.getBranchId().equals(viewer.branchId())) {
+            return new ReviewFlags(false, null);
+        }
+        return new ReviewFlags(true, null);
     }
 
     /**
@@ -66,5 +90,9 @@ public class TicketQueryService {
 
     /** Một giấy tờ để trả cho trình duyệt: tên gốc (cho Content-Disposition), loại đã kiểm lúc lưu, nội dung. */
     public record AttachmentContent(String originalName, String contentType, byte[] content) {
+    }
+
+    /** allowed: được bấm Duyệt, Từ chối; blockedReason: nút hiện nhưng bị khóa vì lý do này. */
+    private record ReviewFlags(boolean allowed, String blockedReason) {
     }
 }

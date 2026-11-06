@@ -2,7 +2,7 @@
 // Một mảng duy nhất dùng chung cho menu (layout) và chặn route (router), để hai nơi không lệch nhau.
 // Người giữ nhiều role thấy hợp các mục của các role đó.
 import type { ReactNode } from 'react'
-import type { MenuProps } from 'antd'
+import { Badge, Flex, type MenuProps } from 'antd'
 import {
   AppstoreOutlined,
   AuditOutlined,
@@ -63,13 +63,32 @@ export function visiblePages(roles: AppRole[]): PageEntry[] {
 
 type MenuItem = Required<MenuProps>['items'][number]
 
-/** Dựng items cho Menu của AntD: mục cấp 1 giữ nguyên, mục có group được gom vào một mục cha. */
-export function buildMenuItems(roles: AppRole[]): MenuItem[] {
+/** Mục menu có badge số phiếu chờ duyệt (D9). */
+const PENDING_REVIEW_ROUTE = '/phieu/cho-duyet'
+
+/** Chữ của mục menu; mục "Chờ duyệt" có thêm Badge khi còn phiếu chờ. */
+function menuLabel(page: PageEntry, pendingReviewCount: number): ReactNode {
+  if (page.route !== PENDING_REVIEW_ROUTE || pendingReviewCount === 0) {
+    return page.label
+  }
+  return (
+    <Flex justify="space-between" align="center">
+      {page.label}
+      <Badge count={pendingReviewCount} size="small" />
+    </Flex>
+  )
+}
+
+/**
+ * Dựng items cho Menu của AntD: mục cấp 1 giữ nguyên, mục có group được gom vào một mục cha.
+ * pendingReviewCount: số phiếu chờ người xem duyệt, hiện ở mục "Chờ duyệt" (D9); 0 thì không có badge.
+ */
+export function buildMenuItems(roles: AppRole[], pendingReviewCount = 0): MenuItem[] {
   const menuItems: MenuItem[] = []
   // Mục con của từng nhóm; mảng này cũng chính là children của mục cha đã thêm vào menuItems.
   const groupChildren: Record<string, MenuItem[]> = {}
   for (const page of visiblePages(roles)) {
-    const pageItem: MenuItem = { key: page.route, icon: page.icon, label: page.label }
+    const pageItem: MenuItem = { key: page.route, icon: page.icon, label: menuLabel(page, pendingReviewCount) }
     if (page.group === undefined) {
       menuItems.push(pageItem)
       continue

@@ -40,8 +40,9 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 /**
  * Test nhanh cho API phiếu (spec phiếu mục 13, test 1 và 2): phân quyền theo role (QT-07), Bean Validation của
- * phần "data" trả 400 kèm lỗi từng ô, và header khi tải giấy tờ (QT-10). TicketService, TicketQueryService là mock;
- * nghiệp vụ test ở TicketServiceTest, chạy thật trên database ở TicketCreateIT.
+ * phần "data" trả 400 kèm lỗi từng ô, và header khi tải giấy tờ (QT-10); duyệt, từ chối, Chờ duyệt chỉ cho kiểm soát
+ * viên. Các Service là mock; nghiệp vụ test ở TicketServiceTest, TicketReviewServiceTest, chạy thật trên database ở
+ * TicketCreateIT, TicketReviewIT.
  */
 @WebMvcTest(TicketController.class)
 @Import({SecurityConfig.class, KeycloakRoleMapper.class, LoginSuccessHandler.class,
@@ -61,6 +62,9 @@ class TicketControllerTest {
 
     @MockitoBean
     private TicketQueryService ticketQueryService;
+
+    @MockitoBean
+    private TicketReviewService ticketReviewService;
 
     // SecurityConfig (bộ lọc phiên bị thu hồi) và LoginSuccessHandler cần EmployeeService.
     @MockitoBean
@@ -102,6 +106,75 @@ class TicketControllerTest {
         mockMvc.perform(customerCheck().with(as("CHECKER"))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/tickets/1").with(as("CHECKER"))).andExpect(status().isOk());
         verify(ticketService, never()).create(any(), any());
+    }
+
+    @Test
+    @DisplayName("Chưa đăng nhập duyệt, từ chối, xem Chờ duyệt thì 401")
+    void reviewApisReturn401WhenNotLoggedIn() throws Exception {
+        // Chuẩn bị: không đăng nhập; chạy, kiểm tra kết quả
+        mockMvc.perform(post("/api/tickets/7/approve").with(csrf())).andExpect(status().isUnauthorized());
+        mockMvc.perform(rejectRequest()).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/tickets/pending-review")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/tickets/pending-review/summary")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Giao dịch viên và Admin không duyệt, từ chối, không xem Chờ duyệt (403, QT-07)")
+    void makerAndAdminCannotReview() throws Exception {
+        // Chuẩn bị, chạy, kiểm tra kết quả
+        for (String role : new String[] {"MAKER", "ADMIN"}) {
+            mockMvc.perform(post("/api/tickets/7/approve").with(csrf()).with(as(role)))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(rejectRequest().with(as(role))).andExpect(status().isForbidden());
+            mockMvc.perform(get("/api/tickets/pending-review").with(as(role))).andExpect(status().isForbidden());
+            mockMvc.perform(get("/api/tickets/pending-review/summary").with(as(role)))
+                    .andExpect(status().isForbidden());
+        }
+        verify(ticketReviewService, never()).approve(any());
+        verify(ticketReviewService, never()).reject(any(), any());
+    }
+
+    @Test
+    @DisplayName("Kiểm soát viên duyệt thì 204; từ chối thì 204 và Service nhận đúng lý do")
+    void checkerApprovesAndRejects() throws Exception {
+        // Chuẩn bị, chạy
+        ResultActions approved = mockMvc.perform(post("/api/tickets/7/approve").with(csrf()).with(as("CHECKER")));
+        ResultActions rejected = mockMvc.perform(rejectRequest().with(as("CHECKER")));
+
+        // Kiểm tra kết quả
+        approved.andExpect(status().isNoContent());
+        rejected.andExpect(status().isNoContent());
+        verify(ticketReviewService).approve(7L);
+        verify(ticketReviewService).reject(7L, "Đơn chưa có chữ ký");
+    }
+
+    @Test
+    @DisplayName("Từ chối không có lý do, hoặc lý do quá 500 ký tự, thì 400 kèm lỗi ô reason")
+    void rejectWithoutValidReasonReturns400() throws Exception {
+        // Chuẩn bị
+        String blankReason = "{\"reason\": \"   \"}";
+        String longReason = "{\"reason\": \"" + "x".repeat(501) + "\"}";
+
+        // Chạy, kiểm tra kết quả
+        for (String body : new String[] {blankReason, longReason}) {
+            mockMvc.perform(post("/api/tickets/7/reject").with(csrf()).with(as("CHECKER"))
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fieldErrors[0].field").value("reason"));
+        }
+        verify(ticketReviewService, never()).reject(any(), any());
+    }
+
+    @Test
+    @DisplayName("Màn Chờ duyệt: loại phiếu lạ trên URL thì 400; hợp lệ thì Service nhận đúng mã và loại")
+    void pendingReviewParsesFilters() throws Exception {
+        // Chuẩn bị, chạy, kiểm tra kết quả
+        mockMvc.perform(get("/api/tickets/pending-review").param("type", "XOA_TAI_KHOAN").with(as("CHECKER")))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/tickets/pending-review").param("code", "pyc-2026").param("type", "PHONG_TOA")
+                        .with(as("CHECKER")))
+                .andExpect(status().isOk());
+        verify(ticketReviewService).findPendingReview("pyc-2026", TicketType.PHONG_TOA);
     }
 
     @Test
@@ -182,6 +255,11 @@ class TicketControllerTest {
                 json.getBytes(StandardCharsets.UTF_8));
         MockMultipartFile file = new MockMultipartFile("files", "cccd.pdf", "application/pdf", PDF_CONTENT);
         return multipart("/api/tickets").file(data).file(file);
+    }
+
+    private MockHttpServletRequestBuilder rejectRequest() {
+        return post("/api/tickets/7/reject").with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"reason\": \"Đơn chưa có chữ ký\"}");
     }
 
     private MockHttpServletRequestBuilder customerCheck() {

@@ -1,6 +1,7 @@
-// Trang chi tiết phiếu (CN-15, trang 2.4). Lần này chỉ xem; nút Duyệt, Từ chối, Sửa và gửi lại, Hủy phiếu thêm ở các
-// bước sau của module phiếu. Giao dịch viên, kiểm soát viên xem được phiếu của mọi chi nhánh (QT-04).
-import { useParams } from 'react-router'
+// Trang chi tiết phiếu (CN-15, trang 2.4), kèm nút Duyệt, Từ chối cho kiểm soát viên (CN-16, CN-17). Nút Sửa và gửi
+// lại, Hủy phiếu thêm ở bước sau của module phiếu. Giao dịch viên, kiểm soát viên xem được phiếu của mọi chi nhánh
+// (QT-04). Đi tới từ màn Chờ duyệt (màn hẹp) thì Breadcrumb ghi "Chờ duyệt", duyệt xong quay về màn đó.
+import { useLocation, useNavigate, useParams } from 'react-router'
 import { Alert, Flex, Spin } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import { readApiError } from '../../api/apiError.ts'
@@ -8,17 +9,32 @@ import PageHeading from '../../components/PageHeading.tsx'
 import TicketStatusTag from '../../components/TicketStatusTag.tsx'
 import { ticketTypeLabel } from '../../components/ticketType.ts'
 import { formatDateTime } from '../catalog/format.ts'
+import ReviewActions from './ReviewActions.tsx'
 import { fetchTicket, TICKET_QUERY_KEY } from './ticketApi.ts'
 import TicketDetailBody from './TicketDetailBody.tsx'
+import { FROM_PENDING_REVIEW_STATE, PENDING_REVIEW_ROUTE, type TicketDetailState } from './ticketRoutes.ts'
 
 function TicketDetailPage() {
   const id = Number(useParams().id)
+  const location = useLocation()
+  const navigate = useNavigate()
+  const routeState = location.state as TicketDetailState | null
+  const fromPendingReview = routeState?.from === FROM_PENDING_REVIEW_STATE.from
   const ticketQuery = useQuery({
     queryKey: [TICKET_QUERY_KEY, id],
     queryFn: () => fetchTicket(id),
     // id không phải số (người dùng sửa tay URL) thì không gọi API.
     enabled: Number.isInteger(id),
   })
+
+  /** Duyệt, từ chối xong: về màn Chờ duyệt nếu đi tới từ đó, không thì tải lại phiếu để thấy trạng thái mới. */
+  function afterReview() {
+    if (fromPendingReview) {
+      navigate(PENDING_REVIEW_ROUTE)
+      return
+    }
+    void ticketQuery.refetch()
+  }
 
   if (!Number.isInteger(id) || ticketQuery.isError) {
     const message = readApiError(ticketQuery.error)?.message ?? 'Không tìm thấy phiếu'
@@ -32,13 +48,24 @@ function TicketDetailPage() {
     )
   }
   const ticket = ticketQuery.data
+  const breadcrumb = fromPendingReview ? ['Phiếu yêu cầu', 'Chờ duyệt', ticket.code] : ['Phiếu yêu cầu', ticket.code]
   return (
     <Flex vertical gap={16}>
       <PageHeading
-        breadcrumb={['Phiếu yêu cầu', ticket.code]}
+        breadcrumb={breadcrumb}
         title={`${ticket.code} · ${ticketTypeLabel(ticket.type, ticket.fromStatus)}`}
         description={`Tạo bởi ${ticket.createdByName} · ${formatDateTime(ticket.createdAt)} · Gửi lần ${ticket.submitCount}`}
-        extra={<TicketStatusTag status={ticket.status} />}
+        extra={
+          <Flex align="center" gap={12}>
+            <TicketStatusTag status={ticket.status} />
+            <ReviewActions
+              ticket={ticket}
+              busy={ticketQuery.isFetching}
+              onReviewed={afterReview}
+              onConflict={() => void ticketQuery.refetch()}
+            />
+          </Flex>
+        }
       />
       <TicketDetailBody ticket={ticket} />
     </Flex>

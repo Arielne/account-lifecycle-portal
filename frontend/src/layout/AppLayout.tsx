@@ -3,7 +3,9 @@
 import { Suspense } from 'react'
 import { Flex, Layout, Menu, Spin } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router'
+import { useQuery } from '@tanstack/react-query'
 import { useCurrentUser } from '../pages/auth/useCurrentUser.ts'
+import { fetchPendingReviewSummary, PENDING_REVIEW_SUMMARY_QUERY_KEY } from '../pages/ticket/ticketApi.ts'
 import AppHeader from './AppHeader.tsx'
 import { buildMenuItems, MENU_GROUPS } from './menuItems.tsx'
 import styles from './AppLayout.module.scss'
@@ -12,6 +14,13 @@ function AppLayout() {
   const currentUser = useCurrentUser()
   const location = useLocation()
   const navigate = useNavigate()
+  // Badge số phiếu chờ duyệt (D9): chỉ hỏi khi có role CHECKER. Đường dẫn nằm trong queryKey nên mỗi lần đổi trang
+  // là một lần gọi lại; duyệt, từ chối xong thì ReviewActions báo TanStack Query gọi lại.
+  const pendingSummaryQuery = useQuery({
+    queryKey: [PENDING_REVIEW_SUMMARY_QUERY_KEY, location.pathname],
+    queryFn: fetchPendingReviewSummary,
+    enabled: currentUser.roles.includes('CHECKER'),
+  })
 
   return (
     <Layout className={styles.layout}>
@@ -23,7 +32,7 @@ function AppLayout() {
         <Menu
           theme="dark"
           mode="inline"
-          items={buildMenuItems(currentUser.roles)}
+          items={buildMenuItems(currentUser.roles, pendingSummaryQuery.data?.pendingCount)}
           selectedKeys={[location.pathname]}
           defaultOpenKeys={MENU_GROUPS}
           onClick={(item) => navigate(item.key)}

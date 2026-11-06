@@ -42,4 +42,20 @@ public interface TicketMapper {
 
     /** Lịch sử xử lý, mới nhất ở trên. */
     List<TicketHistoryRow> findHistory(Long ticketId);
+
+    /** Khóa dòng phiếu tới hết transaction (SELECT ... FOR UPDATE) cho bước duyệt, từ chối; không có thì null. */
+    TicketReviewRow lockForReview(Long id);
+
+    /** Phiếu theo mã, cho service task của Camunda (biến quy trình chỉ có mã phiếu); không có thì null. */
+    TicketReviewRow findForWorkflow(String code);
+
+    /** Ghi kết quả duyệt hoặc từ chối: trạng thái mới, người và lúc xử lý, lý do từ chối (rỗng khi duyệt). */
+    int updateReview(@Param("id") Long id, @Param("status") String status, @Param("reviewedBy") Long reviewedBy,
+                     @Param("rejectReason") String rejectReason);
+
+    /** Phiếu Chờ duyệt của một chi nhánh, trừ phiếu do chính người xem tạo (QT-01, QT-04); gửi sớm nhất ở trên. */
+    List<PendingTicketItem> findPendingReview(PendingReviewFilter filter);
+
+    /** Số phiếu Chờ duyệt và số phiếu quá 24 giờ, cùng điều kiện với findPendingReview nhưng không lọc mã, loại. */
+    PendingReviewSummary countPendingReview(@Param("branchId") Long branchId, @Param("viewerId") Long viewerId);
 }
