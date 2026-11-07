@@ -1,8 +1,9 @@
 # Image của backend Spring Boot.
 # Build ở gốc repo (compose.yaml đặt context: .) vì image cần cả backend/ và db/migrations/.
+# Image gốc ghim dạng tag@sha256:digest, lý do ghi ở đầu compose.yaml.
 
 # Bước 1: build file jar bằng Maven Wrapper, trong image có đủ JDK 21.
-FROM eclipse-temurin:21.0.12_8-jdk-alpine AS build
+FROM eclipse-temurin:21.0.12_8-jdk-alpine@sha256:cd87715a8d45cfaa42419207c64680234f62785c49055cccd20437b5c9018380 AS build
 WORKDIR /build
 COPY backend/mvnw backend/pom.xml ./
 COPY backend/.mvn .mvn
@@ -13,7 +14,7 @@ RUN chmod +x mvnw
 RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -DskipTests package
 
 # Bước 2: image để chạy, chỉ cần JRE nên nhẹ hơn.
-FROM eclipse-temurin:21.0.12_8-jre-alpine
+FROM eclipse-temurin:21.0.12_8-jre-alpine@sha256:1a29e1fe337eb28b5bec30f0ee8ed29f0ff80ab6f75dcf9313efe82911065a52
 # Giữ bố cục thư mục giống trong repo: app chạy trong backend/, script Flyway ở ../db/migrations.
 # Nhờ vậy đường dẫn tương đối trong application.yml dùng được cả trên máy lẫn trong Docker.
 WORKDIR /app/backend

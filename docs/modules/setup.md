@@ -54,7 +54,7 @@ Package của các module khác (bảng module trong `CLAUDE.md`) tạo khi bắ
 | backend | build từ `backend/` | 8081 | Cổng 8081 vì 8080 là KeyCloak; chỉ mở cho `127.0.0.1`, máy khác phải đi qua Nginx |
 | web | build từ `frontend/` | 80 | Nginx trả bản build React, chuyển `/api/`, `/oauth2/`, `/login/oauth2/`, `/logout` sang `backend:8081` |
 
-- Ghim số phiên bản cho mọi image, không dùng `latest`.
+- Ghim số phiên bản cho mọi image, không dùng `latest`. Ghi cả tag lẫn digest (`image:tag@sha256:...`), kể cả image gốc trong 2 Dockerfile; Dependabot mở Pull Request đổi cả hai khi có bản mới.
 - Không gắn profile cho 5 dịch vụ hạ tầng; `backend` và `web` thuộc profile `app`. Hằng ngày `docker compose up -d` chỉ chạy hạ tầng; chạy đủ bộ như lúc demo thì `docker compose --profile app up -d`.
 - Không chạy `docker compose down -v` (mất user tạo thêm trong KeyCloak).
 - Hằng ngày: backend chạy từ IDE hoặc `mvnw spring-boot:run` (cổng 8081); frontend chạy `npm run dev`. Vite proxy chuyển 4 đường dẫn ở trên sang `localhost:8081`, để React và backend cùng origin như khi đi qua Nginx.

@@ -2,7 +2,8 @@
 # CI chạy trên các Pull Request đó như mọi Pull Request khác; người dùng xem CI xanh rồi mới merge.
 # Mỗi nhóm gom mọi bản nâng minor, patch thành 1 Pull Request. Bản nâng major không tự mở:
 # major thường đổi cách dùng, nên nâng bằng tay khi có lý do (CLAUDE.md mục "Công nghệ").
-# Image Docker không có ở đây: phiên bản image đã chốt trong CLAUDE.md (ví dụ KeyCloak 26.8.1), nâng bằng tay.
+# Image Docker ghim dạng tag@sha256:digest; Dependabot đổi cả tag lẫn digest trong cùng một dòng.
+# Pull Request nâng KeyCloak còn phải sửa phiên bản ghi trong CLAUDE.md và docs/ cho khớp.
 version: 2
 updates:
   # Action trong .github/workflows ghim theo SHA, nên không tự nhận bản vá; Dependabot đổi cả SHA lẫn ghi chú phiên bản.
@@ -49,4 +50,35 @@ updates:
         update-types: ["version-update:semver-major"]
     groups:
       npm-minor-patch:
+        patterns: ["*"]
+
+  # Image gốc trong Dockerfile: Temurin (backend), Node và Nginx (frontend).
+  # directories: một mục quét nhiều thư mục, nên bản nâng của cả 2 Dockerfile gom chung 1 Pull Request.
+  - package-ecosystem: docker
+    directories: ["/backend", "/frontend"]
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      docker-minor-patch:
+        patterns: ["*"]
+
+  # Image của 5 dịch vụ hạ tầng trong compose.yaml (KeyCloak, Redis, Kafka, Kafka UI, Mailpit).
+  - package-ecosystem: docker-compose
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      docker-compose-minor-patch:
         patterns: ["*"]
