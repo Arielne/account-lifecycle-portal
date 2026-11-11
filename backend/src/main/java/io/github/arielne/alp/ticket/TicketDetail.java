@@ -8,7 +8,9 @@ import java.util.List;
  * trên). customerCccd đã che (QT-06); không có điện thoại, email của khách.
  * Cờ cho nút, tính cho người đang xem (spec phiếu mục 8.3): canApprove, canReject là được bấm Duyệt, Từ chối;
  * blockedReason có giá trị khi nút hiện nhưng bị khóa (người tạo phiếu cũng là kiểm soát viên, QT-01). Kiểm soát
- * viên khác chi nhánh thì cả hai cờ false và blockedReason rỗng: không thấy nút (D11). Cờ Sửa, Hủy thêm ở bước sau.
+ * viên khác chi nhánh thì cả hai cờ false và blockedReason rỗng: không thấy nút (D11).
+ * canEdit: người tạo, phiếu Bị từ chối (CN-12). canCancel: người tạo, hoặc Giao dịch viên cùng chi nhánh khi người
+ * tạo đã bị khóa (D12), phiếu Chờ duyệt hoặc Bị từ chối (CN-13); cancelForLockedCreator là trường hợp hủy thay đó.
  */
 public record TicketDetail(Long id, String code, String type, String status, Long accountId, String accountNumber,
                            Long customerId, String customerName, String customerCccd, String accountTypeName,
@@ -16,7 +18,8 @@ public record TicketDetail(Long id, String code, String type, String status, Lon
                            String branchName, String reviewedByName, String reason, String rejectReason,
                            int submitCount, OffsetDateTime createdAt, OffsetDateTime lastSubmittedAt,
                            List<Attachment> attachments, List<HistoryEntry> history,
-                           boolean canApprove, boolean canReject, String blockedReason) {
+                           boolean canApprove, boolean canReject, String blockedReason,
+                           boolean canEdit, boolean canCancel, boolean cancelForLockedCreator) {
 
     /** Giấy tờ: id để gọi API tải, tên gốc, loại và dung lượng để hiện. */
     public record Attachment(Long id, String originalName, String contentType, long sizeBytes) {

@@ -28,4 +28,8 @@ public class AccountRow {
     private String openTicketCode;
     private String openTicketType;
     private String openTicketStatus;
+    // Chỉ findById đọc 2 cột này (spec phiếu mục 10.6): người tạo phiếu Mở tài khoản, người duyệt phiếu đó khi
+    // phiếu Đã duyệt hoặc Hoàn tất. Tài khoản mẫu không mở qua phiếu thì rỗng.
+    private String openedByName;
+    private String openApprovedByName;
 }

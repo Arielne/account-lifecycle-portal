@@ -1,5 +1,6 @@
 // Test 13 (spec khách hàng tài khoản mục 7): Chi tiết tài khoản. Nút đúng theo trạng thái và role; có phiếu đang mở
-// thì khóa nút và hiện Alert (QT-03); Kiểm soát viên không thấy nút. vi.mock thay hàm gọi API bằng hàm giả;
+// thì khóa nút và hiện Alert (QT-03); Kiểm soát viên không thấy nút. Test 30 (spec phiếu): Lịch sử phiếu, Vòng đời,
+// Mở bởi, Duyệt mở bởi. vi.mock thay hàm gọi API bằng hàm giả;
 // người đang đăng nhập đặt sẵn qua CurrentUserContext; MemoryRouter thay trình duyệt để kiểm trang chuyển tới.
 import { fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -7,13 +8,36 @@ import { App as AntApp } from 'antd'
 import { createMemoryRouter, RouterProvider, useLocation } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { CurrentUserContext, type AppRole, type CurrentUser } from '../auth/currentUser.ts'
+import { fetchTickets } from '../ticket/ticketApi.ts'
 import AccountDetailPage from './AccountDetailPage.tsx'
-import { fetchAccount, type AccountItem } from './accountApi.ts'
+import { fetchAccount, fetchStatusHistory, type AccountItem, type AccountStatusHistoryItem } from './accountApi.ts'
 
 vi.mock('./accountApi.ts', async (importOriginal) => {
   const original = await importOriginal<typeof import('./accountApi.ts')>()
-  return { ...original, fetchAccount: vi.fn() }
+  return { ...original, fetchAccount: vi.fn(), fetchStatusHistory: vi.fn() }
 })
+
+vi.mock('../ticket/ticketApi.ts', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../ticket/ticketApi.ts')>()
+  return { ...original, fetchTickets: vi.fn() }
+})
+
+function historyItem(values: Partial<AccountStatusHistoryItem>): AccountStatusHistoryItem {
+  return {
+    id: 1,
+    changedAt: '2026-11-05T02:12:00Z',
+    fromStatus: null,
+    toStatus: 'ACTIVE',
+    actorName: null,
+    ticketId: null,
+    ticketCode: null,
+    ticketType: null,
+    ticketFromStatus: null,
+    reason: null,
+    dormantAfterMonths: 12,
+    ...values,
+  }
+}
 
 function account(values: Partial<AccountItem>): AccountItem {
   return {
@@ -29,6 +53,8 @@ function account(values: Partial<AccountItem>): AccountItem {
     closedAt: null,
     lastTransactionAt: '2026-10-01',
     openTicket: null,
+    openedByName: null,
+    openApprovedByName: null,
     ...values,
   }
 }
@@ -43,8 +69,14 @@ function CreateTicketStub() {
   return <p>Đã sang {`${location.pathname}${location.search}`}</p>
 }
 
-function renderPage(accountItem: AccountItem, roles: AppRole[]) {
+function renderPage(accountItem: AccountItem, roles: AppRole[], history: AccountStatusHistoryItem[] = []) {
   vi.mocked(fetchAccount).mockResolvedValue(accountItem)
+  vi.mocked(fetchStatusHistory).mockResolvedValue(history)
+  vi.mocked(fetchTickets).mockResolvedValue({
+    items: [],
+    total: 3,
+    statusCounts: { PENDING_APPROVAL: 0, REJECTED: 0, APPROVED: 0, COMPLETED: 3, CANCELLED: 0 },
+  })
   const router = createMemoryRouter(
     [
       { path: '/tai-khoan/:id', element: <AccountDetailPage /> },
@@ -130,6 +162,39 @@ describe('AccountDetailPage', () => {
     expect(await screen.findByText('Chưa mở — phiếu PYC-2026-0420 đang chờ duyệt')).toBeInTheDocument()
     expect(screen.queryByText(/Tài khoản đang có phiếu/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Đóng tài khoản' })).not.toBeInTheDocument()
+  })
+
+  it('Test 30: Mở bởi, Duyệt mở bởi lấy từ API; Lịch sử phiếu gọi API phiếu theo tài khoản, số phiếu ở tiêu đề', async () => {
+    // Chuẩn bị, chạy
+    renderPage(account({ openedByName: 'Nguyễn Thị Lan', openApprovedByName: 'Trần Minh Khoa' }), ['CHECKER'])
+
+    // Kiểm tra kết quả
+    expect(await screen.findByText('Trần Minh Khoa')).toBeInTheDocument()
+    expect(screen.getByText('Nguyễn Thị Lan')).toBeInTheDocument()
+    expect(await screen.findByText('Lịch sử phiếu (3)')).toBeInTheDocument()
+    expect(fetchTickets).toHaveBeenCalledWith({ statuses: [], accountId: 1 }, 1)
+  })
+
+  it('Vòng đời: tên bước, người làm, mã phiếu là link; tài khoản mẫu ghi "Mở tài khoản" do Hệ thống', async () => {
+    // Chuẩn bị: mới nhất ở trên, như API trả về
+    const history = [
+      historyItem({ id: 3, fromStatus: 'ACTIVE', toStatus: 'BLOCKED', actorName: 'Trần Minh Khoa', ticketId: 7,
+        ticketCode: 'PYC-2026-0007', ticketType: 'PHONG_TOA', reason: 'Khách báo mất thẻ' }),
+      historyItem({ id: 2, fromStatus: 'ACTIVE', toStatus: 'DORMANT' }),
+      historyItem({ id: 1 }),
+    ]
+
+    // Chạy
+    renderPage(account({}), ['MAKER'], history)
+
+    // Kiểm tra kết quả
+    expect(await screen.findByText(/Trần Minh Khoa duyệt/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'PYC-2026-0007' })).toHaveAttribute('href', '/phieu/7')
+    expect(screen.getByText('Lý do: Khách báo mất thẻ')).toBeInTheDocument()
+    expect(screen.getByText('Tự chuyển trạng thái')).toBeInTheDocument()
+    expect(screen.getByText('Không phát sinh giao dịch trong 12 tháng')).toBeInTheDocument()
+    expect(screen.getByText('Mở tài khoản')).toBeInTheDocument()
+    expect(screen.getAllByText('Hệ thống')).toHaveLength(2)
   })
 
   it('Tài khoản Đã đóng: dòng ghi ngày đóng, không còn nút nào', async () => {

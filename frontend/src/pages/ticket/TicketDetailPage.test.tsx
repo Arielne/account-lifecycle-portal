@@ -7,12 +7,12 @@ import { App as AntApp } from 'antd'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { CurrentUserContext, type AppRole, type CurrentUser } from '../auth/currentUser.ts'
-import { approveTicket, fetchTicket, type TicketDetail } from './ticketApi.ts'
+import { approveTicket, cancelTicket, fetchTicket, type TicketDetail } from './ticketApi.ts'
 import TicketDetailPage from './TicketDetailPage.tsx'
 
 vi.mock('./ticketApi.ts', async (importOriginal) => {
   const original = await importOriginal<typeof import('./ticketApi.ts')>()
-  return { ...original, fetchTicket: vi.fn(), approveTicket: vi.fn() }
+  return { ...original, fetchTicket: vi.fn(), approveTicket: vi.fn(), cancelTicket: vi.fn() }
 })
 
 function viewer(roles: AppRole[]): CurrentUser {
@@ -53,6 +53,9 @@ const PENDING_TICKET: TicketDetail = {
   canApprove: false,
   canReject: false,
   blockedReason: null,
+  canEdit: false,
+  canCancel: false,
+  cancelForLockedCreator: false,
 }
 
 function renderTicket(ticket: TicketDetail, roles: AppRole[] = ['MAKER']) {
@@ -64,6 +67,7 @@ function renderTicket(ticket: TicketDetail, roles: AppRole[] = ['MAKER']) {
           <MemoryRouter initialEntries={[`/phieu/${ticket.id}`]}>
             <Routes>
               <Route path="/phieu/:id" element={<TicketDetailPage />} />
+              <Route path="/phieu/:id/sua" element={<p>Trang sửa phiếu</p>} />
             </Routes>
           </MemoryRouter>
         </CurrentUserContext.Provider>
@@ -99,6 +103,16 @@ describe('TicketDetailPage', () => {
     expect(within(content).getByText('Đơn chưa có chữ ký')).toBeInTheDocument()
   })
 
+  it('Phiếu Đã hủy: nội dung ghi "không chuyển ... vì phiếu đã hủy", không còn "khi phiếu được duyệt"', async () => {
+    // Chuẩn bị, chạy
+    renderTicket({ ...PENDING_TICKET, status: 'CANCELLED' })
+
+    // Kiểm tra kết quả
+    expect(await screen.findByText('vì phiếu đã hủy')).toBeInTheDocument()
+    expect(screen.getByText(/không chuyển/)).toBeInTheDocument()
+    expect(screen.queryByText('khi phiếu được duyệt')).not.toBeInTheDocument()
+  })
+
   it('Giao dịch viên không thấy nút Duyệt, Từ chối', async () => {
     // Chuẩn bị, chạy
     renderTicket(PENDING_TICKET, ['MAKER'])
@@ -130,6 +144,55 @@ describe('TicketDetailPage', () => {
     // Kiểm tra kết quả
     expect(await screen.findByText('Phiếu thuộc Chi nhánh Quận 1')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Duyệt' })).not.toBeInTheDocument()
+  })
+
+  it('Test 28: người tạo thấy "Sửa và gửi lại", "Hủy phiếu" khi phiếu Bị từ chối; bấm Sửa thì sang trang sửa', async () => {
+    // Chuẩn bị
+    renderTicket({ ...PENDING_TICKET, status: 'REJECTED', rejectReason: 'Thiếu chữ ký', canEdit: true, canCancel: true },
+      ['MAKER'])
+
+    // Chạy
+    expect(await screen.findByRole('button', { name: 'Hủy phiếu' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Sửa và gửi lại' }))
+
+    // Kiểm tra kết quả
+    expect(await screen.findByText('Trang sửa phiếu')).toBeInTheDocument()
+  })
+
+  it('Hủy phiếu Mở tài khoản cho khách mới: hộp nói rõ hậu quả, nhắc sửa thay vì hủy (D6), bắt nhập lý do (D4)', async () => {
+    // Chuẩn bị
+    vi.mocked(cancelTicket).mockResolvedValue()
+    renderTicket({ ...PENDING_TICKET, type: 'MO_TAI_KHOAN', fromStatus: 'PENDING_OPEN', newCustomer: true,
+      canCancel: true }, ['MAKER'])
+
+    // Chạy: mở hộp, bấm xác nhận khi chưa nhập lý do
+    fireEvent.click(await screen.findByRole('button', { name: 'Hủy phiếu' }))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Xác nhận hủy phiếu' }))
+
+    // Kiểm tra kết quả
+    expect(within(dialog).getByText('Tài khoản đang Chờ mở sẽ chuyển sang Đã đóng.')).toBeInTheDocument()
+    expect(within(dialog).getByText(/Sai thông tin khách thì Sửa và gửi lại, đừng hủy/)).toBeInTheDocument()
+    expect(await within(dialog).findByText('Vui lòng nhập lý do hủy')).toBeInTheDocument()
+    expect(cancelTicket).not.toHaveBeenCalled()
+
+    // Chạy: nhập lý do rồi xác nhận
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Lý do hủy' }), { target: { value: ' Khách đổi ý ' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Xác nhận hủy phiếu' }))
+
+    // Kiểm tra kết quả
+    await waitFor(() => expect(cancelTicket).toHaveBeenCalledWith(7, 'Khách đổi ý'))
+  })
+
+  it('D12: hủy thay người tạo đã bị khóa thì hộp có dòng "bạn hủy thay"; không có nút Sửa', async () => {
+    // Chuẩn bị, chạy
+    renderTicket({ ...PENDING_TICKET, canCancel: true, cancelForLockedCreator: true }, ['MAKER'])
+    fireEvent.click(await screen.findByRole('button', { name: 'Hủy phiếu' }))
+
+    // Kiểm tra kết quả
+    expect(await screen.findByText('Người tạo Nguyễn Thị Lan đã bị khóa; bạn hủy thay.')).toBeInTheDocument()
+    expect(screen.getByText('Tài khoản 1020000050 giữ nguyên trạng thái Ngủ đông.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sửa và gửi lại' })).not.toBeInTheDocument()
   })
 
   it('Kiểm soát viên bấm Duyệt: hộp xác nhận nêu thay đổi và nhắc đối chiếu giấy tờ; xác nhận thì gọi API duyệt', async () => {

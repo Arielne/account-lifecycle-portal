@@ -78,6 +78,19 @@ class AccountControllerTest {
     }
 
     @Test
+    @DisplayName("Vòng đời tài khoản: chưa đăng nhập 401, Admin 403, Giao dịch viên và Kiểm soát viên xem được")
+    void statusHistoryIsForMakerAndChecker() throws Exception {
+        // Chuẩn bị
+        when(accountService.findStatusHistory(9L)).thenReturn(List.of());
+
+        // Chạy, kiểm tra kết quả
+        mockMvc.perform(get("/api/accounts/9/status-history")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/accounts/9/status-history").with(loginAs("ADMIN"))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/accounts/9/status-history").with(loginAs("MAKER"))).andExpect(status().isOk());
+        mockMvc.perform(get("/api/accounts/9/status-history").with(loginAs("CHECKER"))).andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("Giao dịch viên lọc tài khoản: tham số trên URL được ghép đúng, nhiều trạng thái cách nhau dấu phẩy")
     void makerQueryParametersAreBound() throws Exception {
         // Chuẩn bị

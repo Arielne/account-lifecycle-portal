@@ -39,6 +39,14 @@ export function formatFileSize(sizeBytes: number): string {
   return `${megabytes.toLocaleString('vi-VN', { maximumFractionDigits: 1 })} MB`
 }
 
+/**
+ * Ghi chú dưới một bước của lịch sử xử lý. Từ chối và hủy ghi lý do ("Lý do: ..."); gửi lại ghi giấy tờ đã bỏ, đã thêm
+ * (D3), không phải lý do nên để nguyên.
+ */
+export function historyNoteText(action: TicketAction, note: string): string {
+  return action === 'REJECTED' || action === 'CANCELLED' ? `Lý do: ${note}` : note
+}
+
 /** Việc đã làm ở mỗi bước, ghép sau tên người làm: "Nguyễn Thị Lan gửi phiếu". */
 export const HISTORY_ACTION_TEXTS: Record<TicketAction, string> = {
   SUBMITTED: 'gửi phiếu',

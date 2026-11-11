@@ -16,6 +16,11 @@
         SELECT EXISTS (SELECT 1 FROM app.account_type WHERE id = #{accountTypeId})
     </select>
 
+    <update id="updatePendingAccountType">
+        UPDATE app.account SET account_type_id = #{accountTypeId}, updated_at = now()
+        WHERE id = #{accountId} AND status = 'PENDING_OPEN'
+    </update>
+
     <!-- FOR UPDATE: khóa dòng tới hết transaction. Hai lần đổi trạng thái cùng tài khoản (hai phiếu, hoặc phiếu và
          job Ngủ đông) phải chờ nhau, người sau đọc được trạng thái người trước vừa ghi. -->
     <select id="lockStatus" resultType="string">
@@ -86,8 +91,46 @@
         <include refid="accountFilter"/>
     </select>
 
+    <!-- Chi tiết tài khoản thêm 2 ô "Mở bởi", "Duyệt mở bởi" (spec phiếu mục 10.6), đọc chéo ticket, employee.
+         LEFT JOIN LATERAL: với mỗi tài khoản, lấy phiếu Mở tài khoản mới nhất của nó (LIMIT 1); không có phiếu nào
+         (tài khoản mẫu) thì 2 cột rỗng. Người duyệt chỉ tính khi phiếu đó Đã duyệt hoặc Hoàn tất. -->
     <select id="findById" resultType="AccountRow">
-        <include refid="accountSelect"/>
-        WHERE a.id = #{id}
+        SELECT base.*, opener.opened_by_name, opener.open_approved_by_name
+        FROM (
+            <include refid="accountSelect"/>
+            WHERE a.id = #{id}
+        ) base
+        LEFT JOIN LATERAL (
+            SELECT creator.full_name AS opened_by_name,
+                   CASE WHEN open_ticket.status IN ('APPROVED', 'COMPLETED') THEN reviewer.full_name END
+                       AS open_approved_by_name
+            FROM app.ticket open_ticket
+            JOIN app.employee creator ON creator.id = open_ticket.created_by
+            LEFT JOIN app.employee reviewer ON reviewer.id = open_ticket.reviewed_by
+            WHERE open_ticket.account_id = base.id AND open_ticket.type = 'MO_TAI_KHOAN'
+            ORDER BY open_ticket.id DESC
+            LIMIT 1
+        ) opener ON true
+    </select>
+
+    <!-- Vòng đời tài khoản (CN-10, spec phiếu mục 10.6): mới nhất ở trên. Đọc chéo employee (người đổi), ticket
+         (mã, loại, lý do của phiếu), account_type (số tháng chuyển ngủ đông, cho ghi chú của bước Hệ thống tự chuyển).
+         Hủy phiếu Mở tài khoản (Chờ mở → Đã đóng) thì lý do là lý do hủy, lấy ở ticket_history. -->
+    <select id="findStatusHistory" resultType="AccountStatusHistoryItem">
+        SELECT h.id, h.changed_at, h.from_status, h.to_status, e.full_name AS actor_name, t.id AS ticket_id,
+               t.code AS ticket_code, t.type AS ticket_type, t.from_status AS ticket_from_status,
+               CASE WHEN h.from_status = 'PENDING_OPEN' AND h.to_status = 'CLOSED'
+                    THEN (SELECT th.note FROM app.ticket_history th
+                          WHERE th.ticket_id = t.id AND th.action = 'CANCELLED'
+                          ORDER BY th.id DESC LIMIT 1)
+                    ELSE t.reason END AS reason,
+               account_type.dormant_after_months
+        FROM app.account_status_history h
+        JOIN app.account a ON a.id = h.account_id
+        JOIN app.account_type account_type ON account_type.id = a.account_type_id
+        LEFT JOIN app.employee e ON e.id = h.changed_by
+        LEFT JOIN app.ticket t ON t.id = h.ticket_id
+        WHERE h.account_id = #{accountId}
+        ORDER BY h.changed_at DESC, h.id DESC
     </select>
 </mapper>

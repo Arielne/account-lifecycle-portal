@@ -7,10 +7,11 @@ import type { StepsProps } from 'antd'
 import { DownloadOutlined, EyeOutlined, FileOutlined } from '@ant-design/icons'
 import AccountStatusTag from '../../components/AccountStatusTag.tsx'
 import CodeText from '../../components/CodeText.tsx'
+import type { TicketStatus } from '../../components/ticketStatus.ts'
 import { ticketTypeLabel } from '../../components/ticketType.ts'
 import { formatDateTime } from '../catalog/format.ts'
 import { attachmentUrl, type TicketDetail } from './ticketApi.ts'
-import { formatFileSize, HISTORY_ACTION_TEXTS } from './ticketFormat.ts'
+import { formatFileSize, HISTORY_ACTION_TEXTS, historyNoteText } from './ticketFormat.ts'
 
 interface TicketDetailBodyProps {
   ticket: TicketDetail
@@ -63,21 +64,35 @@ function TicketSteps({ ticket, compact }: { ticket: TicketDetail; compact: boole
 }
 
 function RequestContent({ ticket }: { ticket: TicketDetail }) {
-  const approved = ticket.status === 'APPROVED' || ticket.status === 'COMPLETED'
+  const wording = changeWording(ticket.status)
   return (
     <Card title="Nội dung yêu cầu">
       {ticket.fromStatus && ticket.toStatus && (
         <Flex wrap align="center" gap={8} style={{ marginBottom: 16 }}>
           <Typography.Text>
-            Tài khoản <CodeText>{ticket.accountNumber}</CodeText> {approved ? 'đã chuyển' : 'sẽ chuyển'}
+            Tài khoản <CodeText>{ticket.accountNumber}</CodeText> {wording.before}
           </Typography.Text>
           <AccountStatusTag status={ticket.fromStatus} />→<AccountStatusTag status={ticket.toStatus} />
-          {!approved && <Typography.Text>khi phiếu được duyệt</Typography.Text>}
+          {wording.after && <Typography.Text>{wording.after}</Typography.Text>}
         </Flex>
       )}
       <Descriptions bordered size="small" column={{ xs: 1, md: 2 }} items={contentItems(ticket)} />
     </Card>
   )
+}
+
+/**
+ * Câu nói về thay đổi trạng thái tài khoản theo trạng thái phiếu (spec phiếu mục 10.5): đã duyệt thì "đã chuyển";
+ * đã hủy thì "không chuyển ... vì phiếu đã hủy" (người dùng chốt 11/11/2026); còn lại "sẽ chuyển ... khi phiếu được duyệt".
+ */
+function changeWording(status: TicketStatus): { before: string; after: string | null } {
+  if (status === 'APPROVED' || status === 'COMPLETED') {
+    return { before: 'đã chuyển', after: null }
+  }
+  if (status === 'CANCELLED') {
+    return { before: 'không chuyển', after: 'vì phiếu đã hủy' }
+  }
+  return { before: 'sẽ chuyển', after: 'khi phiếu được duyệt' }
 }
 
 function contentItems(ticket: TicketDetail) {
@@ -153,7 +168,7 @@ function History({ ticket }: { ticket: TicketDetail }) {
         <Typography.Text>
           {entry.actorName ?? 'Hệ thống'} {HISTORY_ACTION_TEXTS[entry.action]}
         </Typography.Text>
-        {entry.note && <Typography.Text type="secondary">Lý do: {entry.note}</Typography.Text>}
+        {entry.note && <Typography.Text type="secondary">{historyNoteText(entry.action, entry.note)}</Typography.Text>}
       </Flex>
     ),
   }))

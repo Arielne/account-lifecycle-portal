@@ -49,6 +49,23 @@ class TicketAttachmentServiceTest {
     }
 
     @Test
+    @DisplayName("D3, sửa phiếu: còn giữ file cũ thì không thêm file mới cũng được; bỏ hết hoặc tổng quá 5 thì 400")
+    void additionalFilesKeepTotalBetweenOneAndFive() {
+        // Chuẩn bị, chạy
+        List<StoredAttachment> nothingAdded = service.storeAdditional(List.of(), 1);
+        BusinessException noFileLeft = assertThrows(BusinessException.class,
+                () -> service.storeAdditional(List.of(), 0));
+        BusinessException tooMany = assertThrows(BusinessException.class,
+                () -> service.storeAdditional(List.of(pdf("a.pdf"), pdf("b.pdf")), 4));
+
+        // Kiểm tra kết quả
+        assertEquals(0, nothingAdded.size());
+        assertEquals(HttpStatus.BAD_REQUEST, noFileLeft.getStatus());
+        assertEquals(HttpStatus.BAD_REQUEST, tooMany.getStatus());
+        verify(fileStorage, never()).save(anyString(), anyString(), any(), anyString());
+    }
+
+    @Test
     @DisplayName("Không có file hoặc 6 file thì 400, không lưu file nào")
     void fileCountOutsideOneToFiveIsRejected() {
         // Chuẩn bị

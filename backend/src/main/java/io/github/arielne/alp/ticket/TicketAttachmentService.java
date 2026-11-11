@@ -39,9 +39,18 @@ public class TicketAttachmentService {
         this.bucket = bucket;
     }
 
-    /** Kiểm hết các file trước (sai thì 400, chưa lưu file nào), rồi mới lưu từng file. */
+    /** Tạo phiếu: kiểm hết các file trước (sai thì 400, chưa lưu file nào), rồi mới lưu từng file. */
     public List<StoredAttachment> storeAll(List<MultipartFile> files) {
-        if (files.isEmpty() || files.size() > MAX_FILES) {
+        return storeAdditional(files, 0);
+    }
+
+    /**
+     * Sửa phiếu (D3): keptCount là số giấy tờ cũ còn giữ. Tổng số giấy tờ đang dùng sau khi sửa phải từ 1 đến 5;
+     * không thêm file mới cũng được nếu còn giữ file cũ.
+     */
+    public List<StoredAttachment> storeAdditional(List<MultipartFile> files, int keptCount) {
+        int totalCount = keptCount + files.size();
+        if (totalCount < 1 || totalCount > MAX_FILES) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "Cần đính kèm từ 1 đến 5 giấy tờ");
         }
         List<CheckedFile> checkedFiles = new ArrayList<>();

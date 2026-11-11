@@ -1,9 +1,9 @@
 // Màn Chi tiết khách hàng (CN-08, màn 3.7): thông tin khách (CCCD, điện thoại, email đã che từ backend, QT-06),
-// tab Tài khoản (lấy từ API của module tài khoản) và tab Phiếu yêu cầu. Giao dịch viên có nút "Mở thêm tài khoản".
-// Tab Phiếu yêu cầu làm cùng module phiếu (spec khách hàng tài khoản, C3); không hiện địa chỉ (C5).
+// tab Tài khoản (lấy từ API của module tài khoản) và tab Phiếu yêu cầu (lấy từ API của module phiếu, spec phiếu mục
+// 10.6). Giao dịch viên có nút "Mở thêm tài khoản". Không hiện địa chỉ (spec khách hàng tài khoản, C5).
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { Breadcrumb, Button, Card, Descriptions, Empty, Flex, Result, Table, Tabs, Typography } from 'antd'
+import { Breadcrumb, Button, Card, Descriptions, Flex, Result, Table, Tabs, Typography } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
@@ -16,6 +16,8 @@ import { openTicketState } from '../account/accountActions.ts'
 import { ACCOUNTS_QUERY_KEY, fetchAccounts, type AccountFilters, type AccountItem } from '../account/accountApi.ts'
 import { useCurrentUser } from '../auth/useCurrentUser.ts'
 import { formatLocalDate } from '../catalog/format.ts'
+import { fetchTickets, TICKETS_QUERY_KEY } from '../ticket/ticketApi.ts'
+import TicketTable from '../ticket/TicketTable.tsx'
 import { CUSTOMER_QUERY_KEY, fetchCustomer, type CustomerDetail } from './customerApi.ts'
 
 const PAGE_SIZE = 10
@@ -30,6 +32,14 @@ function CustomerDetailPage() {
     queryFn: () => fetchCustomer(customerId),
     enabled: isValidId,
   })
+  // Phiếu của khách: ở đây chứ không ở trong tab, để nhãn tab có số phiếu ngay cả khi tab chưa mở.
+  const [ticketPage, setTicketPage] = useState(1)
+  const ticketFilters = { statuses: [], customerId }
+  const ticketsQuery = useQuery({
+    queryKey: [TICKETS_QUERY_KEY, ticketFilters, ticketPage],
+    queryFn: () => fetchTickets(ticketFilters, ticketPage),
+    enabled: isValidId,
+  })
 
   if (!isValidId || readApiError(customerQuery.error)?.status === 404) {
     return <CustomerNotFound />
@@ -41,6 +51,15 @@ function CustomerDetailPage() {
     return <Card loading />
   }
   const customer = customerQuery.data
+  const ticketTotal = ticketsQuery.data?.total
+  const ticketsTab = (
+    <TicketTable
+      variant="customer"
+      items={ticketsQuery.data?.items ?? []}
+      loading={ticketsQuery.isPending}
+      pagination={{ current: ticketPage, total: ticketTotal ?? 0, onChange: setTicketPage }}
+    />
+  )
   return (
     <Flex vertical gap={16}>
       <CustomerHeading customer={customer} />
@@ -51,7 +70,11 @@ function CustomerDetailPage() {
         <Tabs
           items={[
             { key: 'accounts', label: 'Tài khoản', children: <CustomerAccounts customerId={customer.id} /> },
-            { key: 'tickets', label: 'Phiếu yêu cầu', children: <Empty description="Chưa có phiếu" /> },
+            {
+              key: 'tickets',
+              label: ticketTotal === undefined ? 'Phiếu yêu cầu' : `Phiếu yêu cầu (${ticketTotal})`,
+              children: ticketsTab,
+            },
           ]}
         />
       </Card>

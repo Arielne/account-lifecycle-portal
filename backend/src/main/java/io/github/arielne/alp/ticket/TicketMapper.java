@@ -43,8 +43,14 @@ public interface TicketMapper {
     /** Lịch sử xử lý, mới nhất ở trên. */
     List<TicketHistoryRow> findHistory(Long ticketId);
 
-    /** Khóa dòng phiếu tới hết transaction (SELECT ... FOR UPDATE) cho bước duyệt, từ chối; không có thì null. */
+    /**
+     * Khóa dòng phiếu tới hết transaction (SELECT ... FOR UPDATE) cho bước duyệt, từ chối, sửa, hủy; không có thì
+     * null.
+     */
     TicketReviewRow lockForReview(Long id);
+
+    /** Như lockForReview nhưng không khóa, chỉ để đọc và kiểm quyền; không có thì null. */
+    TicketReviewRow findForRevision(Long id);
 
     /** Phiếu theo mã, cho service task của Camunda (biến quy trình chỉ có mã phiếu); không có thì null. */
     TicketReviewRow findForWorkflow(String code);
@@ -52,6 +58,28 @@ public interface TicketMapper {
     /** Ghi kết quả duyệt hoặc từ chối: trạng thái mới, người và lúc xử lý, lý do từ chối (rỗng khi duyệt). */
     int updateReview(@Param("id") Long id, @Param("status") String status, @Param("reviewedBy") Long reviewedBy,
                      @Param("rejectReason") String rejectReason);
+
+    /** Gửi lại phiếu Bị từ chối với lý do mới (mục 7.3). */
+    int resubmitTicket(@Param("id") Long id, @Param("reason") String reason);
+
+    /** Phiếu sang Đã hủy (mục 7.4). */
+    int cancelTicket(Long id);
+
+    /** Bỏ mềm các giấy tờ đang dùng của phiếu (D3); trả số dòng đã bỏ. */
+    int removeAttachments(@Param("ticketId") Long ticketId, @Param("attachmentIds") Long[] attachmentIds,
+                          @Param("removedBy") Long removedBy);
+
+    /** Phiếu kèm hồ sơ khách đầy đủ cho màn sửa phiếu (D2); không có thì null. */
+    TicketEditRow findEditData(Long id);
+
+    /** Một trang của Tất cả phiếu khớp điều kiện lọc, mới cập nhật ở trên. */
+    List<TicketListItem> findPage(TicketListFilter filter);
+
+    /** Tổng số phiếu khớp điều kiện lọc (không tính phân trang). */
+    long count(TicketListFilter filter);
+
+    /** Số phiếu theo từng trạng thái, theo mọi bộ lọc trừ bộ lọc trạng thái (D8); trạng thái không có phiếu thì không có dòng. */
+    List<TicketStatusCount> countByStatus(TicketListFilter filter);
 
     /** Phiếu Chờ duyệt của một chi nhánh, trừ phiếu do chính người xem tạo (QT-01, QT-04); gửi sớm nhất ở trên. */
     List<PendingTicketItem> findPendingReview(PendingReviewFilter filter);

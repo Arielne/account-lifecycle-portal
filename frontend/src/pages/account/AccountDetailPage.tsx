@@ -1,17 +1,21 @@
 // Màn Chi tiết tài khoản (CN-10, màn 2.3): thông tin tài khoản và nút tạo phiếu theo trạng thái cho Giao dịch viên.
 // Tài khoản đang có phiếu Chờ duyệt hoặc Bị từ chối thì khóa mọi nút (QT-03); khóa nút chỉ là lớp giao diện,
-// API tạo phiếu kiểm lại. Lịch sử phiếu, Vòng đời, Mở bởi, Duyệt mở bởi làm cùng module phiếu (spec khách hàng
-// tài khoản, C3).
+// API tạo phiếu kiểm lại. Lịch sử phiếu lấy từ API của module phiếu, Vòng đời và Mở bởi, Duyệt mở bởi từ API tài
+// khoản (spec phiếu mục 10.6).
+import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { Alert, Breadcrumb, Button, Card, Descriptions, Empty, Flex, Result, Space, Typography } from 'antd'
+import { Alert, Breadcrumb, Button, Card, Descriptions, Flex, Result, Space, Typography } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import { readApiError } from '../../api/apiError.ts'
 import AccountStatusTag from '../../components/AccountStatusTag.tsx'
 import CodeText from '../../components/CodeText.tsx'
 import { useCurrentUser } from '../auth/useCurrentUser.ts'
 import { formatLocalDate } from '../catalog/format.ts'
+import { fetchTickets, TICKETS_QUERY_KEY } from '../ticket/ticketApi.ts'
+import TicketTable from '../ticket/TicketTable.tsx'
 import { ACCOUNT_ACTIONS, createTicketUrl, openTicketState } from './accountActions.ts'
 import { ACCOUNT_QUERY_KEY, fetchAccount, type AccountItem } from './accountApi.ts'
+import AccountLifecycle from './AccountLifecycle.tsx'
 
 function AccountDetailPage() {
   const { id } = useParams()
@@ -41,13 +45,32 @@ function AccountDetailPage() {
       <Card title="Thông tin tài khoản">
         <AccountDescriptions account={account} />
       </Card>
-      <Card title="Lịch sử phiếu">
-        <Empty description="Chưa có phiếu" />
-      </Card>
+      <AccountTickets accountId={account.id} />
       <Card title="Vòng đời tài khoản">
-        <Empty description="Chưa có dữ liệu" />
+        <AccountLifecycle accountId={account.id} />
       </Card>
     </Flex>
+  )
+}
+
+/** Lịch sử phiếu của tài khoản, gọi API Tất cả phiếu lọc theo tài khoản; số phiếu ở tiêu đề Card. */
+function AccountTickets({ accountId }: { accountId: number }) {
+  const [page, setPage] = useState(1)
+  const filters = { statuses: [], accountId }
+  const ticketsQuery = useQuery({
+    queryKey: [TICKETS_QUERY_KEY, filters, page],
+    queryFn: () => fetchTickets(filters, page),
+  })
+  const total = ticketsQuery.data?.total
+  return (
+    <Card title={total === undefined ? 'Lịch sử phiếu' : `Lịch sử phiếu (${total})`}>
+      <TicketTable
+        variant="account"
+        items={ticketsQuery.data?.items ?? []}
+        loading={ticketsQuery.isPending}
+        pagination={{ current: page, total: total ?? 0, onChange: setPage }}
+      />
+    </Card>
   )
 }
 
@@ -154,8 +177,8 @@ function AccountDescriptions({ account }: { account: AccountItem }) {
       </Descriptions.Item>
       <Descriptions.Item label="Ngày mở">{formatLocalDate(account.openedAt)}</Descriptions.Item>
       <Descriptions.Item label="Giao dịch gần nhất">{formatLocalDate(account.lastTransactionAt)}</Descriptions.Item>
-      <Descriptions.Item label="Mở bởi">—</Descriptions.Item>
-      <Descriptions.Item label="Duyệt mở bởi">—</Descriptions.Item>
+      <Descriptions.Item label="Mở bởi">{account.openedByName ?? '—'}</Descriptions.Item>
+      <Descriptions.Item label="Duyệt mở bởi">{account.openApprovedByName ?? '—'}</Descriptions.Item>
     </Descriptions>
   )
 }

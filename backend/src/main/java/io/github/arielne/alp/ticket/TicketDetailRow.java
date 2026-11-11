@@ -28,6 +28,8 @@ public class TicketDetailRow {
     private String createdByName;
     /** Chỉ dùng nội bộ để tính cờ nút cho người đang xem, không trả về trình duyệt. */
     private String creatorKeycloakId;
+    /** ACTIVE hoặc LOCKED: người tạo bị khóa thì người cùng chi nhánh được hủy thay (D12). */
+    private String creatorStatus;
     private Long branchId;
     private String branchName;
     private String reviewedByName;

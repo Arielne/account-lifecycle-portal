@@ -75,7 +75,8 @@ export function toCreateData(values: CreateTicketFormValues): TicketCreateData {
   }
 }
 
-function toNewCustomerData(customer: NewCustomerFormValues) {
+/** Hồ sơ khách mới trong Form → dữ liệu gửi API; dùng chung cho tạo phiếu và sửa phiếu. */
+export function toNewCustomerData(customer: NewCustomerFormValues) {
   return {
     fullName: customer.fullName.trim(),
     dateOfBirth: customer.dateOfBirth.format('YYYY-MM-DD'),

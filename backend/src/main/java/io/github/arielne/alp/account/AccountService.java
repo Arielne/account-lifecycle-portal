@@ -47,6 +47,12 @@ public class AccountService {
         return toItem(row);
     }
 
+    /** Vòng đời tài khoản (CN-10): các lần đổi trạng thái, mới nhất ở trên; tài khoản không có thì 404. */
+    public List<AccountStatusHistoryItem> findStatusHistory(Long id) {
+        findById(id);
+        return accountMapper.findStatusHistory(id);
+    }
+
     /**
      * Mở tài khoản Chờ mở cho khách đã có (phiếu Mở tài khoản, CN-11). Chỉ ticket gọi, trong transaction tạo phiếu.
      * branchId: chi nhánh của người tạo phiếu.
@@ -68,6 +74,22 @@ public class AccountService {
             customerService.overwrite(customerId, profile, branchId);
         }
         return insertPendingAccount(customerId, accountTypeId, branchId);
+    }
+
+    /**
+     * Sửa phiếu Mở tài khoản đang Bị từ chối (CN-12): đổi loại tài khoản của tài khoản Chờ mở, và khi phiếu tạo hồ sơ
+     * khách mới thì ghi đè hồ sơ đó bằng dữ liệu đã sửa (D2, qua CustomerService). profile null: không đổi hồ sơ.
+     * Chỉ ticket gọi, trong transaction gửi lại phiếu; ticket đã kiểm số CCCD mới không trùng hồ sơ khác.
+     */
+    public void revisePendingAccount(Long accountId, Long accountTypeId, CustomerProfile profile, Long branchId) {
+        if (!accountMapper.accountTypeExists(accountTypeId)) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy loại tài khoản");
+        }
+        accountMapper.updatePendingAccountType(accountId, accountTypeId);
+        if (profile != null) {
+            AccountRow account = accountMapper.findById(accountId);
+            customerService.overwrite(account.getCustomerId(), profile, branchId);
+        }
     }
 
     /**
@@ -165,6 +187,7 @@ public class AccountService {
         }
         return new AccountItem(row.getId(), row.getAccountNumber(), row.getCustomerId(), row.getCustomerName(),
                 PersonalDataMasker.maskCccd(row.getCustomerCccd()), row.getAccountTypeName(), row.getBranchName(),
-                row.getStatus(), row.getOpenedAt(), row.getClosedAt(), row.getLastTransactionAt(), openTicket);
+                row.getStatus(), row.getOpenedAt(), row.getClosedAt(), row.getLastTransactionAt(), openTicket,
+                row.getOpenedByName(), row.getOpenApprovedByName());
     }
 }
