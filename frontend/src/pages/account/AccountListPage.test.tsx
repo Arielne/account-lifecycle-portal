@@ -37,6 +37,8 @@ const ACCOUNT_WITH_TICKET: AccountItem = {
   closedAt: null,
   lastTransactionAt: '2026-10-01',
   openTicket: { code: 'PYC-2026-0418', type: 'PHONG_TOA', status: 'PENDING_APPROVAL' },
+  openedByName: null,
+  openApprovedByName: null,
 }
 
 function renderPage(url: string, items: AccountItem[] = []) {

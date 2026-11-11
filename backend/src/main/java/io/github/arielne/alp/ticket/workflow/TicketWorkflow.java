@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Chỗ duy nhất module phiếu gọi Camunda (spec phiếu, mục 4): bắt đầu quy trình ticket-approval cho phiếu mới, tìm
- * và hoàn thành bước "Kiểm soát viên duyệt".
+ * và hoàn thành bước "Kiểm soát viên duyệt", bước "Giao dịch viên sửa", và xóa quy trình khi hủy phiếu.
  * Camunda dùng chung transaction với app, nên quy trình chỉ được lưu khi phiếu được lưu; lỗi thì cả hai cùng bị hủy.
  * Biến quy trình chỉ có mã và loại phiếu, không có dữ liệu khách hàng.
  */
@@ -27,6 +27,8 @@ public class TicketWorkflow {
     public static final String DECISION_VARIABLE = "decision";
     /** Id của user task "Kiểm soát viên duyệt" trong file bpmn. */
     public static final String REVIEW_TASK = "review";
+    /** Id của user task "Giao dịch viên sửa" (phiếu Bị từ chối chờ ở đây). */
+    public static final String REVISE_TASK = "revise";
 
     private final RuntimeService runtimeService;
     private final TaskService taskService;
@@ -45,9 +47,31 @@ public class TicketWorkflow {
 
     /** Id của task "Kiểm soát viên duyệt" đang chờ trong quy trình của phiếu; quy trình không ở bước đó thì null. */
     public String findReviewTaskId(String processInstanceId) {
+        return findTaskId(processInstanceId, REVIEW_TASK);
+    }
+
+    /** Id của task "Giao dịch viên sửa" đang chờ; quy trình không ở bước đó thì null. */
+    public String findReviseTaskId(String processInstanceId) {
+        return findTaskId(processInstanceId, REVISE_TASK);
+    }
+
+    /** Người tạo sửa xong và gửi lại: hoàn thành bước sửa, quy trình quay về bước duyệt (spec phiếu mục 4.2). */
+    public void completeRevise(String taskId) {
+        taskService.complete(taskId);
+    }
+
+    /**
+     * Hủy phiếu (CN-13): xóa process instance đang dừng ở bước duyệt hoặc bước sửa. Lịch sử của Camunda vẫn giữ lại
+     * (history-level audit); chạy chung transaction nên hủy phiếu bị lỗi thì quy trình cũng không bị xóa.
+     */
+    public void cancel(String processInstanceId) {
+        runtimeService.deleteProcessInstance(processInstanceId, "Phiếu bị hủy");
+    }
+
+    private String findTaskId(String processInstanceId, String taskDefinitionKey) {
         Task task = taskService.createTaskQuery()
                 .processInstanceId(processInstanceId)
-                .taskDefinitionKey(REVIEW_TASK)
+                .taskDefinitionKey(taskDefinitionKey)
                 .singleResult();
         if (task == null) {
             return null;

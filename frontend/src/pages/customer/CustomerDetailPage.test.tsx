@@ -1,5 +1,6 @@
 // Test màn Chi tiết khách hàng (spec khách hàng tài khoản mục 4): thông tin đã che, nút "Mở thêm tài khoản" chỉ
-// Giao dịch viên thấy và sang Tạo phiếu điền sẵn khách; tab Tài khoản gọi API tài khoản theo khách, hiện phiếu đang mở.
+// Giao dịch viên thấy và sang Tạo phiếu điền sẵn khách; tab Tài khoản gọi API tài khoản theo khách, hiện phiếu đang mở;
+// tab Phiếu yêu cầu gọi API phiếu theo khách (spec phiếu test 30).
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App as AntApp } from 'antd'
@@ -7,6 +8,7 @@ import { createMemoryRouter, RouterProvider, useLocation } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { fetchAccounts, type AccountItem } from '../account/accountApi.ts'
 import { CurrentUserContext, type AppRole, type CurrentUser } from '../auth/currentUser.ts'
+import { fetchTickets, type TicketListItem } from '../ticket/ticketApi.ts'
 import CustomerDetailPage from './CustomerDetailPage.tsx'
 import { fetchCustomer, type CustomerDetail } from './customerApi.ts'
 
@@ -19,6 +21,28 @@ vi.mock('../account/accountApi.ts', async (importOriginal) => {
   const original = await importOriginal<typeof import('../account/accountApi.ts')>()
   return { ...original, fetchAccounts: vi.fn() }
 })
+
+vi.mock('../ticket/ticketApi.ts', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../ticket/ticketApi.ts')>()
+  return { ...original, fetchTickets: vi.fn() }
+})
+
+const CUSTOMER_TICKET: TicketListItem = {
+  id: 9,
+  code: 'PYC-2026-0418',
+  type: 'PHONG_TOA',
+  status: 'PENDING_APPROVAL',
+  fromStatus: 'ACTIVE',
+  rejectReason: null,
+  newCustomer: false,
+  accountNumber: '1099000001',
+  customerName: 'Đỗ Thị Bình',
+  branchName: 'Chi nhánh Tân Phú',
+  createdByName: 'Nguyễn Thị Lan',
+  reviewedByName: null,
+  createdAt: '2026-11-05T02:12:00Z',
+  updatedAt: '2026-11-05T02:12:00Z',
+}
 
 const CUSTOMER: CustomerDetail = {
   id: 1,
@@ -47,6 +71,8 @@ const BLOCKING_ACCOUNT: AccountItem = {
   closedAt: null,
   lastTransactionAt: '2026-10-01',
   openTicket: { code: 'PYC-2026-0418', type: 'PHONG_TOA', status: 'PENDING_APPROVAL' },
+  openedByName: null,
+  openApprovedByName: null,
 }
 
 function user(roles: AppRole[]): CurrentUser {
@@ -62,6 +88,11 @@ function CreateTicketStub() {
 function renderPage(roles: AppRole[]) {
   vi.mocked(fetchCustomer).mockResolvedValue(CUSTOMER)
   vi.mocked(fetchAccounts).mockResolvedValue({ items: [BLOCKING_ACCOUNT], total: 1 })
+  vi.mocked(fetchTickets).mockResolvedValue({
+    items: [CUSTOMER_TICKET],
+    total: 1,
+    statusCounts: { PENDING_APPROVAL: 1, REJECTED: 0, APPROVED: 0, COMPLETED: 0, CANCELLED: 0 },
+  })
   const router = createMemoryRouter(
     [
       { path: '/khach-hang/:id', element: <CustomerDetailPage /> },
@@ -110,5 +141,18 @@ describe('CustomerDetailPage', () => {
     expect(await screen.findByText('PYC-2026-0418')).toBeInTheDocument()
     expect(screen.getByText('Phong tỏa · đang chờ duyệt')).toBeInTheDocument()
     await waitFor(() => expect(fetchAccounts).toHaveBeenCalledWith({ statuses: [], customerId: 1 }, 1))
+  })
+
+  it('Tab Phiếu yêu cầu: nhãn tab có số phiếu; gọi API phiếu theo khách; mã phiếu là link sang chi tiết phiếu', async () => {
+    // Chuẩn bị
+    renderPage(['CHECKER'])
+
+    // Chạy
+    fireEvent.click(await screen.findByRole('tab', { name: 'Phiếu yêu cầu (1)' }))
+
+    // Kiểm tra kết quả
+    await waitFor(() => expect(fetchTickets).toHaveBeenCalledWith({ statuses: [], customerId: 1 }, 1))
+    const links = await screen.findAllByRole('link', { name: 'PYC-2026-0418' })
+    expect(links[0]).toHaveAttribute('href', '/phieu/9')
   })
 })

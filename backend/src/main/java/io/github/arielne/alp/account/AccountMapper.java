@@ -18,6 +18,9 @@ public interface AccountMapper {
     /** Loại tài khoản có tồn tại không (đọc chéo bảng account_type của catalog). */
     boolean accountTypeExists(Long accountTypeId);
 
+    /** Đổi loại tài khoản của tài khoản Chờ mở (sửa phiếu Mở tài khoản); tài khoản không còn Chờ mở thì không đổi. */
+    int updatePendingAccountType(@Param("accountId") Long accountId, @Param("accountTypeId") Long accountTypeId);
+
     /** Khóa dòng tài khoản tới hết transaction (SELECT ... FOR UPDATE) và trả trạng thái hiện tại; không có thì null. */
     String lockStatus(Long accountId);
 
@@ -40,6 +43,9 @@ public interface AccountMapper {
     /** Tổng số tài khoản khớp điều kiện lọc (không tính phân trang). */
     long count(AccountFilter filter);
 
-    /** Một tài khoản theo id; không có thì trả null. */
+    /** Một tài khoản theo id, kèm "Mở bởi", "Duyệt mở bởi"; không có thì trả null. */
     AccountRow findById(Long id);
+
+    /** Vòng đời của một tài khoản, mới nhất ở trên. */
+    List<AccountStatusHistoryItem> findStatusHistory(Long accountId);
 }

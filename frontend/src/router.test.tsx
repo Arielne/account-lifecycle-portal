@@ -41,9 +41,9 @@ describe('Chặn route theo role', () => {
     expect(await screen.findByText('Bạn không có quyền truy cập trang này.')).toBeInTheDocument()
   })
 
-  it('Giao dịch viên vào /phieu thì qua được, thấy trang chờ của màn chưa làm', async () => {
-    // Chuẩn bị, chạy
-    renderAt('/phieu', ['MAKER'])
+  it('Giao dịch viên vào /bao-cao/export thì qua được, thấy trang chờ của màn chưa làm', async () => {
+    // Chuẩn bị, chạy: màn Xuất báo cáo chưa làm (màn Tất cả phiếu ở /phieu nay đã có)
+    renderAt('/bao-cao/export', ['MAKER'])
 
     // Kiểm tra kết quả
     expect(await screen.findByText(/^Màn này làm ở/)).toBeInTheDocument()

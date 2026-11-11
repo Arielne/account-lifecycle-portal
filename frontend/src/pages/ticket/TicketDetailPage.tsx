@@ -1,5 +1,5 @@
-// Trang chi tiết phiếu (CN-15, trang 2.4), kèm nút Duyệt, Từ chối cho kiểm soát viên (CN-16, CN-17). Nút Sửa và gửi
-// lại, Hủy phiếu thêm ở bước sau của module phiếu. Giao dịch viên, kiểm soát viên xem được phiếu của mọi chi nhánh
+// Trang chi tiết phiếu (CN-15, trang 2.4), kèm nút Duyệt, Từ chối cho kiểm soát viên (CN-16, CN-17) và Sửa và gửi
+// lại, Hủy phiếu cho giao dịch viên (CN-12, CN-13). Giao dịch viên, kiểm soát viên xem được phiếu của mọi chi nhánh
 // (QT-04). Đi tới từ màn Chờ duyệt (màn hẹp) thì Breadcrumb ghi "Chờ duyệt", duyệt xong quay về màn đó.
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { Alert, Flex, Spin } from 'antd'
@@ -10,6 +10,7 @@ import TicketStatusTag from '../../components/TicketStatusTag.tsx'
 import { ticketTypeLabel } from '../../components/ticketType.ts'
 import { formatDateTime } from '../catalog/format.ts'
 import ReviewActions from './ReviewActions.tsx'
+import RevisionActions from './RevisionActions.tsx'
 import { fetchTicket, TICKET_QUERY_KEY } from './ticketApi.ts'
 import TicketDetailBody from './TicketDetailBody.tsx'
 import { FROM_PENDING_REVIEW_STATE, PENDING_REVIEW_ROUTE, type TicketDetailState } from './ticketRoutes.ts'
@@ -58,6 +59,7 @@ function TicketDetailPage() {
         extra={
           <Flex align="center" gap={12}>
             <TicketStatusTag status={ticket.status} />
+            <RevisionActions ticket={ticket} onChanged={() => void ticketQuery.refetch()} />
             <ReviewActions
               ticket={ticket}
               busy={ticketQuery.isFetching}

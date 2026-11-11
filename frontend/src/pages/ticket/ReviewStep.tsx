@@ -1,9 +1,10 @@
 // Bước 4 của màn Tạo phiếu (CN-11): xem lại toàn bộ trước khi gửi và xác nhận đã đối chiếu giấy tờ gốc (bắt buộc).
-import { Alert, Checkbox, Descriptions, Flex, Form, Typography } from 'antd'
+import { Alert, Descriptions, Flex, Typography } from 'antd'
 import AccountStatusTag from '../../components/AccountStatusTag.tsx'
 import type { AccountStatus } from '../../components/accountStatus.ts'
 import CodeText from '../../components/CodeText.tsx'
 import { ticketTypeLabel } from '../../components/ticketType.ts'
+import ConfirmDocumentsField from './ConfirmDocumentsField.tsx'
 import { REUSABLE_PROFILE_NOTE, type CreateTicketFormValues } from './createTicketForm.ts'
 import type { CustomerCheckResult, TicketEligibility } from './ticketApi.ts'
 
@@ -55,16 +56,7 @@ function ReviewStep({ values, eligibility, customerCheck, existingCustomerName, 
       {isOpening && values.customerMode === 'NEW' && customerCheck?.state === 'REUSABLE' && (
         <Alert type="warning" showIcon title={REUSABLE_PROFILE_NOTE} />
       )}
-      <Form.Item
-        name="confirmed"
-        valuePropName="checked"
-        rules={[{ validator: (_rule, checked?: boolean) => checked
-          ? Promise.resolve()
-          : Promise.reject(new Error('Cần xác nhận đã đối chiếu thông tin với giấy tờ gốc')) }]}
-        style={{ marginBottom: 0 }}
-      >
-        <Checkbox>Tôi đã đối chiếu thông tin với giấy tờ gốc của khách hàng</Checkbox>
-      </Form.Item>
+      <ConfirmDocumentsField />
       <Typography.Text type="secondary">
         Sau khi gửi, phiếu không sửa được cho tới khi kiểm soát viên trả về.
       </Typography.Text>

@@ -14,6 +14,11 @@ interface NewCustomerFieldsProps {
   accountTypeOptions: { value: number; label: string }[]
   customerCheck: CustomerCheckResult | null
   onCustomerCheckChange: (result: CustomerCheckResult | null) => void
+  /**
+   * Màn sửa phiếu (D2): hồ sơ của chính phiếu đang sửa. Số CCCD của hồ sơ này báo "đang chờ duyệt" là do chính phiếu
+   * này, nên không chặn; backend vẫn kiểm lại khi gửi.
+   */
+  ownCustomerId?: number
 }
 
 /** Ngày sau hôm nay không chọn được (ngày sinh, ngày cấp). */
@@ -21,7 +26,7 @@ function isFutureDate(date: Dayjs): boolean {
   return date.isAfter(new Date(), 'day')
 }
 
-function NewCustomerFields({ branchName, accountTypeOptions, customerCheck, onCustomerCheckChange }:
+function NewCustomerFields({ branchName, accountTypeOptions, customerCheck, onCustomerCheckChange, ownCustomerId }:
   NewCustomerFieldsProps) {
   const cccdRule: FormRule = {
     validator: async (_rule, value?: string) => {
@@ -34,6 +39,10 @@ function NewCustomerFields({ branchName, accountTypeOptions, customerCheck, onCu
         result = await checkCustomer(value)
       } catch (error) {
         throw new Error(readApiError(error)?.message ?? 'Không kiểm tra được số CCCD. Vui lòng thử lại.')
+      }
+      if (ownCustomerId !== undefined && result.customerId === ownCustomerId) {
+        onCustomerCheckChange(null)
+        return
       }
       onCustomerCheckChange(result)
       if (result.state === 'EXISTS') {

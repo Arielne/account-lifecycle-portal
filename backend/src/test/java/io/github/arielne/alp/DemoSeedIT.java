@@ -2,6 +2,8 @@ package io.github.arielne.alp;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +58,27 @@ class DemoSeedIT {
 
         // Kiểm tra kết quả
         assertEquals(6, staleActiveCount);
+    }
+
+    @Test
+    @DisplayName("Vòng đời mẫu: mỗi tài khoản 1 mục mở, tài khoản Ngủ đông và Đã đóng thêm 1 mục; chạy lại không thêm trùng")
+    void demoDataHasAccountLifecycle() throws Exception {
+        // Chuẩn bị: số tài khoản Ngủ đông, Đã đóng trong dữ liệu mẫu
+        int dormantCount = countRows("SELECT count(*) FROM app.account WHERE status = 'DORMANT'");
+        int closedCount = countRows("SELECT count(*) FROM app.account WHERE status = 'CLOSED'");
+        String seedFile = Files.readString(Path.of("../db/seeds/R__3_khach_hang_tai_khoan.sql"));
+
+        // Chạy: chạy lại cả file seed như khi Flyway chạy lại seed đã sửa
+        jdbcTemplate.execute(seedFile);
+
+        // Kiểm tra kết quả: các dòng đều không có phiếu, không có người làm (Hệ thống)
+        assertEquals(60, countRows("SELECT count(*) FROM app.account_status_history WHERE from_status IS NULL"));
+        assertEquals(dormantCount, countRows("SELECT count(*) FROM app.account_status_history"
+                + " WHERE to_status = 'DORMANT'"));
+        assertEquals(closedCount, countRows("SELECT count(*) FROM app.account_status_history"
+                + " WHERE to_status = 'CLOSED'"));
+        assertEquals(0, countRows("SELECT count(*) FROM app.account_status_history"
+                + " WHERE ticket_id IS NOT NULL OR changed_by IS NOT NULL OR changed_at > now()"));
     }
 
     private int countRows(String countQuery) {

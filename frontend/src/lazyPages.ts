@@ -16,3 +16,5 @@ export const EmployeePage = lazy(() => import('./pages/employee/EmployeePage.tsx
 export const CreateTicketPage = lazy(() => import('./pages/ticket/CreateTicketPage.tsx'))
 export const TicketDetailPage = lazy(() => import('./pages/ticket/TicketDetailPage.tsx'))
 export const PendingReviewPage = lazy(() => import('./pages/ticket/PendingReviewPage.tsx'))
+export const EditTicketPage = lazy(() => import('./pages/ticket/EditTicketPage.tsx'))
+export const AllTicketsPage = lazy(() => import('./pages/ticket/AllTicketsPage.tsx'))

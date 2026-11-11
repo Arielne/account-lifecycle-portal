@@ -74,6 +74,9 @@ function detail(id: number): TicketDetail {
     canApprove: true,
     canReject: true,
     blockedReason: null,
+    canEdit: false,
+    canCancel: false,
+    cancelForLockedCreator: false,
   }
 }
 

@@ -71,7 +71,8 @@
         SELECT tk.id, tk.code, tk.type, tk.status, tk.account_id, a.account_number, a.customer_id,
                c.full_name AS customer_name, c.cccd AS customer_cccd, t.name AS account_type_name,
                tk.from_status, tk.to_status, tk.new_customer, creator.full_name AS created_by_name,
-               creator.keycloak_id::text AS creator_keycloak_id, tk.branch_id, b.name AS branch_name,
+               creator.keycloak_id::text AS creator_keycloak_id, creator.status AS creator_status, tk.branch_id,
+               b.name AS branch_name,
                reviewer.full_name AS reviewed_by_name, tk.reason, tk.reject_reason,
                tk.submit_count, tk.created_at, tk.last_submitted_at
         FROM app.ticket tk
@@ -106,11 +107,15 @@
         ORDER BY h.created_at DESC, h.id DESC
     </select>
 
-    <!-- Cột dùng chung cho lockForReview và findForWorkflow. keycloak_id kiểu uuid, đổi sang chữ để so trong Java. -->
+    <!-- Cột dùng chung cho lockForReview và findForWorkflow. keycloak_id kiểu uuid, đổi sang chữ để so trong Java.
+         account_status: trạng thái hiện tại của tài khoản, để kiểm lại khi gửi lại phiếu (mục 7.3);
+         creator_status: người tạo đã bị khóa chưa, cho trường hợp hủy thay (D12). -->
     <sql id="reviewSelect">
-        SELECT tk.id, tk.code, tk.type, tk.status, tk.account_id, a.account_number, tk.branch_id,
-               b.name AS branch_name, tk.created_by, creator.keycloak_id::text AS creator_keycloak_id, tk.reviewed_by,
-               tk.process_instance_id, tk.from_status, tk.to_status
+        SELECT tk.id, tk.code, tk.type, tk.status, tk.account_id, a.account_number, a.customer_id,
+               a.status AS account_status, tk.branch_id, b.name AS branch_name, tk.created_by,
+               creator.keycloak_id::text AS creator_keycloak_id, creator.full_name AS creator_name,
+               creator.status AS creator_status, tk.reviewed_by, tk.process_instance_id, tk.from_status, tk.to_status,
+               tk.new_customer
         FROM app.ticket tk
         JOIN app.employee creator ON creator.id = tk.created_by
         JOIN app.branch b ON b.id = tk.branch_id
@@ -130,12 +135,114 @@
         WHERE tk.code = #{code}
     </select>
 
+    <!-- Như lockForReview nhưng không khóa: chỉ đọc để kiểm quyền (edit-data). -->
+    <select id="findForRevision" resultType="TicketReviewRow">
+        <include refid="reviewSelect"/>
+        WHERE tk.id = #{id}
+    </select>
+
     <update id="updateReview">
         UPDATE app.ticket
         SET status = #{status}, reviewed_by = #{reviewedBy}, reviewed_at = now(), reject_reason = #{rejectReason},
             updated_at = now()
         WHERE id = #{id}
     </update>
+
+    <!-- Gửi lại phiếu Bị từ chối (CN-12, mục 7.3): về Chờ duyệt, thêm 1 lần gửi, thời gian chờ đếm lại từ bây giờ;
+         người, lúc và lý do từ chối về rỗng (lý do cũ vẫn ở ticket_history). -->
+    <update id="resubmitTicket">
+        UPDATE app.ticket
+        SET status = 'PENDING_APPROVAL', submit_count = submit_count + 1, last_submitted_at = now(),
+            reviewed_by = NULL, reviewed_at = NULL, reject_reason = NULL, reason = #{reason}, updated_at = now()
+        WHERE id = #{id}
+    </update>
+
+    <update id="cancelTicket">
+        UPDATE app.ticket SET status = 'CANCELLED', updated_at = now() WHERE id = #{id}
+    </update>
+
+    <!-- Bỏ mềm giấy tờ khi sửa phiếu (D3): dòng và file vẫn còn, chỉ ghi lúc và người bỏ.
+         = ANY(mảng): id nằm trong danh sách; chỉ đụng giấy tờ đang dùng của đúng phiếu này. -->
+    <update id="removeAttachments">
+        UPDATE app.attachment
+        SET removed_at = now(), removed_by = #{removedBy}
+        WHERE ticket_id = #{ticketId} AND removed_at IS NULL
+          AND id = ANY(#{attachmentIds,typeHandler=org.apache.ibatis.type.ArrayTypeHandler})
+    </update>
+
+    <!-- Dữ liệu cho màn sửa phiếu (CN-12, D2): kèm hồ sơ khách đầy đủ, chỉ trả cho người tạo phiếu Bị từ chối. -->
+    <select id="findEditData" resultType="TicketEditRow">
+        SELECT tk.id, tk.code, tk.type, tk.status, tk.from_status, tk.to_status, tk.new_customer, tk.reason,
+               tk.reject_reason, tk.submit_count, a.account_number, a.account_type_id, a.customer_id,
+               c.full_name, c.date_of_birth, c.gender, c.cccd, c.id_issue_date, c.id_issue_place, c.phone, c.email,
+               c.address
+        FROM app.ticket tk
+        LEFT JOIN app.account a ON a.id = tk.account_id
+        LEFT JOIN app.customer c ON c.id = a.customer_id
+        WHERE tk.id = #{id}
+    </select>
+
+    <!-- Bảng dùng chung cho Tất cả phiếu (findPage, count, countByStatus). LEFT JOIN account, customer, reviewer:
+         phiếu lô không gắn tài khoản; phiếu chưa duyệt chưa có người duyệt. -->
+    <sql id="listFrom">
+        FROM app.ticket tk
+        JOIN app.employee creator ON creator.id = tk.created_by
+        JOIN app.branch b ON b.id = tk.branch_id
+        LEFT JOIN app.employee reviewer ON reviewer.id = tk.reviewed_by
+        LEFT JOIN app.account a ON a.id = tk.account_id
+        LEFT JOIN app.customer c ON c.id = a.customer_id
+    </sql>
+
+    <!-- Mọi bộ lọc trừ trạng thái: số đếm theo trạng thái (D8) đếm theo các bộ lọc này.
+         Khoảng ngày so với created_at bằng 2 mốc đã tính theo giờ Việt Nam ở Java: từ 0 giờ ngày đầu, tới trước
+         0 giờ ngày sau ngày cuối. starts_with: mã phiếu bắt đầu bằng chuỗi đã gõ. -->
+    <sql id="listOtherFilters">
+        <if test="codePrefix != null">AND starts_with(tk.code, #{codePrefix})</if>
+        <if test="type != null">AND tk.type = #{type}</if>
+        <if test="branchId != null">AND tk.branch_id = #{branchId}</if>
+        <if test="createdFrom != null">AND tk.created_at &gt;= #{createdFrom}</if>
+        <if test="createdBefore != null">AND tk.created_at &lt; #{createdBefore}</if>
+        <if test="accountId != null">AND tk.account_id = #{accountId}</if>
+        <if test="customerId != null">AND a.customer_id = #{customerId}</if>
+    </sql>
+
+    <sql id="listStatusFilter">
+        <if test="statuses != null">
+            AND tk.status = ANY(#{statuses,typeHandler=org.apache.ibatis.type.ArrayTypeHandler})
+        </if>
+    </sql>
+
+    <!-- Mới cập nhật ở trên; cùng lúc thì id lớn hơn ở trên. -->
+    <select id="findPage" resultType="TicketListItem">
+        SELECT tk.id, tk.code, tk.type, tk.status, tk.from_status, tk.reject_reason, tk.new_customer, a.account_number,
+               c.full_name AS customer_name, b.name AS branch_name, creator.full_name AS created_by_name,
+               reviewer.full_name AS reviewed_by_name, tk.created_at, tk.updated_at
+        <include refid="listFrom"/>
+        <where>
+            <include refid="listOtherFilters"/>
+            <include refid="listStatusFilter"/>
+        </where>
+        ORDER BY tk.updated_at DESC, tk.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT count(*)
+        <include refid="listFrom"/>
+        <where>
+            <include refid="listOtherFilters"/>
+            <include refid="listStatusFilter"/>
+        </where>
+    </select>
+
+    <select id="countByStatus" resultType="TicketStatusCount">
+        SELECT tk.status, count(*) AS count
+        <include refid="listFrom"/>
+        <where>
+            <include refid="listOtherFilters"/>
+        </where>
+        GROUP BY tk.status
+    </select>
 
     <!-- Màn Chờ duyệt (CN-14): phiếu Chờ duyệt của chi nhánh người xem, trừ phiếu người xem tự tạo (QT-01, QT-04).
          Thời gian chờ và "quá 24 giờ" tính bằng 2 hàm của V13, không tự so 24 giờ ở đây. Gửi sớm nhất ở trên.

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,8 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * API phiếu yêu cầu: tạo phiếu (CN-11), kiểm trước khi tạo, màn Chờ duyệt (CN-14), xem chi tiết và tải giấy tờ
- * (CN-15), duyệt (CN-16), từ chối (CN-17).
+ * API phiếu yêu cầu: tạo phiếu (CN-11), kiểm trước khi tạo, sửa và gửi lại (CN-12), hủy (CN-13), Tất cả phiếu và
+ * màn Chờ duyệt (CN-14), xem chi tiết và tải giấy tờ (CN-15), duyệt (CN-16), từ chối (CN-17).
  * Phân quyền theo role nằm ở SecurityConfig (QT-07); Admin không gọi được API nào ở đây.
  */
 @RestController
@@ -33,6 +35,7 @@ public class TicketController {
     private final TicketService ticketService;
     private final TicketQueryService ticketQueryService;
     private final TicketReviewService ticketReviewService;
+    private final TicketRevisionService ticketRevisionService;
 
     /**
      * CN-11: multipart gồm phần "data" (JSON, TicketCreateRequest) và phần "files" (1–5 giấy tờ).
@@ -42,11 +45,41 @@ public class TicketController {
     @ResponseStatus(HttpStatus.CREATED)
     public TicketCreated create(@Valid @RequestPart("data") TicketCreateRequest request,
                                 @RequestPart(value = "files", required = false) List<MultipartFile> files) {
-        List<MultipartFile> uploadedFiles = List.of();
-        if (files != null) {
-            uploadedFiles = files;
+        return ticketService.create(request, orEmpty(files));
+    }
+
+    /** CN-12: sửa phiếu Bị từ chối rồi gửi lại; multipart như tạo phiếu, "files" là giấy tờ thêm mới (có thể không có). */
+    @PutMapping(path = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resubmit(@PathVariable Long id, @Valid @RequestPart("data") TicketResubmitRequest request,
+                         @RequestPart(value = "files", required = false) List<MultipartFile> files) {
+        ticketRevisionService.resubmit(id, request, orEmpty(files));
+    }
+
+    /**
+     * CN-12: dữ liệu điền sẵn cho màn sửa, kèm hồ sơ khách đầy đủ (D2). no-store: trình duyệt không lưu bản đầy đủ
+     * của CCCD, điện thoại, email vào bộ nhớ đệm (spec phiếu mục 11.2).
+     */
+    @GetMapping("/{id}/edit-data")
+    public ResponseEntity<TicketEditData> editData(@PathVariable Long id) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(ticketRevisionService.findEditData(id));
+    }
+
+    /** CN-13: hủy phiếu kèm lý do (D4). */
+    @PostMapping("/{id}/cancel")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancel(@PathVariable Long id, @Valid @RequestBody TicketCancelRequest request) {
+        ticketRevisionService.cancel(id, request.reason());
+    }
+
+    /** Phần "files" không gửi (null) coi như danh sách rỗng, để Service báo lỗi số giấy tờ bằng câu rõ ràng. */
+    private List<MultipartFile> orEmpty(List<MultipartFile> files) {
+        if (files == null) {
+            return List.of();
         }
-        return ticketService.create(request, uploadedFiles);
+        return files;
     }
 
     /** CN-11, bước 2 của màn Tạo phiếu: tài khoản có tạo được phiếu loại này không. */
@@ -59,6 +92,12 @@ public class TicketController {
     @PostMapping("/customer-check")
     public CustomerCheckResult customerCheck(@Valid @RequestBody CustomerCheckRequest request) {
         return ticketService.checkCustomer(request.cccd());
+    }
+
+    /** CN-14, Tất cả phiếu; cũng dùng cho Lịch sử phiếu của tài khoản (?accountId=) và của khách hàng (?customerId=). */
+    @GetMapping
+    public TicketListPage findPage(@Valid TicketListQuery query) {
+        return ticketQueryService.findPage(query);
     }
 
     /** CN-14, màn Chờ duyệt: phiếu chờ người xem duyệt; lọc theo phần đầu mã phiếu và loại phiếu. */

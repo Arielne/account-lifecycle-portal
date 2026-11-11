@@ -102,7 +102,7 @@ Bảng `app.account_status_history`:
 - Index `(account_id, changed_at)`.
 - Mỗi lần đổi trạng thái qua State pattern (mục 5) ghi 1 dòng trong cùng transaction. Stored Procedure của job Ngủ đông (CN-25) cũng phải ghi.
 - Dùng cho Timeline "Vòng đời tài khoản" (mục 10.6) (T5). Không ghép từ `audit_log`: audit chỉ Admin được xem, và mô tả là chữ tự do.
-- Tài khoản mẫu chưa có dòng nào: `db/seeds/R__3_khach_hang_tai_khoan.sql` thêm dòng mở tài khoản (và ngủ đông, đóng nếu có) cho tài khoản mẫu, chỉ thêm khi tài khoản chưa có dòng lịch sử nào (`WHERE NOT EXISTS`) để chạy lại file vẫn an toàn.
+- Tài khoản mẫu chưa có dòng nào: `db/seeds/R__3_khach_hang_tai_khoan.sql` thêm dòng mở tài khoản (và ngủ đông, đóng nếu có) cho tài khoản mẫu; mỗi loại dòng chỉ thêm khi tài khoản chưa có dòng loại đó (`WHERE NOT EXISTS`) để chạy lại file vẫn an toàn, kể cả với tài khoản mẫu đã có dòng từ phiếu. Các dòng mẫu không có phiếu và người làm (Hệ thống): rỗng → Hoạt động vào ngày mở; Hoạt động → Ngủ đông vào ngày giao dịch gần nhất cộng số tháng "Chuyển ngủ đông sau" của loại tài khoản; Hoạt động → Đã đóng vào ngày đóng (người dùng chốt 07/11/2026).
 
 ### 3.4 V15: index
 
@@ -350,7 +350,7 @@ Phần `data` của request:
 - Hủy phiếu: Modal nói rõ hậu quả theo loại phiếu (Mở tài khoản: "Tài khoản đang Chờ mở sẽ chuyển sang Đã đóng."; loại khác: "Tài khoản <số> giữ nguyên trạng thái <A>."), phiếu Mở tài khoản cho khách mới thêm câu "Sai thông tin khách thì Sửa và gửi lại, đừng hủy: hồ sơ khách vẫn được giữ sau khi hủy." (D6), ô lý do (D4), nút "Xác nhận hủy phiếu". Người hủy thay người tạo đã bị khóa (D12) thấy thêm dòng "Người tạo <tên> đã bị khóa; bạn hủy thay."
 - `TicketDetailBody`, dùng chung với cột phải màn Chờ duyệt (CN-15):
   - Steps: Tạo phiếu → Kiểm soát viên duyệt → Gửi mail → Hoàn tất. Bị từ chối, Đã hủy: bước đang dừng hiện trạng thái lỗi kèm chữ "Bị từ chối" hoặc "Đã hủy".
-  - Nội dung yêu cầu: "Tài khoản <số> sẽ chuyển <A> → <B> khi phiếu được duyệt" (đã duyệt thì "đã chuyển"); Descriptions: Loại phiếu, Loại tài khoản, Chủ tài khoản (link sang chi tiết khách hàng), Số CCCD (đã che), Người tạo, Chi nhánh tạo, Ngày tạo, Số lần gửi, Lý do; phiếu Bị từ chối có thêm Lý do từ chối.
+  - Nội dung yêu cầu: "Tài khoản <số> sẽ chuyển <A> → <B> khi phiếu được duyệt" (đã duyệt thì "đã chuyển"; đã hủy thì "Tài khoản <số> không chuyển <A> → <B> vì phiếu đã hủy", người dùng chốt 11/11/2026); Descriptions: Loại phiếu, Loại tài khoản, Chủ tài khoản (link sang chi tiết khách hàng), Số CCCD (đã che), Người tạo, Chi nhánh tạo, Ngày tạo, Số lần gửi, Lý do; phiếu Bị từ chối có thêm Lý do từ chối.
   - Giấy tờ đính kèm: chỉ giấy tờ đang dùng (`removed_at` rỗng); tên, dung lượng, nút Xem (mở tab mới) và Tải; không có nút xóa. Giấy tờ đã bỏ chỉ còn tên trong Lịch sử xử lý.
   - Lịch sử xử lý: Timeline từ `ticket_history`, mới nhất ở trên; phiếu đang chờ thì dòng đầu là "Hiện tại: Chờ kiểm soát viên duyệt".
 - Tên loại `GO_PHONG_TOA` theo `from_status` của phiếu: Ngủ đông thì "Kích hoạt lại", Phong tỏa thì "Gỡ phong tỏa". Ở chi tiết tài khoản, tên này vẫn theo trạng thái hiện tại của tài khoản.
@@ -364,7 +364,7 @@ Phần `data` của request:
 | Vòng đời tài khoản | `GET /api/accounts/{id}/status-history` | Timeline mới nhất ở trên, màu chấm theo trạng thái đích; mỗi mục: thời điểm, tên bước, Tag trạng thái đích, "<người> tạo", "<người> duyệt" hoặc "Hệ thống", mã phiếu, "Lý do: ..." |
 | Mở bởi, Duyệt mở bởi | `GET /api/accounts/{id}` thêm 2 trường | Người tạo phiếu mở tài khoản (lẻ hoặc lô); người duyệt khi phiếu đó Đã duyệt hoặc Hoàn tất; tài khoản mẫu không có phiếu thì "—" |
 
-- Tên bước của Vòng đời: rỗng → Chờ mở "Tạo phiếu mở tài khoản"; Chờ mở → Hoạt động "Mở tài khoản"; rỗng → Hoạt động "Mở tài khoản theo lô"; Chờ mở → Đã đóng "Hủy phiếu mở tài khoản"; sang Phong tỏa "Phong tỏa"; Phong tỏa → Hoạt động "Gỡ phong tỏa"; Ngủ đông → Hoạt động "Kích hoạt lại"; sang Đã đóng "Đóng tài khoản"; Hoạt động → Ngủ đông "Tự chuyển trạng thái" (job, ghi chú "Không phát sinh giao dịch trong <n> tháng").
+- Tên bước của Vòng đời: rỗng → Chờ mở "Tạo phiếu mở tài khoản"; Chờ mở → Hoạt động "Mở tài khoản"; rỗng → Hoạt động "Mở tài khoản theo lô" khi có mã phiếu lô, "Mở tài khoản" khi không có mã phiếu (tài khoản mẫu); Chờ mở → Đã đóng "Hủy phiếu mở tài khoản"; sang Phong tỏa "Phong tỏa"; Phong tỏa → Hoạt động "Gỡ phong tỏa"; Ngủ đông → Hoạt động "Kích hoạt lại"; sang Đã đóng "Đóng tài khoản"; Hoạt động → Ngủ đông "Tự chuyển trạng thái" (job, ghi chú "Không phát sinh giao dịch trong <n> tháng").
 - `AccountMapper` (đọc chéo) JOIN `ticket`, `import_batch_row`, `employee` để lấy Mở bởi, Duyệt mở bởi và lý do của phiếu; `account` không gọi Service của `ticket`.
 - Sửa comment đầu file `AccountDetailPage.tsx`, `CustomerDetailPage.tsx` (đang ghi "làm cùng module phiếu").
 

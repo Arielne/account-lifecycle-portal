@@ -2,7 +2,8 @@
 -- Toàn bộ là dữ liệu giả (QT-12): tên giả; CCCD bắt đầu bằng 099 là mã tỉnh không tồn tại; email đuôi nhdemo.local.
 -- Giới tính lưu bằng chữ tiếng Việt: Nam hoặc Nữ.
 -- Số tài khoản dùng dải 1020000001-1020000060, dưới dải của app.account_number_seq (bắt đầu 1030000001).
--- Tài khoản Chờ mở, Phong tỏa và các phiếu không chèn bằng SQL; chúng được tạo bằng code Java ở tuần 7.
+-- Tài khoản Chờ mở, Phong tỏa và các phiếu không chèn bằng SQL; chúng được tạo bằng code Java gọi đúng Service tạo
+-- và duyệt phiếu (spec phiếu, mục 14).
 
 INSERT INTO app.customer (cccd, full_name, date_of_birth, gender, id_issue_date, id_issue_place, phone, email, address,
                           branch_id)
@@ -118,3 +119,28 @@ FROM (VALUES
 JOIN app.customer c ON c.cccd = v.cccd
 JOIN app.account_type t ON t.code = v.account_type_code
 ON CONFLICT DO NOTHING;
+
+-- Vòng đời của tài khoản mẫu (spec phiếu mục 3.3): các dòng không có phiếu, người làm rỗng (Hệ thống).
+-- (chưa có) → Hoạt động vào ngày mở; Hoạt động → Ngủ đông vào ngày giao dịch gần nhất cộng số tháng "Chuyển ngủ đông
+-- sau" của loại tài khoản (không quá hôm nay); Hoạt động → Đã đóng vào ngày đóng. Giờ ghi theo giờ Việt Nam.
+-- Mỗi loại dòng chỉ thêm khi tài khoản chưa có dòng loại đó (NOT EXISTS), nên chạy lại file không thêm trùng; tài
+-- khoản mẫu đã có dòng từ phiếu (ví dụ vừa Phong tỏa) vẫn được thêm dòng mở tài khoản.
+-- Một câu INSERT duy nhất: cả 3 phần UNION ALL cùng đọc bảng lịch sử như trước khi thêm.
+INSERT INTO app.account_status_history (account_id, from_status, to_status, changed_at)
+SELECT a.id, NULL, 'ACTIVE', (a.opened_at + time '09:00') AT TIME ZONE 'Asia/Ho_Chi_Minh'
+FROM app.account a
+WHERE a.account_number BETWEEN '1020000001' AND '1020000060' AND a.opened_at IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM app.account_status_history h WHERE h.account_id = a.id AND h.from_status IS NULL)
+UNION ALL
+SELECT a.id, 'ACTIVE', 'DORMANT',
+       LEAST(((a.last_transaction_at + make_interval(months => t.dormant_after_months))::date + time '00:30')
+                 AT TIME ZONE 'Asia/Ho_Chi_Minh', now())
+FROM app.account a
+JOIN app.account_type t ON t.id = a.account_type_id
+WHERE a.account_number BETWEEN '1020000001' AND '1020000060' AND a.status = 'DORMANT'
+  AND NOT EXISTS (SELECT 1 FROM app.account_status_history h WHERE h.account_id = a.id AND h.to_status = 'DORMANT')
+UNION ALL
+SELECT a.id, 'ACTIVE', 'CLOSED', (a.closed_at + time '10:00') AT TIME ZONE 'Asia/Ho_Chi_Minh'
+FROM app.account a
+WHERE a.account_number BETWEEN '1020000001' AND '1020000060' AND a.status = 'CLOSED' AND a.closed_at IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM app.account_status_history h WHERE h.account_id = a.id AND h.to_status = 'CLOSED');
