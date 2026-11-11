@@ -122,9 +122,15 @@
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Shape_decisionGateway" bpmnElement="decisionGateway" isMarkerVisible="true">
         <dc:Bounds x="395" y="275" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="452" y="293" width="40" height="14" />
+        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Shape_approvedTypeGateway" bpmnElement="approvedTypeGateway" isMarkerVisible="true">
         <dc:Bounds x="495" y="145" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="552" y="163" width="46" height="14" />
+        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Shape_applyAccountChange" bpmnElement="applyAccountChange">
         <dc:Bounds x="600" y="60" width="100" height="80" />
@@ -134,6 +140,9 @@
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Shape_batchRowsInvalid" bpmnElement="batchRowsInvalid">
         <dc:Bounds x="632" y="242" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="670" y="282" width="86" height="14" />
+        </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Shape_approvedJoin" bpmnElement="approvedJoin" isMarkerVisible="true">
         <dc:Bounds x="755" y="145" width="50" height="50" />
@@ -165,21 +174,33 @@
         <di:waypoint x="420" y="275" />
         <di:waypoint x="420" y="170" />
         <di:waypoint x="495" y="170" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="426" y="214" width="32" height="14" />
+        </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Edge_rejected" bpmnElement="Flow_rejected">
         <di:waypoint x="420" y="325" />
         <di:waypoint x="420" y="440" />
         <di:waypoint x="500" y="440" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="426" y="372" width="40" height="14" />
+        </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Edge_singleTicket" bpmnElement="Flow_singleTicket">
         <di:waypoint x="520" y="145" />
         <di:waypoint x="520" y="100" />
         <di:waypoint x="600" y="100" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="539" y="84" width="42" height="14" />
+        </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Edge_batchTicket" bpmnElement="Flow_batchTicket">
         <di:waypoint x="520" y="195" />
         <di:waypoint x="520" y="220" />
         <di:waypoint x="600" y="220" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="538" y="224" width="44" height="14" />
+        </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Edge_singleToJoin" bpmnElement="Flow_singleToJoin">
         <di:waypoint x="700" y="100" />
@@ -218,6 +239,9 @@
         <di:waypoint x="710" y="520" />
         <di:waypoint x="290" y="520" />
         <di:waypoint x="290" y="340" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="483" y="503" width="34" height="14" />
+        </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
