@@ -3,11 +3,14 @@
 # Hằng ngày: `docker compose up -d` chỉ chạy 5 dịch vụ hạ tầng bên dưới.
 # Chạy đủ bộ như lúc demo (thêm backend và web): `docker compose --profile app up -d`.
 # Không chạy `docker compose down -v`: lệnh này xóa volume, mất user tạo thêm trong KeyCloak.
+# Image ghim dạng tag@sha256:digest: tag để người đọc biết phiên bản, digest để lần nào cũng kéo đúng một bản image,
+# kể cả khi tag bị đẩy đè. Digest là của bản multi-arch, nên máy nào cũng tự chọn đúng kiến trúc của mình.
+# Dependabot (.github/dependabot.yml) đổi cả tag lẫn digest khi có bản mới.
 
 services:
   # Máy chủ đăng nhập (OIDC). start-dev: chế độ phát triển, dữ liệu lưu trong database H2 dạng file.
   keycloak:
-    image: quay.io/keycloak/keycloak:26.8.1
+    image: quay.io/keycloak/keycloak:26.8.1@sha256:3f3c5f8e03c614774b4bd9173b88391fefa4153bfc010d8012d59ad825377332
     # --import-realm: lúc khởi động nạp file trong /opt/keycloak/data/import; realm đã có thì bỏ qua file.
     command: start-dev --import-realm
     ports:
@@ -33,13 +36,13 @@ services:
 
   # Lưu session đăng nhập (Spring Session) và cache danh mục.
   redis:
-    image: redis:8.10.3-alpine
+    image: redis:8.10.3-alpine@sha256:71885d8cc6e42f2bc0aa2eb853bfc4be200b5108a46ac50e117ae1df0531fb80
     ports:
       - "6379:6379"
 
   # Kafka chế độ KRaft: 1 container vừa là broker vừa là controller, không cần ZooKeeper.
   kafka:
-    image: apache/kafka:4.3.2
+    image: apache/kafka:4.3.2@sha256:852a0d49fc4e656b022e7f23785411802c9a088c78a7c5e39f33969de9c227a7
     ports:
       - "9092:9092"
     environment:
@@ -66,7 +69,7 @@ services:
   # Giao diện web xem topic và message của Kafka.
   # Image provectuslabs/kafka-ui đã ngừng cập nhật; kafbat/kafka-ui là bản tiếp nối còn được duy trì.
   kafka-ui:
-    image: ghcr.io/kafbat/kafka-ui:v1.5.0
+    image: ghcr.io/kafbat/kafka-ui:v1.5.0@sha256:7cda86a33344160309fdb65146332e4da65db81a945614f2fe32e210803f6fd1
     ports:
       - "8090:8080"
     environment:
@@ -77,7 +80,7 @@ services:
 
   # SMTP giả: giữ lại mọi email app gửi đi để xem trên web (cổng 8025), không gửi ra ngoài thật.
   mailpit:
-    image: axllent/mailpit:v1.31.6
+    image: axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
     ports:
       - "1025:1025"
       - "8025:8025"
