@@ -64,6 +64,21 @@ spring:
   mail:
     host: localhost
     port: 1025
+  # Kafka (Outbox pattern, spec phiếu mục 9). Trên máy Kafka ở localhost:9092; trong Docker, Compose đặt
+  # SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:19092. Key và value của message đều là chuỗi (mặc định của Spring Boot).
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      properties:
+        # Kafka tắt thì chỉ chờ vài giây rồi báo lỗi, để OutboxPublisher dừng lượt đó nhanh, lượt sau gửi lại
+        # (spec phiếu mục 9.1). delivery.timeout.ms phải lớn hơn request.timeout.ms.
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
+    consumer:
+      group-id: alp-notification
+      # Group chạy lần đầu thì đọc từ đầu topic, để sự kiện gửi trước lúc backend khởi động xong vẫn được nhận.
+      auto-offset-reset: earliest
   # Giấy tờ của phiếu: mỗi file tối đa 5 MB, một lần gửi tối đa 5 file (spec phiếu, mục 11.1).
   servlet:
     multipart:
@@ -84,6 +99,12 @@ camunda:
     # Quy trình không có bước hẹn giờ hay chạy nền, nên tắt job executor để Camunda không hỏi database liên tục (T7).
     job-execution:
       enabled: false
+
+# Đẩy sự kiện của bảng outbox_event sang Kafka 2 giây một lần (OutboxPublisher, spec phiếu mục 9).
+# Test tắt bằng src/test/resources/application.properties, vì phần lớn test không có Kafka.
+alp:
+  outbox:
+    publisher-enabled: true
 
 # Supabase Storage qua API S3 (FileStorage). Giá trị lấy từ .env; test dùng MinIO của Testcontainers.
 storage:

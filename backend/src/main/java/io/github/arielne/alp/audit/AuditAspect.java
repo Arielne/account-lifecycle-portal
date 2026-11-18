@@ -4,10 +4,10 @@ import io.github.arielne.alp.common.AuditNote;
 import io.github.arielne.alp.common.Audited;
 import io.github.arielne.alp.common.RequestIdFilter;
 import io.github.arielne.alp.common.TransactionConfig;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.aspectj.lang.JoinPoint;
-import org.aspectj.lang.annotation.AfterReturning;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.core.Authentication;
@@ -21,6 +21,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  * class này thêm phần chung (người làm, IP, mã request, nơi gọi) rồi lưu 1 dòng audit_log.
  * @Aspect: Spring bọc mỗi bean có method gắn @Audited bằng một proxy; gọi method đó là đi qua proxy,
  * và proxy chạy thêm phần việc ở đây. Thứ tự so với transaction xem TransactionConfig.
+ * Bước hệ thống không có request và người đăng nhập (ví dụ notification hoàn tất phiếu từ luồng đọc Kafka): người
+ * làm, IP, mã request để rỗng, màn Audit log hiện "Hệ thống" (spec phiếu T3).
  */
 @Aspect
 @Component
@@ -32,18 +34,31 @@ public class AuditAspect {
     private final AuditLogService auditLogService;
 
     /**
-     * Chạy sau khi method gắn @Audited trả về bình thường; method ném lỗi thì không chạy, nên không có dòng audit.
+     * Bọc quanh method gắn @Audited: mở bản ghi chú mới (AuditNote.begin), chạy method (proceed), method trả về bình
+     * thường thì lưu 1 dòng audit; method ném lỗi thì lỗi đi tiếp ra ngoài, không có dòng audit. finally trả lại bản
+     * ghi chú cũ dù method thành công hay lỗi.
      * "@annotation(audited)": chọn mọi method có @Audited và đưa annotation đó vào tham số audited.
      */
-    @AfterReturning("@annotation(audited)")
-    public void recordAuditLog(JoinPoint joinPoint, Audited audited) {
+    @Around("@annotation(audited)")
+    public Object recordAuditLog(ProceedingJoinPoint joinPoint, Audited audited) throws Throwable {
+        AuditNote.Content previous = auditNote.begin();
+        try {
+            Object result = joinPoint.proceed();
+            saveEntry(joinPoint, audited);
+            return result;
+        } finally {
+            auditNote.end(previous);
+        }
+    }
+
+    private void saveEntry(JoinPoint joinPoint, Audited audited) {
         AuditLogEntry entry = new AuditLogEntry();
         entry.setKeycloakId(currentKeycloakId());
         entry.setAction(audited.action());
         entry.setObjectType(audited.objectType());
         entry.setObjectId(auditNote.getObjectId());
         entry.setDescription(auditNote.getDescription());
-        entry.setIpAddress(currentRequest().getRemoteAddr());
+        entry.setIpAddress(currentIpAddress());
         entry.setRequestId(RequestIdFilter.currentRequestId());
         entry.setSource(joinPoint.getSignature().getDeclaringType().getSimpleName()
                 + "." + joinPoint.getSignature().getName());
@@ -62,9 +77,14 @@ public class AuditAspect {
         return authentication.getName();
     }
 
-    /** Request đang chạy. getRemoteAddr() đã là IP của người dùng: Spring đọc sẵn header X-Forwarded-For của Nginx. */
-    private HttpServletRequest currentRequest() {
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
-        return attributes.getRequest();
+    /**
+     * IP của người dùng; null khi không có request (bước hệ thống). getRemoteAddr() đã là IP của người dùng: Spring
+     * đọc sẵn header X-Forwarded-For của Nginx.
+     */
+    private String currentIpAddress() {
+        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes) {
+            return attributes.getRequest().getRemoteAddr();
+        }
+        return null;
     }
 }

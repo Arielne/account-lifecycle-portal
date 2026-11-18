@@ -117,10 +117,16 @@
             <artifactId>keycloak-admin-client</artifactId>
             <version>26.0.12</version>
         </dependency>
-        <!-- Spring Mail: gửi mail "Tài khoản đã được kích hoạt" tới Mailpit (tạm gửi thẳng, sau chuyển sang Outbox + Kafka). -->
+        <!-- Spring Mail: notification gửi mail kết quả phiếu và mail "Tài khoản đã được kích hoạt" tới Mailpit. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+        <!-- Spring Kafka: OutboxPublisher đẩy sự kiện của bảng outbox_event sang Kafka, notification nhận sự kiện để gửi
+             mail (spec phiếu mục 9). Phiên bản lấy theo Spring Boot. -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
         </dependency>
         <!-- Camunda 7 chạy trong app (embedded): quy trình duyệt phiếu, dùng chung DataSource và transaction với app.
              Không thêm giao diện web Cockpit, REST API của Camunda. -->
@@ -173,6 +179,12 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>minio</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Kafka trong Docker cho test của luồng mail: Outbox → Kafka → notification gửi mail. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>kafka</artifactId>
             <scope>test</scope>
         </dependency>
         <!-- camunda-bpm-assert: câu kiểm tra dành cho quy trình BPMN (quy trình đang dừng ở bước nào, đã qua bước nào).

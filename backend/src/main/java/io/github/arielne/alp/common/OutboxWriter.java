@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Ghi sự kiện theo Outbox pattern (spec phiếu mục 9, T2). Thay vì gửi mail hay gửi Kafka ngay giữa nghiệp vụ, ta
  * INSERT 1 dòng vào app.outbox_event trong cùng transaction với dữ liệu nghiệp vụ: nghiệp vụ được lưu thì sự kiện
- * cũng được lưu, nghiệp vụ bị hủy thì sự kiện cũng mất. Phần đọc bảng này rồi đẩy sang Kafka làm sau, tách riêng.
+ * cũng được lưu, nghiệp vụ bị hủy thì sự kiện cũng mất. Phần đọc bảng này rồi đẩy sang Kafka nằm ở OutboxPublisher.
  * Đặt ở common để module nào cũng ghi được sự kiện mà không phải gọi module notification.
  */
 @Component

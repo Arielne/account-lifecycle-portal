@@ -31,7 +31,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Test nhanh cho nghiệp vụ tạo phiếu (spec phiếu mục 7.1, test 5 phần QT-04): chi nhánh lấy từ hồ sơ người tạo,
- * kiểm tài khoản (QT-03, trạng thái), kiểm số CCCD (D5, D6). Mapper, Storage, Camunda, AccountService là mock.
+ * kiểm tài khoản (QT-03, trạng thái), kiểm số CCCD (D5, D6). Thêm bước chuyển phiếu sang Hoàn tất khi đã gửi xong
+ * mail kết quả (spec phiếu mục 9 bước 3). Mapper, Storage, Camunda, AccountService là mock.
  */
 class TicketServiceTest {
 
@@ -212,6 +213,69 @@ class TicketServiceTest {
         // Kiểm tra kết quả
         assertEquals(HttpStatus.CONFLICT, exception.getStatus());
         verify(ticketMapper, never()).insertTicket(any());
+    }
+
+    @Test
+    @DisplayName("Đã gửi xong mail duyệt thì phiếu sang Hoàn tất, lịch sử không có người làm (Hệ thống), Camunda nhận"
+            + " message mailSent")
+    void mailSentCompletesApprovedTicket() {
+        // Chuẩn bị: phiếu Phong tỏa đã được duyệt, quy trình đang chờ gửi mail xong
+        when(ticketMapper.lockForReview(5L)).thenReturn(reviewRow("APPROVED"));
+
+        // Chạy
+        service.markMailSent(5L);
+
+        // Kiểm tra kết quả
+        verify(ticketMapper).completeTicket(5L);
+        verify(ticketMapper).insertHistory(5L, "COMPLETED", "APPROVED", "COMPLETED", null, null);
+        verify(ticketWorkflow).completeMailSent("process-5");
+        assertEquals("PYC-2026-0005", auditNote.getObjectId());
+        assertEquals("Đã gửi mail kết quả · Phong tỏa · TK 1020000050 · Hoạt động → Phong tỏa",
+                auditNote.getDescription());
+    }
+
+    @Test
+    @DisplayName("Sự kiện duyệt tới lần hai, phiếu đã Hoàn tất thì 409, không ghi gì, không báo Camunda")
+    void mailSentForCompletedTicketIsRejected() {
+        // Chuẩn bị
+        when(ticketMapper.lockForReview(5L)).thenReturn(reviewRow("COMPLETED"));
+
+        // Chạy
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.markMailSent(5L));
+
+        // Kiểm tra kết quả
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertEquals("Phiếu PYC-2026-0005 không còn Đã duyệt", exception.getMessage());
+        verify(ticketMapper, never()).completeTicket(anyLong());
+        verify(ticketMapper, never()).insertHistory(any(), any(), any(), any(), any(), any());
+        verify(ticketWorkflow, never()).completeMailSent(any());
+    }
+
+    @Test
+    @DisplayName("Sự kiện trỏ tới phiếu không có thì 404")
+    void mailSentForMissingTicketIsNotFound() {
+        // Chuẩn bị
+        when(ticketMapper.lockForReview(99L)).thenReturn(null);
+
+        // Chạy
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.markMailSent(99L));
+
+        // Kiểm tra kết quả
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+        verify(ticketWorkflow, never()).completeMailSent(any());
+    }
+
+    private TicketReviewRow reviewRow(String status) {
+        TicketReviewRow row = new TicketReviewRow();
+        row.setId(5L);
+        row.setCode("PYC-2026-0005");
+        row.setType("PHONG_TOA");
+        row.setStatus(status);
+        row.setAccountNumber("1020000050");
+        row.setFromStatus("ACTIVE");
+        row.setToStatus("BLOCKED");
+        row.setProcessInstanceId("process-5");
+        return row;
     }
 
     private TicketCreateRequest blockRequest() {

@@ -11,7 +11,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Chỗ duy nhất module phiếu gọi Camunda (spec phiếu, mục 4): bắt đầu quy trình ticket-approval cho phiếu mới, tìm
- * và hoàn thành bước "Kiểm soát viên duyệt", bước "Giao dịch viên sửa", và xóa quy trình khi hủy phiếu.
+ * và hoàn thành bước "Kiểm soát viên duyệt", bước "Giao dịch viên sửa", báo đã gửi xong mail, và xóa quy trình khi
+ * hủy phiếu.
  * Camunda dùng chung transaction với app, nên quy trình chỉ được lưu khi phiếu được lưu; lỗi thì cả hai cùng bị hủy.
  * Biến quy trình chỉ có mã và loại phiếu, không có dữ liệu khách hàng.
  */
@@ -29,6 +30,8 @@ public class TicketWorkflow {
     public static final String REVIEW_TASK = "review";
     /** Id của user task "Giao dịch viên sửa" (phiếu Bị từ chối chờ ở đây). */
     public static final String REVISE_TASK = "revise";
+    /** Tên message của bước "Chờ gửi mail xong" (mailSent) trong file bpmn (T8). */
+    public static final String MAIL_SENT_MESSAGE = "mailSent";
 
     private final RuntimeService runtimeService;
     private final TaskService taskService;
@@ -53,6 +56,16 @@ public class TicketWorkflow {
     /** Id của task "Giao dịch viên sửa" đang chờ; quy trình không ở bước đó thì null. */
     public String findReviseTaskId(String processInstanceId) {
         return findTaskId(processInstanceId, REVISE_TASK);
+    }
+
+    /**
+     * Đã gửi xong mail kết quả duyệt: báo message mailSent cho đúng quy trình của phiếu, quy trình đi tiếp tới Hoàn
+     * tất và kết thúc (spec phiếu mục 4.2, T8). Quy trình không dừng ở bước đó thì Camunda báo lỗi.
+     */
+    public void completeMailSent(String processInstanceId) {
+        runtimeService.createMessageCorrelation(MAIL_SENT_MESSAGE)
+                .processInstanceId(processInstanceId)
+                .correlate();
     }
 
     /** Người tạo sửa xong và gửi lại: hoàn thành bước sửa, quy trình quay về bước duyệt (spec phiếu mục 4.2). */

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<!-- SQL cho OutboxMapper: ghi bảng app.outbox_event (spec phiếu mục 9). -->
+<!-- SQL cho OutboxMapper: ghi và đọc bảng app.outbox_event (spec phiếu mục 9). -->
 <mapper namespace="io.github.arielne.alp.common.OutboxMapper">
 
     <!-- Cột payload kiểu jsonb: CAST đổi chuỗi JSON từ Java sang jsonb. published_at để rỗng, nghĩa là chưa gửi. -->
@@ -8,4 +8,21 @@
         INSERT INTO app.outbox_event (aggregate_type, aggregate_id, event_type, payload)
         VALUES (#{aggregateType}, #{aggregateId}, #{eventType}, CAST(#{payload} AS jsonb))
     </insert>
+
+    <!-- FOR UPDATE SKIP LOCKED: khóa các dòng lấy được tới hết transaction, và bỏ qua dòng đang bị transaction khác
+         khóa. 2 backend chạy cùng lúc thì mỗi bên lấy các dòng khác nhau, không gửi trùng (spec phiếu mục 9).
+         CAST(payload AS text): đọc cột jsonb thành chuỗi JSON. Index idx_outbox_event_unpublished (V15) chỉ chứa
+         dòng chưa gửi, nên câu này không phải quét các dòng đã gửi. -->
+    <select id="lockUnpublished" resultType="OutboxEvent">
+        SELECT id, aggregate_type, aggregate_id, event_type, CAST(payload AS text) AS payload
+        FROM app.outbox_event
+        WHERE published_at IS NULL
+        ORDER BY id
+        LIMIT #{limit}
+        FOR UPDATE SKIP LOCKED
+    </select>
+
+    <update id="markPublished">
+        UPDATE app.outbox_event SET published_at = now() WHERE id = #{id}
+    </update>
 </mapper>

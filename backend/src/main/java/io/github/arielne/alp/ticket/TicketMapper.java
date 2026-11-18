@@ -65,6 +65,9 @@ public interface TicketMapper {
     /** Phiếu sang Đã hủy (mục 7.4). */
     int cancelTicket(Long id);
 
+    /** Phiếu đã gửi xong mail kết quả duyệt: sang Hoàn tất (CN-24). */
+    int completeTicket(Long id);
+
     /** Bỏ mềm các giấy tờ đang dùng của phiếu (D3); trả số dòng đã bỏ. */
     int removeAttachments(@Param("ticketId") Long ticketId, @Param("attachmentIds") Long[] attachmentIds,
                           @Param("removedBy") Long removedBy);
