@@ -7,6 +7,7 @@ import { PlusOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { showApiError } from '../../api/apiError.ts'
 import CodeText from '../../components/CodeText.tsx'
+import LoadErrorAlert from '../../components/LoadErrorAlert.tsx'
 import PageHeading from '../../components/PageHeading.tsx'
 import AccountTypeFormModal from './AccountTypeFormModal.tsx'
 import {
@@ -54,6 +55,7 @@ function AccountTypePage() {
           </Button>
         }
       />
+      {accountTypesQuery.isError && <LoadErrorAlert onRetry={() => void accountTypesQuery.refetch()} />}
       <Card>
         <Flex wrap justify="space-between" align="center" gap={12} style={{ marginBottom: 16 }}>
           <Input.Search

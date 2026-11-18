@@ -54,6 +54,19 @@ public class AccountService {
     }
 
     /**
+     * Khóa hồ sơ khách trước khi ticket kiểm hồ sơ đó cho phiếu Mở tài khoản (D5, D6), tìm theo số CCCD (khách mới)
+     * hoặc theo id (khách đã có). ticket không gọi thẳng customer nên đi qua đây. Chỉ ticket gọi, trong transaction
+     * tạo phiếu; khóa tự nhả khi transaction kết thúc.
+     */
+    public void lockCustomerByCccd(String cccd) {
+        customerService.lockByCccd(cccd);
+    }
+
+    public void lockCustomerById(Long customerId) {
+        customerService.lockById(customerId);
+    }
+
+    /**
      * Mở tài khoản Chờ mở cho khách đã có (phiếu Mở tài khoản, CN-11). Chỉ ticket gọi, trong transaction tạo phiếu.
      * branchId: chi nhánh của người tạo phiếu.
      */

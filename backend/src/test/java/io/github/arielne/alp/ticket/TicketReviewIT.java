@@ -154,6 +154,32 @@ class TicketReviewIT {
     }
 
     @Test
+    @DisplayName("Kích hoạt lại tài khoản Ngủ đông: ngày giao dịch gần nhất thành hôm nay, để job Ngủ đông không chuyển"
+            + " lại ngay đêm đó; Gỡ phong tỏa thì giữ ngày cũ (spec phiếu mục 5)")
+    void reactivatingDormantAccountResetsLastTransactionDate() throws Exception {
+        // Chuẩn bị: 1 tài khoản Ngủ đông và 1 tài khoản Phong tỏa, cùng giao dịch lần cuối 2 năm trước
+        String dormantAccount = createAccount(createCustomer(), "DORMANT", "2020-01-10");
+        String blockedAccount = createAccount(createCustomer(), "BLOCKED", "2020-01-10");
+        jdbcTemplate.update("UPDATE app.account SET last_transaction_at = CURRENT_DATE - 730"
+                + " WHERE account_number IN (?, ?)", dormantAccount, blockedAccount);
+        long reactivateTicketId = createTicket(unblockJson(dormantAccount));
+        long unblockTicketId = createTicket(unblockJson(blockedAccount));
+
+        // Chạy: duyệt cả 2 phiếu
+        mockMvc.perform(post("/api/tickets/" + reactivateTicketId + "/approve").with(checker()).with(csrf()))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(post("/api/tickets/" + unblockTicketId + "/approve").with(checker()).with(csrf()))
+                .andExpect(status().isNoContent());
+
+        // Kiểm tra kết quả: cả 2 đều Hoạt động; chỉ tài khoản vừa kích hoạt lại có ngày giao dịch là hôm nay
+        String todayInVietnam = "last_transaction_at = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date";
+        assertEquals(1, count("SELECT count(*) FROM app.account WHERE account_number = ? AND status = 'ACTIVE' AND "
+                + todayInVietnam, dormantAccount));
+        assertEquals(1, count("SELECT count(*) FROM app.account WHERE account_number = ? AND status = 'ACTIVE'"
+                + " AND last_transaction_at = CURRENT_DATE - 730", blockedAccount));
+    }
+
+    @Test
     @DisplayName("D7, test 19: trạng thái tài khoản đổi sau khi tạo phiếu thì duyệt nhận 409 và mọi thứ bị hủy:"
             + " phiếu vẫn Chờ duyệt, không có lịch sử, outbox, bước duyệt vẫn còn")
     void approveRollsBackWhenAccountStatusChanged() throws Exception {
@@ -338,6 +364,13 @@ class TicketReviewIT {
     private String blockJson(String accountNumber) {
         return """
                 {"type": "PHONG_TOA", "accountNumber": "%s", "reason": "Khách báo mất thẻ", "confirmed": true}
+                """.formatted(accountNumber);
+    }
+
+    /** Phiếu Gỡ phong tỏa; với tài khoản Ngủ đông thì đây là phiếu Kích hoạt lại. */
+    private String unblockJson(String accountNumber) {
+        return """
+                {"type": "GO_PHONG_TOA", "accountNumber": "%s", "reason": "Khách đề nghị dùng lại", "confirmed": true}
                 """.formatted(accountNumber);
     }
 

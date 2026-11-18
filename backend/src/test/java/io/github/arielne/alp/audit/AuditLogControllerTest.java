@@ -115,10 +115,14 @@ class AuditLogControllerTest {
                 .with(oidcLogin().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))));
 
         // Kiểm tra kết quả
+        // Câu báo của ô page là câu chung tiếng Việt, không phải câu đổi kiểu tiếng Anh của Spring.
         notNumber.andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400));
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("page"))
+                .andExpect(jsonPath("$.fieldErrors[0].message").value("Giá trị không hợp lệ"));
         tooLarge.andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400));
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.fieldErrors[0].message").value("Giá trị không hợp lệ"));
         verify(auditLogService, never()).findPage(any());
     }
 }

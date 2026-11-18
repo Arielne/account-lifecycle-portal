@@ -309,6 +309,46 @@ class EmployeeManagementServiceTest {
     }
 
     @Test
+    @DisplayName("QT-03: bỏ role Giao dịch viên của người còn phiếu Chờ duyệt hoặc Bị từ chối thì 409,"
+            + " không gọi KeyCloak")
+    void removingMakerWithOpenTicketsThrowsConflict() {
+        // Chuẩn bị: đang là Giao dịch viên, còn 2 phiếu mở; Admin đổi sang Kiểm soát viên
+        when(employeeMapper.findById(7L)).thenReturn(employee(7L, NEW_KEYCLOAK_ID, 4L));
+        when(keycloakUserClient.findAppRoles(NEW_KEYCLOAK_ID)).thenReturn(List.of("MAKER"));
+        when(employeeMapper.countOpenTicketsCreatedBy(7L)).thenReturn(2);
+
+        // Chạy
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.assignRoles(7L, List.of("CHECKER"), ADMIN_KEYCLOAK_ID));
+
+        // Kiểm tra kết quả: không thêm, không bỏ role nào trên KeyCloak, không thu hồi phiên
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertEquals("Bắc Đẩu Thu còn 2 phiếu đang Chờ duyệt hoặc Bị từ chối. Hãy xử lý xong các phiếu này trước khi"
+                + " bỏ role Giao dịch viên.", exception.getMessage());
+        verify(keycloakUserClient, never()).addRoles(anyString(), any());
+        verify(keycloakUserClient, never()).removeRoles(anyString(), any());
+        verify(employeeMapper, never()).updateSessionsInvalidBefore(any(), any());
+    }
+
+    @Test
+    @DisplayName("Bỏ role Giao dịch viên khi không còn phiếu mở thì bỏ được; bỏ role khác thì không cần đếm phiếu")
+    void removingMakerWithoutOpenTicketsIsAllowed() {
+        // Chuẩn bị: giữ cả 2 role, không còn phiếu mở
+        when(employeeMapper.findById(7L)).thenReturn(employee(7L, NEW_KEYCLOAK_ID, 4L));
+        when(keycloakUserClient.findAppRoles(NEW_KEYCLOAK_ID)).thenReturn(List.of("MAKER", "CHECKER"));
+        when(employeeMapper.countOpenTicketsCreatedBy(7L)).thenReturn(0);
+
+        // Chạy: lần 1 bỏ Giao dịch viên, lần 2 bỏ Kiểm soát viên
+        service.assignRoles(7L, List.of("CHECKER"), ADMIN_KEYCLOAK_ID);
+        service.assignRoles(7L, List.of("MAKER"), ADMIN_KEYCLOAK_ID);
+
+        // Kiểm tra kết quả: cả 2 lần đều bỏ được; chỉ lần bỏ Giao dịch viên mới đếm phiếu
+        verify(keycloakUserClient).removeRoles(NEW_KEYCLOAK_ID, List.of("MAKER"));
+        verify(keycloakUserClient).removeRoles(NEW_KEYCLOAK_ID, List.of("CHECKER"));
+        verify(employeeMapper, times(1)).countOpenTicketsCreatedBy(7L);
+    }
+
+    @Test
     @DisplayName("Thêm role cho người đã có role thì không gửi mail kích hoạt; bỏ role cũ được ghi vào mô tả")
     void changingExistingRolesSendsNoMail() {
         // Chuẩn bị: đang là Giao dịch viên, đổi sang Kiểm soát viên

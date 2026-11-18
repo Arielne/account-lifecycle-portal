@@ -23,23 +23,21 @@ export interface PageEntry {
   icon?: ReactNode
   /** Role được thấy mục này và vào được route này. */
   roles: AppRole[]
-  /** Tuần làm màn thật; trước đó route hiện trang "Màn này làm ở tuần N". */
-  week: number
 }
 
 export const PAGES: PageEntry[] = [
-  { route: '/', label: 'Tổng quan', icon: <DashboardOutlined />, roles: ['MAKER', 'CHECKER', 'ADMIN'], week: 5 },
-  { route: '/khach-hang', label: 'Khách hàng', icon: <TeamOutlined />, roles: ['MAKER', 'CHECKER'], week: 5 },
-  { route: '/tai-khoan', label: 'Tài khoản', icon: <CreditCardOutlined />, roles: ['MAKER', 'CHECKER'], week: 5 },
-  { route: '/phieu/tao-moi', label: 'Tạo phiếu', group: 'Phiếu yêu cầu', roles: ['MAKER'], week: 6 },
-  { route: '/phieu/cho-duyet', label: 'Chờ duyệt', group: 'Phiếu yêu cầu', roles: ['CHECKER'], week: 6 },
-  { route: '/phieu', label: 'Tất cả phiếu', group: 'Phiếu yêu cầu', roles: ['MAKER', 'CHECKER'], week: 6 },
-  { route: '/danh-muc/loai-tai-khoan', label: 'Loại tài khoản', group: 'Danh mục', roles: ['ADMIN'], week: 4 },
-  { route: '/danh-muc/chi-nhanh', label: 'Chi nhánh', group: 'Danh mục', roles: ['ADMIN'], week: 4 },
-  { route: '/nhan-vien', label: 'Nhân viên', icon: <IdcardOutlined />, roles: ['ADMIN'], week: 4 },
-  { route: '/bao-cao/import', label: 'Import Excel', group: 'Báo cáo & Import', roles: ['MAKER'], week: 8 },
-  { route: '/bao-cao/export', label: 'Xuất báo cáo', group: 'Báo cáo & Import', roles: ['MAKER', 'CHECKER'], week: 8 },
-  { route: '/audit-log', label: 'Audit log', icon: <AuditOutlined />, roles: ['ADMIN'], week: 4 },
+  { route: '/', label: 'Tổng quan', icon: <DashboardOutlined />, roles: ['MAKER', 'CHECKER', 'ADMIN'] },
+  { route: '/khach-hang', label: 'Khách hàng', icon: <TeamOutlined />, roles: ['MAKER', 'CHECKER'] },
+  { route: '/tai-khoan', label: 'Tài khoản', icon: <CreditCardOutlined />, roles: ['MAKER', 'CHECKER'] },
+  { route: '/phieu/tao-moi', label: 'Tạo phiếu', group: 'Phiếu yêu cầu', roles: ['MAKER'] },
+  { route: '/phieu/cho-duyet', label: 'Chờ duyệt', group: 'Phiếu yêu cầu', roles: ['CHECKER'] },
+  { route: '/phieu', label: 'Tất cả phiếu', group: 'Phiếu yêu cầu', roles: ['MAKER', 'CHECKER'] },
+  { route: '/danh-muc/loai-tai-khoan', label: 'Loại tài khoản', group: 'Danh mục', roles: ['ADMIN'] },
+  { route: '/danh-muc/chi-nhanh', label: 'Chi nhánh', group: 'Danh mục', roles: ['ADMIN'] },
+  { route: '/nhan-vien', label: 'Nhân viên', icon: <IdcardOutlined />, roles: ['ADMIN'] },
+  { route: '/bao-cao/import', label: 'Import Excel', group: 'Báo cáo & Import', roles: ['MAKER'] },
+  { route: '/bao-cao/export', label: 'Xuất báo cáo', group: 'Báo cáo & Import', roles: ['MAKER', 'CHECKER'] },
+  { route: '/audit-log', label: 'Audit log', icon: <AuditOutlined />, roles: ['ADMIN'] },
 ]
 
 const GROUP_ICONS: Record<string, ReactNode> = {
@@ -65,16 +63,18 @@ type MenuItem = Required<MenuProps>['items'][number]
 
 /** Mục menu có badge số phiếu chờ duyệt (D9). */
 const PENDING_REVIEW_ROUTE = '/phieu/cho-duyet'
+/** Mục menu có badge số nhân viên Chờ cấp quyền (CN-22, màn 2.1). */
+const EMPLOYEE_ROUTE = '/nhan-vien'
 
-/** Chữ của mục menu; mục "Chờ duyệt" có thêm Badge khi còn phiếu chờ. */
-function menuLabel(page: PageEntry, pendingReviewCount: number): ReactNode {
-  if (page.route !== PENDING_REVIEW_ROUTE || pendingReviewCount === 0) {
+/** Chữ của mục menu; count lớn hơn 0 thì có thêm Badge ghi số đó ở bên phải. */
+function menuLabel(page: PageEntry, count: number): ReactNode {
+  if (count === 0) {
     return page.label
   }
   return (
     <Flex justify="space-between" align="center">
       {page.label}
-      <Badge count={pendingReviewCount} size="small" />
+      <Badge count={count} size="small" />
     </Flex>
   )
 }
@@ -82,13 +82,19 @@ function menuLabel(page: PageEntry, pendingReviewCount: number): ReactNode {
 /**
  * Dựng items cho Menu của AntD: mục cấp 1 giữ nguyên, mục có group được gom vào một mục cha.
  * pendingReviewCount: số phiếu chờ người xem duyệt, hiện ở mục "Chờ duyệt" (D9); 0 thì không có badge.
+ * pendingRoleCount: số nhân viên Chờ cấp quyền, hiện ở mục "Nhân viên" (CN-22); 0 thì không có badge.
  */
-export function buildMenuItems(roles: AppRole[], pendingReviewCount = 0): MenuItem[] {
+export function buildMenuItems(roles: AppRole[], pendingReviewCount = 0, pendingRoleCount = 0): MenuItem[] {
+  const badgeCounts: Record<string, number> = {
+    [PENDING_REVIEW_ROUTE]: pendingReviewCount,
+    [EMPLOYEE_ROUTE]: pendingRoleCount,
+  }
   const menuItems: MenuItem[] = []
   // Mục con của từng nhóm; mảng này cũng chính là children của mục cha đã thêm vào menuItems.
   const groupChildren: Record<string, MenuItem[]> = {}
   for (const page of visiblePages(roles)) {
-    const pageItem: MenuItem = { key: page.route, icon: page.icon, label: menuLabel(page, pendingReviewCount) }
+    const label = menuLabel(page, badgeCounts[page.route] ?? 0)
+    const pageItem: MenuItem = { key: page.route, icon: page.icon, label }
     if (page.group === undefined) {
       menuItems.push(pageItem)
       continue

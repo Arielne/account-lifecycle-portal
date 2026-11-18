@@ -54,7 +54,7 @@ frontend/src/
 
 - Service che trước khi trả về. DTO của các API ở mục 4, 5 không có trường chứa CCCD, điện thoại, email đầy đủ, nên không có cách nào lỡ trả bản đầy đủ xuống trình duyệt.
 - Không đưa CCCD lên URL: tìm theo CCCD gửi bằng POST (C1); màn Khách hàng giữ từ khóa trong state của trang, không ghi lên thanh địa chỉ; link sang Tạo phiếu dùng id khách hàng hoặc số tài khoản.
-- Họ tên, ngày sinh không che. Chi tiết khách hàng không hiện địa chỉ, theo bản thiết kế (C5).
+- Họ tên, ngày sinh không che. Chi tiết khách hàng không hiện địa chỉ (C5).
 
 ## 4. Khách hàng (CN-07, CN-08)
 
@@ -195,7 +195,8 @@ Phần cho Claude Code trên máy, không lên Git: thêm dòng cho file này v�
 2. C2: tìm tên không dấu bằng Function tự viết và cột sinh sẵn trong schema `app`, không dùng extension `unaccent`. Flyway chỉ quản lý schema `app`; hàm tự viết khai báo được `IMMUTABLE` nên dùng được cho cột sinh sẵn; dữ liệu mẫu nạp bằng SQL cũng tự có giá trị.
 3. C3: Lịch sử phiếu, Vòng đời, Mở bởi, Duyệt mở bởi để module phiếu làm. Theo `CLAUDE.md`, React lấy lịch sử phiếu từ API của `ticket`, mà module này chưa có; database cũng chưa có phiếu nào nên hiện rỗng là đúng dữ liệu.
 4. C4: che email giữ 3 ký tự đầu, ít hơn ví dụ trong bản thiết kế, để lộ ít thông tin hơn.
-5. C5: chi tiết khách hàng không hiện địa chỉ, theo bản thiết kế.
+5. C5: chi tiết khách hàng không hiện địa chỉ. Địa chỉ thường trú là thông tin cá nhân; màn này chỉ để tra cứu và không thao tác nào cần tới nó, nên backend không gửi xuống trình duyệt, cùng tinh thần QT-06. Bản thiết kế `ChiTietKhachHang` có ô Địa chỉ: không làm theo (chốt lại 14/11/2026; bản trước ghi nhầm là "theo bản thiết kế").
 6. C6: chia 2 Pull Request, tài khoản trước, vì tab Tài khoản của chi tiết khách hàng gọi API của tài khoản.
 7. C7: bộ lọc của màn Tài khoản ghi lên URL vì không chứa thông tin cá nhân; từ khóa của màn Khách hàng thì không, vì có thể là số CCCD.
 8. C8: không ghi Audit log khi xem hoặc tìm khách, kể cả tìm theo CCCD, vì CN-26 chỉ ghi thao tác ghi dữ liệu. Muốn lưu dấu vết tra cứu thì sửa CN-26 trước.
+9. C9 (14/11/2026): không làm nút "Mở tài khoản cho khách mới" ở đầu màn Khách hàng có trong bản thiết kế `KhachHang`. Giao dịch viên mở tài khoản cho khách mới từ mục menu Tạo phiếu; khách đã có thì dùng nút "Mở thêm tài khoản" ở chi tiết khách hàng.

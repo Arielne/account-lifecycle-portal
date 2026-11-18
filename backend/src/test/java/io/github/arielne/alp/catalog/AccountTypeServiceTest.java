@@ -71,7 +71,7 @@ class AccountTypeServiceTest {
     }
 
     @Test
-    @DisplayName("Xóa loại tài khoản còn tài khoản dùng thì báo 409 kèm số tài khoản, không xóa")
+    @DisplayName("QT-08: xóa loại tài khoản còn tài khoản dùng thì báo 409 kèm số tài khoản, không xóa")
     void deleteAccountTypeInUseThrowsConflict() {
         // Chuẩn bị: còn 612 tài khoản dùng loại TKL
         when(accountTypeMapper.findById(2L)).thenReturn(accountType("TKL", "Tài khoản lương", 12, 612));

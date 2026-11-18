@@ -40,7 +40,7 @@ const PAGE_ELEMENTS: Record<string, ReactNode> = {
 
 /** Route của một mục menu: bọc bằng RequireRole, dùng chung danh sách role với menu. */
 function toPageRoute(page: PageEntry): RouteObject {
-  const pageElement = PAGE_ELEMENTS[page.route] ?? <ComingSoonPage title={page.label} week={page.week} />
+  const pageElement = PAGE_ELEMENTS[page.route] ?? <ComingSoonPage title={page.label} />
   const element = <RequireRole roles={page.roles}>{pageElement}</RequireRole>
   // Trang chủ "/" là route index của AppShell.
   if (page.route === '/') {

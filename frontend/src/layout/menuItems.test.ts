@@ -59,6 +59,16 @@ describe('Menu theo role', () => {
     expect(withoutPending?.label).toBe('Chờ duyệt')
   })
 
+  it('CN-22: mục Nhân viên có badge khi còn người Chờ cấp quyền; không còn ai chờ thì chỉ là chữ', () => {
+    // Chuẩn bị, chạy: tham số thứ 3 là số nhân viên Chờ cấp quyền
+    const withPending = buildMenuItems(['ADMIN'], 0, 2).find((item) => item?.key === '/nhan-vien')
+    const withoutPending = buildMenuItems(['ADMIN'], 0, 0).find((item) => item?.key === '/nhan-vien')
+
+    // Kiểm tra kết quả
+    expect(withPending && 'label' in withPending && typeof withPending.label).not.toBe('string')
+    expect(withoutPending && 'label' in withoutPending && withoutPending.label).toBe('Nhân viên')
+  })
+
   it('Người giữ cả MAKER và CHECKER thấy hợp các mục của hai role, không trùng', () => {
     // Chuẩn bị, chạy
     const labels = labelsFor(['MAKER', 'CHECKER'])

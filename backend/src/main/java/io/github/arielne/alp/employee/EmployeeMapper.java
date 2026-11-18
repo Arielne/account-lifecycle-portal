@@ -38,6 +38,12 @@ public interface EmployeeMapper {
     /** Tên chi nhánh theo id (đọc bảng branch của module catalog); null khi không có chi nhánh này. */
     String findBranchNameById(Long branchId);
 
+    /**
+     * Số phiếu đang Chờ duyệt hoặc Bị từ chối do nhân viên này tạo (đọc bảng ticket của module ticket).
+     * Dùng để chặn bỏ role Giao dịch viên của người còn phiếu mở (spec admin mục 6).
+     */
+    int countOpenTicketsCreatedBy(Long employeeId);
+
     /** Thêm hồ sơ do Admin tạo; id do database sinh được gán lại vào employee.getId(). */
     void insert(Employee employee);
 

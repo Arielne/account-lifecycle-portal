@@ -1,5 +1,5 @@
 -- Dữ liệu mẫu giả: 4 nhân viên demo (docs/02-auth.md, mục tài khoản demo).
--- keycloak_id cố định: tuần 3 dùng lại đúng các id này trong file realm của KeyCloak.
+-- keycloak_id cố định: file realm của KeyCloak dùng lại đúng các id này.
 -- Role không lưu ở đây, chỉ lưu ở KeyCloak: Lan là Giao dịch viên, Khoa là Kiểm soát viên,
 -- Anh giữ cả hai role, Phúc là Admin nên không gắn chi nhánh.
 

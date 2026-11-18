@@ -147,6 +147,42 @@ class EmployeeMapperIT {
         assertEquals("ACTIVE", newEmployee.getStatus());
     }
 
+    @Test
+    @DisplayName("countOpenTicketsCreatedBy chỉ đếm phiếu Chờ duyệt, Bị từ chối do đúng người đó tạo")
+    void countOpenTicketsCreatedBy() {
+        // Chuẩn bị: người tạo có 4 phiếu (Chờ duyệt, Bị từ chối, Đã duyệt, Đã hủy); người khác có 1 phiếu Chờ duyệt
+        Long branchId = jdbcTemplate.queryForObject(
+                "INSERT INTO app.branch (code, name, address, phone)"
+                        + " VALUES ('TST-PH', 'Chi nhánh test phiếu', 'Địa chỉ test', '0900000000') RETURNING id",
+                Long.class);
+        employeeMapper.upsertFromLogin(KEYCLOAK_ID, "nguoi.tao@nhdemo.local", "Người Tạo Phiếu");
+        Long creatorId = employeeMapper.findByKeycloakId(KEYCLOAK_ID).getId();
+        String otherKeycloakId = "0a1b2c3d-0000-4000-8000-000000000098";
+        employeeMapper.upsertFromLogin(otherKeycloakId, "nguoi.khac@nhdemo.local", "Người Khác");
+        Long otherId = employeeMapper.findByKeycloakId(otherKeycloakId).getId();
+        insertTicket("PYC-TEST-0001", "PENDING_APPROVAL", branchId, creatorId);
+        insertTicket("PYC-TEST-0002", "REJECTED", branchId, creatorId);
+        insertTicket("PYC-TEST-0003", "APPROVED", branchId, creatorId);
+        insertTicket("PYC-TEST-0004", "CANCELLED", branchId, creatorId);
+        insertTicket("PYC-TEST-0005", "PENDING_APPROVAL", branchId, otherId);
+
+        // Chạy
+        int creatorCount = employeeMapper.countOpenTicketsCreatedBy(creatorId);
+        int otherCount = employeeMapper.countOpenTicketsCreatedBy(otherId);
+
+        // Kiểm tra kết quả
+        assertEquals(2, creatorCount);
+        assertEquals(1, otherCount);
+    }
+
+    /** Phiếu lô giả (không gắn tài khoản) chỉ để có dòng trong bảng ticket; process_instance_id là chữ bất kỳ. */
+    private void insertTicket(String code, String status, Long branchId, Long createdBy) {
+        jdbcTemplate.update(
+                "INSERT INTO app.ticket (code, type, status, branch_id, created_by, reason, submit_count,"
+                        + " process_instance_id) VALUES (?, 'MO_TK_THEO_LO', ?, ?, ?, 'Lý do test', 1, 'test')",
+                code, status, branchId, createdBy);
+    }
+
     private int countProfiles() {
         return jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM app.employee WHERE keycloak_id = CAST(? AS uuid)", Integer.class, KEYCLOAK_ID);

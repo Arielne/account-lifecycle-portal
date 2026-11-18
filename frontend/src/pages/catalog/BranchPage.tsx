@@ -8,6 +8,7 @@ import { PlusOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { showApiError } from '../../api/apiError.ts'
 import CodeText from '../../components/CodeText.tsx'
+import LoadErrorAlert from '../../components/LoadErrorAlert.tsx'
 import PageHeading from '../../components/PageHeading.tsx'
 import BranchFormModal from './BranchFormModal.tsx'
 import { BRANCHES_QUERY_KEY, deleteBranch, fetchBranches, type Branch } from './branchApi.ts'
@@ -60,6 +61,7 @@ function BranchPage() {
           </Button>
         }
       />
+      {branchesQuery.isError && <LoadErrorAlert onRetry={() => void branchesQuery.refetch()} />}
       <Card>
         <Flex wrap justify="space-between" align="center" gap={12} style={{ marginBottom: 16 }}>
           <Input.Search

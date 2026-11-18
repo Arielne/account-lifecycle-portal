@@ -32,6 +32,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
     private static final String SYSTEM_ERROR_MESSAGE = "Lỗi hệ thống. Vui lòng thử lại sau.";
+    private static final String INVALID_VALUE_MESSAGE = "Giá trị không hợp lệ";
     // Câu báo cho các constraint hay bị vi phạm khi 2 người lưu cùng lúc (tên do Postgres đặt hoặc ghi trong V3, V5).
     private static final Map<String, String> CONSTRAINT_MESSAGES = Map.of(
             "customer_cccd_key", "Số CCCD đã có hồ sơ khách hàng",
@@ -44,11 +45,24 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                                                                   WebRequest request) {
         List<ApiErrorResponse.FieldError> fieldErrors = new ArrayList<>();
         for (FieldError error : exception.getBindingResult().getFieldErrors()) {
-            fieldErrors.add(new ApiErrorResponse.FieldError(error.getField(), error.getDefaultMessage()));
+            fieldErrors.add(new ApiErrorResponse.FieldError(error.getField(), fieldMessage(error)));
         }
         ApiErrorResponse body = new ApiErrorResponse(HttpStatus.BAD_REQUEST.value(), "Dữ liệu chưa hợp lệ",
                 fieldErrors);
         return ResponseEntity.badRequest().body(body);
+    }
+
+    /**
+     * Câu báo của một ô. Lỗi Bean Validation dùng câu tiếng Việt ghi trong annotation trên DTO. Lỗi đổi kiểu (giá trị
+     * trên URL không đổi được sang kiểu của ô, ví dụ ?statuses=FROZEN, ?page=abc) không đi qua annotation nào: câu mặc
+     * định của Spring là tiếng Anh và có tên class Java bên trong, nên thay bằng câu chung để không lộ chi tiết ra
+     * ngoài (spec admin mục 3). isBindingFailure() là true đúng với loại lỗi này.
+     */
+    private String fieldMessage(FieldError error) {
+        if (error.isBindingFailure()) {
+            return INVALID_VALUE_MESSAGE;
+        }
+        return error.getDefaultMessage();
     }
 
     /** Các lỗi chuẩn còn lại của Spring MVC: giữ mã HTTP Spring đã chọn, thay thân lỗi bằng dạng chung. */

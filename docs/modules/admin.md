@@ -1,6 +1,6 @@
-# Module quản trị: danh mục, nhân viên, audit log (tuần 4)
+# Module quản trị: danh mục, nhân viên, audit log
 
-Tuần 4 trong roadmap (9–14/11/2026) làm phần quản trị của mốc M3 (21/11): CRUD Loại tài khoản và Chi nhánh, màn Nhân viên qua Admin API của KeyCloak, kiểm tra dữ liệu và trả lỗi theo một dạng chung, Audit log bằng AOP và màn 3.5. File này là spec chung cho 3 module `catalog` (CN-20, CN-21), `employee` (CN-22), `audit` (CN-23, CN-26) và phần dùng chung trong `common`. Điều kiện xong ở mục 10.
+Phần quản trị của mốc M3 (21/11/2026) gồm: CRUD Loại tài khoản và Chi nhánh, màn Nhân viên qua Admin API của KeyCloak, kiểm tra dữ liệu và trả lỗi theo một dạng chung, Audit log bằng AOP và màn 3.5. File này là spec chung cho 3 module `catalog` (CN-20, CN-21), `employee` (CN-22), `audit` (CN-23, CN-26) và phần dùng chung trong `common`. Điều kiện xong ở mục 10.
 
 Đọc kèm: `docs/01-chuc-nang.md` mục 4.6 và 5; `docs/02-auth.md` các mục "Đổi role, khóa nhân viên" và "Màn Nhân viên (CN-22)"; bản thiết kế `docs/design/` các màn `DanhMucLoaiTK`, `DanhMucChiNhanh`, `NhanVien`, `AuditLog`, `TrangThaiPhu`. Chỗ nào file này ghi cụ thể hơn hoặc khác `docs/02-auth.md` thì làm theo file này, và sửa `docs/02-auth.md` cho khớp trong cùng Pull Request.
 
@@ -9,17 +9,17 @@ Tuần 4 trong roadmap (9–14/11/2026) làm phần quản trị của mốc M3 
 Làm:
 
 - Dạng lỗi chung cho mọi API, kiểm tra dữ liệu bằng Bean Validation (mục 3).
-- Audit log: ghi bằng AOP cho mọi API ghi của tuần này (mục 4); màn 3.5 (mục 7).
+- Audit log: ghi bằng AOP cho mọi API ghi của phần này (mục 4); màn 3.5 (mục 7).
 - Loại tài khoản (màn 3.2) và Chi nhánh (màn 3.3): xem, tìm, thêm, sửa, xóa (mục 5).
 - Nhân viên (màn 3.4): xem, tìm, lọc, thêm, sửa hồ sơ, gán chi nhánh, gán role, khóa, mở khóa (mục 6).
-- 3 việc dời từ tuần 3: bộ lọc chặn nhân viên bị khóa, mail báo tài khoản đã được kích hoạt, lỗi email trùng khi đăng nhập (mục 6).
+- 3 việc dời từ phần đăng nhập: bộ lọc chặn nhân viên bị khóa, mail báo tài khoản đã được kích hoạt, lỗi email trùng khi đăng nhập (mục 6).
 
-Không làm, để đúng tuần của nó:
+Không làm, để đúng phần của nó:
 
-- Cache Redis cho danh mục (tuần 9).
-- Audit cho lượt xuất báo cáo (tuần 8), các bước Camunda (tuần 6–7), job Ngủ đông (tuần 7).
-- Chuyển mail sang Outbox + Kafka (tuần 9).
-- Đổi logo, màu trang đăng nhập KeyCloak (tuần 10).
+- Cache Redis cho danh mục (phần Kafka và cache).
+- Audit cho lượt xuất báo cáo (phần import và báo cáo), các bước Camunda (phần phiếu), job Ngủ đông (phần việc chạy nền).
+- Chuyển mail sang Outbox + Kafka (phần Kafka và cache).
+- Đổi logo, màu trang đăng nhập KeyCloak (phần hoàn thiện giao diện).
 
 ## 2. File mới và file sửa
 
@@ -29,7 +29,7 @@ backend/src/main/java/io/github/arielne/alp/
 ├── audit/         AuditAspect, AuditLogMapper + XML, AuditLogService, AuditLogController
 ├── catalog/       AccountType*, Branch* (Controller, Service, Mapper, DTO)
 ├── employee/      Employee* (Controller, Service, Mapper), lớp gọi Admin API của KeyCloak
-├── notification/  gửi mail kích hoạt (tạm gọi thẳng, tuần 9 đổi sang Kafka)
+├── notification/  gửi mail kích hoạt (tạm gọi thẳng, khi có Kafka thì đổi sang Kafka)
 └── auth/          bộ lọc phiên bị thu hồi (bị khóa, bị bỏ role); xử lý email trùng khi đăng nhập
 frontend/src/
 ├── api/              đọc lỗi dạng chung, đưa lỗi từng ô vào Form
@@ -62,10 +62,11 @@ Mọi lỗi của `/api` trả JSON cùng một dạng, mở rộng `ApiErrorRes
 | Dữ liệu không qua Bean Validation | 400 | "Dữ liệu chưa hợp lệ"; `fieldErrors` ghi lỗi từng ô |
 | Vi phạm quy tắc nghiệp vụ: mã trùng, đang dùng nên không xóa được, email trùng... | 409 | Câu tiếng Việt nói rõ lý do |
 | Không tìm thấy | 404 | Ví dụ "Không tìm thấy chi nhánh" |
-| Chưa đăng nhập, sai role | 401, 403 | Spring Security trả; thêm 403 dạng JSON cho `/api` (401 đã có từ tuần 3) |
+| Chưa đăng nhập, sai role | 401, 403 | Spring Security trả; thêm 403 dạng JSON cho `/api` (401 đã có từ phần đăng nhập) |
 | Lỗi khác | 500 | "Lỗi hệ thống. Vui lòng thử lại sau."; ghi log kèm mã request, không trả chi tiết lỗi ra ngoài |
 
 - Một class `@RestControllerAdvice` trong `common` xử lý tập trung; Controller không tự bắt lỗi. Lỗi nghiệp vụ ném một class `BusinessException` dùng chung.
+- Giá trị trên URL không đổi được sang kiểu của ô (ví dụ `?statuses=FROZEN`, `?page=abc`): vẫn 400 "Dữ liệu chưa hợp lệ", câu của ô là "Giá trị không hợp lệ". Không trả câu báo mặc định của Spring, vì câu đó là tiếng Anh và có tên class Java bên trong (chốt 18/11/2026, sau khi rà lỗi).
 - Bean Validation đặt trên DTO (`@NotBlank`, `@Pattern`, `@Size`, `@Min`, `@Max`...), câu báo lỗi tiếng Việt ghi ngay trong annotation.
 - React: lỗi có `fieldErrors` thì đưa vào đúng ô của Form; lỗi khác hiện `message.error` với câu `message` của backend. Form của AntD kiểm tra trước cùng quy tắc, backend vẫn kiểm lại (QT-07).
 - Mã request: một filter trong `common` gán mỗi request vào `/api` một mã UUID, ghi vào log và vào `audit_log.request_id`.
@@ -79,7 +80,7 @@ Cách ghi:
 3. Method chạy xong không lỗi thì `AuditAspect` thêm phần chung rồi lưu 1 dòng `audit_log`: người làm (`employee.id` của người trong session), thời gian, IP người dùng (`request.getRemoteAddr()`, Spring đã đọc header của Nginx; Nginx ghi đè `X-Forwarded-For` nên người dùng không tự đặt được IP), mã request, và `source` là tên class và method.
 4. Method lỗi thì không ghi. Dòng audit nằm trong cùng transaction với thao tác: thao tác bị hủy thì không có dòng audit; lưu audit lỗi thì thao tác cũng bị hủy.
 
-Hành động và đối tượng của tuần 4. Database lưu mã; màn 3.5 hiện nhãn:
+Hành động và đối tượng của phần quản trị. Database lưu mã; màn 3.5 hiện nhãn:
 
 | `object_type` | Nhãn đối tượng | `action` và nhãn |
 | --- | --- | --- |
@@ -94,7 +95,7 @@ Dòng có từ trước V9 được nối theo email lúc chạy script: nhân v
 Mô tả (cột `description`) viết bằng lời nghiệp vụ, theo bản thiết kế:
 
 - Thêm, xóa: tên đối tượng, ví dụ "Chi nhánh Quận 7".
-- Sửa 1 trường: "Nhãn: trước → sau", ví dụ "Chuyển ngủ đông sau: 18 → 12 tháng không giao dịch".
+- Sửa 1 trường: "Nhãn: trước → sau", ví dụ "Chuyển ngủ đông sau: 18 tháng → 12 tháng". Giá trị trước và sau ghi đủ đơn vị ở cả hai bên, vì cũng chính 2 giá trị này hiện ở cột Trước, Sau khi dòng sửa từ 2 trường (chốt 14/11/2026; bản thiết kế ghi "18 → 12 tháng không giao dịch").
 - Sửa từ 2 trường: "Sửa 2 trường: Địa chỉ, Số điện thoại"; giá trị trước và sau nằm ở cột `changes`, màn 3.5 mở rộng dòng để xem.
 - Gán role: "Thêm Kiểm soát viên", "Bỏ Giao dịch viên".
 - Tự đăng ký: "Chờ cấp quyền". Ghi khi lần đăng nhập đầu tạo hồ sơ mới; người làm là chính người đó.
@@ -131,7 +132,7 @@ Quy tắc:
 - Giảm "Chuyển ngủ đông sau" vẫn lưu bình thường; Form ghi chú như bản thiết kế, audit ghi giá trị trước và sau.
 - `AccountTypeMapper`: nếu `develop` đã có bản người dùng tự viết thì dùng lại, chỉ thêm hàm còn thiếu.
 
-## 6. Nhân viên (CN-22) và 3 việc dời từ tuần 3
+## 6. Nhân viên (CN-22) và 3 việc dời từ phần đăng nhập
 
 ### API (chỉ `ADMIN`)
 
@@ -155,6 +156,7 @@ Quy tắc:
 - Hồ sơ đọc từ `employee` JOIN `branch`. Role lấy từ KeyCloak: 3 lần gọi Admin API, mỗi role một lần, truyền `max = -1` để lấy đủ (mặc định KeyCloak chỉ trả 100 người), rồi ghép theo `keycloak_id`. Không lưu bản sao role.
 - Trạng thái: `LOCKED` → Đã khóa; chưa có role nào → Chờ cấp quyền; còn lại → Hoạt động.
 - Người Chờ cấp quyền luôn ở đầu, sau đó xếp theo họ tên. Tìm (họ tên, email), lọc (chi nhánh, role, trạng thái) và phân trang 10 dòng ngay ở React.
+- Mục menu Nhân viên có số nhân viên đang Chờ cấp quyền (bản thiết kế 2.1; chốt 14/11/2026), không còn ai chờ thì không hiện số. Layout đếm từ chính danh sách `GET /api/employees` (cùng khóa cache với màn Nhân viên), chỉ gọi khi người dùng là `ADMIN`; gán role xong màn Nhân viên tải lại danh sách nên số này tự đổi theo. Không thêm API đếm riêng: role chỉ nằm ở KeyCloak nên API nào cũng phải hỏi KeyCloak đúng 3 lần như danh sách.
 - Dòng của chính Admin đang đăng nhập ghi "(bạn)" và chỉ có nút Sửa, theo bản thiết kế. Backend cũng từ chối (409) khi Admin tự khóa mình hoặc tự đổi role của mình, để không ai lỡ tay làm mất quyền quản trị.
 
 ### Thêm nhân viên
@@ -178,12 +180,13 @@ Mỗi lần ghi lên KeyCloak, Service đăng ký luôn việc làm ngược l�
 - Danh sách role mới thay cho danh sách cũ: backend so với role hiện có trên KeyCloak rồi thêm hoặc bỏ từng role. Mỗi lần gán ghi 1 dòng audit.
 - `MAKER`, `CHECKER` chỉ gán được khi đã có chi nhánh; `ADMIN` không cần chi nhánh.
 - `ADMIN` không đi cùng `MAKER` hoặc `CHECKER` (docs/01-chuc-nang.md mục 1): backend trả 409, Drawer báo lỗi dưới ô Role trước khi gửi.
+- Bỏ role `MAKER` của người còn phiếu Chờ duyệt hoặc Bị từ chối do họ tạo thì 409 "<Họ tên> còn <n> phiếu đang Chờ duyệt hoặc Bị từ chối. Hãy xử lý xong các phiếu này trước khi bỏ role Giao dịch viên." (chốt 13/11/2026). Người hết role không hủy được phiếu của mình, và hủy thay chỉ áp dụng khi người tạo bị khóa, nên không chặn thì phiếu kẹt mãi (QT-03). `EmployeeMapper` đếm phiếu bằng cách đọc chéo bảng `ticket`. Kiểm trước khi gọi KeyCloak.
 - Người đang Chờ cấp quyền được gán role đầu tiên thì gửi mail "Tài khoản đã được kích hoạt", nhắc đăng nhập lại (CN-05). Mail chỉ gửi sau khi transaction commit (`afterCommit`): commit lỗi thì role trên KeyCloak được trả lại, nên không được báo đã kích hoạt. Hiện gửi thẳng bằng Spring Mail tới Mailpit qua một class trong `notification`, comment ghi rõ là tạm; sau đổi sang Outbox + Kafka (B2). Trên máy gửi tới `localhost:1025`; trong Docker gửi tới `mailpit:1025`.
 - Role nằm trong token nên nhân viên phải đăng nhập lại mới nhận quyền mới.
 - Có bỏ role thì backend ghi `employee.sessions_invalid_before` (thời điểm ngay sau khi KeyCloak bỏ role): phiên đang mở của người đó bị bộ lọc trong `auth` đẩy ra ở thao tác kế tiếp, để role vừa bỏ không còn dùng được. Chỉ thêm role thì không đẩy ra.
 - Màn hình: một Drawer dùng chung cho Thêm, Sửa, Gán role theo bản thiết kế. Drawer Gán role có cả ô Chi nhánh; đổi chi nhánh thì lưu chi nhánh trước rồi mới gán role. Lưu chi nhánh xong mà gán role lỗi thì bảng tải lại (chi nhánh đã đổi), Drawer giữ nguyên; bấm Lưu lần nữa chỉ gán role, không lưu lại chi nhánh.
 
-### Khóa và mở khóa (A1 của tuần 3)
+### Khóa và mở khóa (A1 của phần đăng nhập)
 
 - Khóa: hỏi xác nhận theo màn 3.13 ("Khóa nhân viên ...? Người này bị đăng xuất ngay và không đăng nhập được nữa. Phiếu họ đã tạo vẫn giữ nguyên.", nút "Khóa" màu đỏ). Backend đặt `status = LOCKED`, Admin API đặt `enabled = false` và đăng xuất mọi phiên KeyCloak của người đó.
 - Đăng xuất trên KeyCloak lỗi thì chỉ ghi log, không hủy việc khóa: tài khoản đã tắt nên KeyCloak không cho đăng nhập lại (kể cả bằng phiên SSO còn lại), và phiên của app đã bị thu hồi.
@@ -192,7 +195,7 @@ Mỗi lần ghi lên KeyCloak, Service đăng ký luôn việc làm ngược l�
 - Bộ lọc trong `auth` (`RevokedSessionFilter`): mỗi request vào `/api` của người đã đăng nhập đọc `employee.status` và `sessions_invalid_before` theo `keycloak_id`; gặp `LOCKED`, hoặc phiên đăng nhập trước `sessions_invalid_before`, thì xóa session và trả 401 dạng JSON.
 - Giờ đăng nhập so với mốc là lúc bắt đầu đổi code lấy token (`LoginStartTimeFilter` ghi ở request KeyCloak chuyển về, đăng nhập thành công thì chép vào session). Không dùng giờ tạo session: session có từ lúc mở trang đăng nhập KeyCloak, đổi mã session sau đăng nhập vẫn giữ giờ tạo cũ, nên người đăng nhập xong sau mốc bị đẩy ra thêm 1 lần. Session chưa có giờ đăng nhập thì dùng giờ tạo session. React xử lý như phiên hết hạn: mở trang hoặc F5 (`/api/me`) thì chuyển sang đăng nhập, API khác thì hiện hộp thoại phiên hết hạn; không có thông báo riêng cho việc bị thu hồi. Đăng nhập lại thì KeyCloak từ chối vì tài khoản đã tắt (bị khóa), hoặc cấp token có role mới (bị bỏ role).
 
-### Email trùng khi đăng nhập (lỗi phát hiện ở tuần 3)
+### Email trùng khi đăng nhập (lỗi phát hiện ở phần đăng nhập)
 
 - Tình huống: đăng nhập KeyCloak thành công nhưng email trong token đã thuộc một hồ sơ `employee` có `keycloak_id` khác (đăng ký lại sau khi xóa realm, hoặc đổi email trên KeyCloak trùng người khác). Hiện tại câu `INSERT` vi phạm UNIQUE của cột `email` và người dùng thấy trang lỗi.
 - Sửa: không lưu hồ sơ, xóa session, chuyển trình duyệt tới route `/loi-dang-nhap` của React. Trang này nằm ngoài phần cần đăng nhập (không gọi `/api/me`), hiện Result "Email ... đã gắn với một hồ sơ nhân viên khác. Liên hệ Admin để được hỗ trợ." kèm cách đăng xuất khỏi KeyCloak để đăng nhập tài khoản khác.
@@ -265,6 +268,6 @@ Phần cho Claude Code trên máy, không lên Git: thêm vào bảng "Đọc g�
 ## 11. Đã chốt (29/10/2026)
 
 1. B1: gọi Admin API bằng thư viện `keycloak-admin-client` 26.0.x. Thư viện tự lấy và làm mới token, code ngắn và dễ đọc; bọc trong một class của `employee` để test thay bằng mock.
-2. B2: mail "Tài khoản đã được kích hoạt" tuần 4 gửi thẳng bằng Spring Mail tới Mailpit, qua một class trong `notification`, ghi rõ là tạm; tuần 9 đổi sang Outbox + Kafka cùng các mail khác. Giống cách roadmap định cho mail duyệt phiếu (tuần 7 gửi thẳng, tuần 9 chuyển sang Kafka). Lý do cuối cùng đi qua Kafka: thao tác chính không phải chờ máy gửi mail, mail không mất khi Kafka hay Mailpit tắt, mọi mail đi một đường và đúng quy tắc "không module nào gọi thẳng `notification`".
-3. B3: chia 3 Pull Request: danh mục cùng phần dùng chung và ghi audit; nhân viên cùng 3 việc dời từ tuần 3; màn Audit log. Mỗi PR đọc và giải thích được trước khi merge; màn Audit log làm sau cùng thì đã có đủ loại dòng audit để thử.
+2. B2: mail "Tài khoản đã được kích hoạt" trước mắt gửi thẳng bằng Spring Mail tới Mailpit, qua một class trong `notification`, ghi rõ là tạm; khi có Kafka thì đổi sang Outbox + Kafka cùng các mail khác. Lý do cuối cùng đi qua Kafka: thao tác chính không phải chờ máy gửi mail, mail không mất khi Kafka hay Mailpit tắt, mọi mail đi một đường và đúng quy tắc "không module nào gọi thẳng `notification`".
+3. B3: chia 3 Pull Request: danh mục cùng phần dùng chung và ghi audit; nhân viên cùng 3 việc dời từ phần đăng nhập; màn Audit log. Mỗi PR đọc và giải thích được trước khi merge; màn Audit log làm sau cùng thì đã có đủ loại dòng audit để thử.
 4. B4: thêm `view-realm` cho `alp-admin` bằng cách sửa `alp-realm.json`, xóa realm `alp` rồi nạp lại. File JSON và KeyCloak chắc chắn khớp nhau; hồ sơ còn lại của user tự đăng ký dùng để thử lỗi email trùng.

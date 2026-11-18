@@ -42,6 +42,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * Test nhanh cho API phiếu (spec phiếu mục 13, test 1 và 2): phân quyền theo role (QT-07), Bean Validation của
@@ -330,6 +331,37 @@ class TicketControllerTest {
                 .andExpect(header().string("Content-Disposition", containsString("attachment;")))
                 .andExpect(header().string("Content-Disposition",
                         containsString("filename*=UTF-8''Gi%E1%BA%A5y%20%C4%91%E1%BB%81%20ngh%E1%BB%8B.pdf")));
+    }
+
+    @Test
+    @DisplayName("API ghi thiếu CSRF token thì 403, kể cả khi đúng role, và không chạy tới Service")
+    void writeApisWithoutCsrfTokenReturn403() throws Exception {
+        // Chuẩn bị: đã đăng nhập đúng role, nhưng request không kèm CSRF token (như một trang lạ gửi thay người dùng)
+
+        // Chạy, kiểm tra kết quả
+        mockMvc.perform(post("/api/tickets/7/approve").with(as("CHECKER"))).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/tickets/7/cancel").with(as("MAKER"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"reason\": \"Khách đổi ý\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(createRequest(BLOCK_REQUEST).with(as("MAKER"))).andExpect(status().isForbidden());
+        verify(ticketReviewService, never()).approve(any());
+        verify(ticketRevisionService, never()).cancel(any(), any());
+        verify(ticketService, never()).create(any(), any());
+    }
+
+    @Test
+    @DisplayName("QT-10, spec mục 13 test 3: file quá 5 MB thì 400 kèm câu nói rõ giới hạn")
+    void fileOverSizeLimitReturns400() throws Exception {
+        // Chuẩn bị: MockMvc không đi qua bước Spring đo cỡ file, nên giả lập đúng lỗi Spring ném khi file quá 5 MB
+        when(ticketService.create(any(), any())).thenThrow(new MaxUploadSizeExceededException(5L * 1024 * 1024));
+
+        // Chạy
+        ResultActions result = mockMvc.perform(createRequest(BLOCK_REQUEST).with(csrf()).with(as("MAKER")));
+
+        // Kiểm tra kết quả
+        result.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Mỗi file tối đa 5 MB, gửi tối đa 5 file"));
     }
 
     private MockMultipartHttpServletRequestBuilder createRequest(String json) {

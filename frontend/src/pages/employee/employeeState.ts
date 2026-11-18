@@ -27,6 +27,11 @@ export function employeeState(employee: Employee): EmployeeState {
   return 'ACTIVE'
 }
 
+/** Số nhân viên đang Chờ cấp quyền, cho badge ở mục menu Nhân viên. Người đã khóa không tính, dù chưa có role. */
+export function countPendingEmployees(employees: Employee[]): number {
+  return employees.filter((employee) => employeeState(employee) === 'PENDING').length
+}
+
 /** Người Chờ cấp quyền luôn ở đầu, sau đó xếp theo họ tên theo thứ tự chữ cái tiếng Việt. */
 export function sortEmployees(employees: Employee[]): Employee[] {
   return [...employees].sort((first, second) => {

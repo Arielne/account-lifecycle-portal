@@ -15,6 +15,7 @@ import {
   type AccountStatus,
 } from '../../components/accountStatus.ts'
 import CodeText from '../../components/CodeText.tsx'
+import LoadErrorAlert from '../../components/LoadErrorAlert.tsx'
 import PageHeading from '../../components/PageHeading.tsx'
 import { ACCOUNT_TYPES_QUERY_KEY, fetchAccountTypes, type AccountType } from '../catalog/accountTypeApi.ts'
 import { BRANCHES_QUERY_KEY, fetchBranches, type Branch } from '../catalog/branchApi.ts'
@@ -63,6 +64,7 @@ function AccountListPage() {
         title="Tài khoản"
         description="Mọi thay đổi trạng thái đi qua phiếu yêu cầu — mở chi tiết tài khoản để tạo phiếu"
       />
+      {accountsQuery.isError && <LoadErrorAlert onRetry={() => void accountsQuery.refetch()} />}
       <Card>
         <FilterBar
           filters={filters}

@@ -1,5 +1,5 @@
-// Trang lỗi đăng nhập (spec admin mục 6): email của tài khoản KeyCloak vừa đăng nhập đã gắn với hồ sơ nhân viên khác.
-// Backend đã xóa session và đăng xuất khỏi KeyCloak trước khi chuyển tới đây, nên trang này nằm ngoài
+// Trang lỗi đăng nhập (CN-01, spec admin mục 6): email của tài khoản KeyCloak vừa đăng nhập đã gắn với hồ sơ
+// nhân viên khác. Backend đã xóa session và đăng xuất khỏi KeyCloak trước khi chuyển tới đây, nên trang này nằm ngoài
 // phần cần đăng nhập (không gọi /api/me) và người dùng đăng nhập được ngay bằng tài khoản khác.
 import { Button, Result } from 'antd'
 import { redirectToLogin } from '../../api/httpClient.ts'

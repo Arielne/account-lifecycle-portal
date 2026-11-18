@@ -6,6 +6,7 @@ import type { TableColumnsType } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { showApiError } from '../../api/apiError.ts'
+import LoadErrorAlert from '../../components/LoadErrorAlert.tsx'
 import PageHeading from '../../components/PageHeading.tsx'
 import { ROLE_LABELS, ROLE_TAG_COLORS, type AppRole } from '../auth/currentUser.ts'
 import { useCurrentUser } from '../auth/useCurrentUser.ts'
@@ -85,6 +86,7 @@ function EmployeePage() {
           </Button>
         }
       />
+      {employeesQuery.isError && <LoadErrorAlert onRetry={() => void employeesQuery.refetch()} />}
       <Card>
         <FilterBar filters={filters} branches={branchesQuery.data ?? []} onChange={setFilters} />
         <Table

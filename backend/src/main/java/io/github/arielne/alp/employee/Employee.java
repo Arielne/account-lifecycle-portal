@@ -7,7 +7,7 @@ import lombok.Setter;
 
 /**
  * Hồ sơ nhân viên (bảng app.employee), kèm mã và tên chi nhánh đọc bằng JOIN app.branch.
- * Dùng cho GET /api/me (CN-01 đến CN-05); màn Nhân viên (CN-22) dùng tiếp ở tuần 4.
+ * Dùng cho GET /api/me (CN-01 đến CN-05); màn Nhân viên (CN-22) cũng dùng.
  * keycloakId để kiểu String cho đơn giản: Postgres lưu kiểu uuid, câu SQL tự ép kiểu bằng CAST(... AS uuid).
  * Role không có ở đây vì role chỉ lưu ở KeyCloak.
  */

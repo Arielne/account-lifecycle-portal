@@ -7,6 +7,7 @@ import { useNavigate, useSearchParams } from 'react-router'
 import { App, Button, Card, Col, Empty, Flex, Grid, Input, List, Row, Select, Spin, Tag, theme, Typography } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import CodeText from '../../components/CodeText.tsx'
+import LoadErrorAlert from '../../components/LoadErrorAlert.tsx'
 import PageHeading from '../../components/PageHeading.tsx'
 import { SINGLE_TICKET_TYPES, ticketTypeLabel, type TicketType } from '../../components/ticketType.ts'
 import { useCurrentUser } from '../auth/useCurrentUser.ts'
@@ -110,12 +111,17 @@ function PendingReviewPage() {
                   style={{ minWidth: 160 }}
                 />
               </Flex>
-              <PendingList
-                items={items}
-                loading={listQuery.isPending}
-                activeId={narrow ? null : activeId}
-                onOpen={openTicket}
-              />
+              {/* Tải lỗi thì báo lỗi, không hiện "Không còn phiếu nào chờ bạn duyệt": danh sách rỗng là do lỗi. */}
+              {listQuery.isError ? (
+                <LoadErrorAlert onRetry={() => void listQuery.refetch()} />
+              ) : (
+                <PendingList
+                  items={items}
+                  loading={listQuery.isPending}
+                  activeId={narrow ? null : activeId}
+                  onOpen={openTicket}
+                />
+              )}
             </Flex>
           </Card>
         </Col>

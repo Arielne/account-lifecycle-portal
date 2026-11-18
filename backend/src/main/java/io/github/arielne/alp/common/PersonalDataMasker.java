@@ -26,6 +26,9 @@ public final class PersonalDataMasker {
      * Ví dụ an.pham@nhdemo.local thành an.***@nhdemo.local. Không có phần trước @ thì cả chuỗi thành ***.
      */
     public static String maskEmail(String email) {
+        if (email == null) {
+            return null;
+        }
         int atIndex = email.indexOf('@');
         if (atIndex <= 0) {
             return "***";
@@ -37,8 +40,14 @@ public final class PersonalDataMasker {
         return email.substring(0, keepLength) + "***" + email.substring(atIndex);
     }
 
-    /** Giữ headLength ký tự đầu, tailLength ký tự cuối, phần giữa thay bằng *. Chuỗi quá ngắn thì thay hết bằng *. */
+    /**
+     * Giữ headLength ký tự đầu, tailLength ký tự cuối, phần giữa thay bằng *. Chuỗi quá ngắn thì thay hết bằng *.
+     * Không có giá trị (null) thì trả null: phiếu lô không gắn tài khoản nên không có CCCD của khách để che.
+     */
     private static String keepEnds(String text, int headLength, int tailLength) {
+        if (text == null) {
+            return null;
+        }
         if (text.length() <= headLength + tailLength) {
             return "*".repeat(text.length());
         }

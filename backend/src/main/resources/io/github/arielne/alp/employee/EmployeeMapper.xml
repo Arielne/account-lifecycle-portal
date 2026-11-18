@@ -55,6 +55,13 @@
         SELECT name FROM app.branch WHERE id = #{branchId}
     </select>
 
+    <!-- Đọc chéo bảng ticket (chỉ đọc): phiếu đang mở là phiếu Chờ duyệt hoặc Bị từ chối (QT-03). -->
+    <select id="countOpenTicketsCreatedBy" resultType="int">
+        SELECT count(*)
+        FROM app.ticket
+        WHERE created_by = #{employeeId} AND status IN ('PENDING_APPROVAL', 'REJECTED')
+    </select>
+
     <!-- useGeneratedKeys: lấy id database vừa sinh (cột IDENTITY) gán vào thuộc tính id của object. -->
     <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
         INSERT INTO app.employee (keycloak_id, email, full_name, branch_id, status)

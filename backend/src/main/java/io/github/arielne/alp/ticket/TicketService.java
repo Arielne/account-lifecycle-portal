@@ -169,6 +169,8 @@ public class TicketService {
 
     /** Khách đã có: hồ sơ phải tồn tại và không đang chờ duyệt ở phiếu Mở tài khoản khác (D5). */
     private void requireCustomerNotPending(Long customerId) {
+        // Khóa hồ sơ trước khi kiểm: phiếu khác cho cùng hồ sơ gửi cùng lúc phải chờ, không cùng lọt qua bước kiểm.
+        accountService.lockCustomerById(customerId);
         CustomerStateRow row = ticketMapper.findCustomerState(null, customerId);
         if (row == null) {
             throw new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy khách hàng");
@@ -183,6 +185,9 @@ public class TicketService {
      * để ghi đè, D6). Đã có hồ sơ thật hoặc hồ sơ đang chờ duyệt thì 409.
      */
     private Long requireCccdUsableForNewCustomer(String cccd) {
+        // Khóa hồ sơ (nếu có) trước khi kiểm: 2 phiếu khách mới cùng số CCCD gửi cùng lúc thì phiếu sau chờ phiếu
+        // trước lưu xong, rồi thấy hồ sơ đang chờ duyệt và nhận 409, không cùng ghi đè một hồ sơ (D5, D6).
+        accountService.lockCustomerByCccd(cccd);
         CustomerStateRow row = ticketMapper.findCustomerState(cccd, null);
         if (row == null) {
             return null;

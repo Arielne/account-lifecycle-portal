@@ -4,6 +4,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App as AntApp } from 'antd'
+import { AxiosError, AxiosHeaders } from 'axios'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { CurrentUserContext, type AppRole, type CurrentUser } from '../auth/currentUser.ts'
@@ -76,6 +77,36 @@ function renderTicket(ticket: TicketDetail, roles: AppRole[] = ['MAKER']) {
   )
 }
 
+/** Mở trang chi tiết khi API tải phiếu bị lỗi. */
+function renderFailing(error: Error) {
+  vi.mocked(fetchTicket).mockRejectedValue(error)
+  render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <AntApp>
+        <CurrentUserContext.Provider value={viewer(['MAKER'])}>
+          <MemoryRouter initialEntries={['/phieu/99999']}>
+            <Routes>
+              <Route path="/phieu/:id" element={<TicketDetailPage />} />
+            </Routes>
+          </MemoryRouter>
+        </CurrentUserContext.Provider>
+      </AntApp>
+    </QueryClientProvider>,
+  )
+}
+
+/** Lỗi dạng chung của backend như axios ném ra. */
+function apiError(status: number, message: string): AxiosError {
+  const headers = new AxiosHeaders()
+  return new AxiosError('Request failed', 'ERR_BAD_REQUEST', { headers }, null, {
+    status,
+    statusText: 'Error',
+    headers: {},
+    config: { headers },
+    data: { status, message, fieldErrors: [] },
+  })
+}
+
 describe('TicketDetailPage', () => {
   it('Phiếu chờ duyệt: tên loại theo trạng thái lúc tạo, CCCD đã che, giấy tờ có Xem và Tải, lịch sử có bước hiện tại', async () => {
     // Chuẩn bị, chạy
@@ -85,9 +116,10 @@ describe('TicketDetailPage', () => {
     expect(await screen.findByText('PYC-2026-0007 · Kích hoạt lại')).toBeInTheDocument()
     expect(screen.getByText('0991****0002')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Đỗ Thị Bình' })).toHaveAttribute('href', '/khach-hang/21')
-    expect(screen.getByRole('link', { name: /Xem/ })).toHaveAttribute('href', '/api/tickets/7/attachments/3')
-    expect(screen.getByRole('link', { name: /Tải/ }))
-      .toHaveAttribute('href', '/api/tickets/7/attachments/3?download=true')
+    // Xem, Tải là nút tải file qua API (TicketAttachments), không phải link thẳng tới API.
+    expect(screen.getByRole('button', { name: /Xem/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Tải/ })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Tải/ })).not.toBeInTheDocument()
     expect(screen.getByText('412 KB')).toBeInTheDocument()
     expect(screen.getByText('Chờ kiểm soát viên duyệt')).toBeInTheDocument()
     expect(screen.getByText('Nguyễn Thị Lan gửi phiếu')).toBeInTheDocument()
@@ -211,5 +243,23 @@ describe('TicketDetailPage', () => {
     const dialog = screen.getByRole('dialog')
     fireEvent.click(within(dialog).getByRole('button', { name: 'Duyệt' }))
     await waitFor(() => expect(approveTicket).toHaveBeenCalledWith(7))
+  })
+
+  it('Phiếu không có (404) thì hiện trang "Không tìm thấy phiếu" kèm nút về danh sách phiếu', async () => {
+    // Chuẩn bị, chạy
+    renderFailing(apiError(404, 'Không tìm thấy phiếu'))
+
+    // Kiểm tra kết quả
+    expect(await screen.findByText('Không tìm thấy phiếu')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Về danh sách phiếu' })).toBeInTheDocument()
+  })
+
+  it('Backend lỗi (500) thì báo không tải được, không báo nhầm là phiếu không tồn tại', async () => {
+    // Chuẩn bị, chạy
+    renderFailing(apiError(500, 'Lỗi hệ thống. Vui lòng thử lại sau.'))
+
+    // Kiểm tra kết quả
+    expect(await screen.findByText('Không tải được phiếu. Vui lòng thử lại sau.')).toBeInTheDocument()
+    expect(screen.queryByText('Không tìm thấy phiếu')).not.toBeInTheDocument()
   })
 })

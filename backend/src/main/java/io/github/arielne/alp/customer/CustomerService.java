@@ -62,6 +62,20 @@ public class CustomerService {
     }
 
     /**
+     * Khóa hồ sơ có số CCCD này tới hết transaction tạo phiếu (D5, D6): 2 phiếu Mở tài khoản cho cùng một hồ sơ gửi
+     * cùng lúc phải chờ nhau, phiếu sau kiểm trạng thái hồ sơ sau khi phiếu trước đã lưu. Chưa có hồ sơ thì không
+     * khóa gì. Chỉ account gọi.
+     */
+    public void lockByCccd(String cccd) {
+        customerMapper.lockProfileByCccd(cccd);
+    }
+
+    /** Như lockByCccd, tìm hồ sơ theo id (phiếu Mở tài khoản cho khách đã có). */
+    public void lockById(Long customerId) {
+        customerMapper.lockProfileById(customerId);
+    }
+
+    /**
      * Tạo hồ sơ khách mới từ phiếu Mở tài khoản (CN-11); chỉ account gọi, trong transaction tạo phiếu.
      * branchId: chi nhánh của người tạo phiếu, thành chi nhánh quản lý hồ sơ. Trả id hồ sơ vừa tạo.
      */

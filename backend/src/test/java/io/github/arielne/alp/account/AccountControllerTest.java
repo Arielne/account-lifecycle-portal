@@ -132,7 +132,8 @@ class AccountControllerTest {
     }
 
     @Test
-    @DisplayName("Mã trạng thái không có trong 5 trạng thái thì 400")
+    @DisplayName("Mã trạng thái không có trong 5 trạng thái thì 400 kèm câu tiếng Việt, không lộ câu báo lỗi"
+            + " tiếng Anh có tên class Java của Spring")
     void unknownStatusReturns400() throws Exception {
         // Chuẩn bị: Giao dịch viên đã đăng nhập
 
@@ -140,8 +141,11 @@ class AccountControllerTest {
         ResultActions result = mockMvc.perform(get("/api/accounts").param("statuses", "ACTIVE,FROZEN")
                 .with(loginAs("MAKER")));
 
-        // Kiểm tra kết quả
-        result.andExpect(status().isBadRequest());
+        // Kiểm tra kết quả: so đúng nguyên câu, nên câu có tên class (io.github...AccountStatus) sẽ làm test đỏ
+        result.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Dữ liệu chưa hợp lệ"))
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("statuses"))
+                .andExpect(jsonPath("$.fieldErrors[0].message").value("Giá trị không hợp lệ"));
     }
 
     @Test

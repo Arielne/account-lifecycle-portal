@@ -46,7 +46,7 @@ describe('Chặn route theo role', () => {
     renderAt('/bao-cao/export', ['MAKER'])
 
     // Kiểm tra kết quả
-    expect(await screen.findByText(/^Màn này làm ở/)).toBeInTheDocument()
+    expect(await screen.findByText('Màn này đang được xây dựng.')).toBeInTheDocument()
     expect(screen.queryByText('Bạn không có quyền truy cập trang này.')).not.toBeInTheDocument()
   })
 

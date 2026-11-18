@@ -113,4 +113,26 @@ describe('AccountListPage', () => {
     expect(await screen.findByLabelText('Có phiếu đang mở')).toBeInTheDocument()
     expect(screen.getByText('0990****5678')).toBeInTheDocument()
   })
+
+  it('Tải danh sách lỗi thì hiện thông báo lỗi kèm nút Thử lại, không chỉ hiện bảng rỗng', async () => {
+    // Chuẩn bị: backend lỗi (renderPage đặt kết quả mặc định, nên đặt lỗi sau khi gọi nó là quá muộn)
+    vi.mocked(fetchAccounts).mockReset()
+    vi.mocked(fetchAccounts).mockRejectedValue(new Error('Network Error'))
+    const router = createMemoryRouter([{ path: '/tai-khoan', element: <AccountListPage /> }], {
+      initialEntries: ['/tai-khoan'],
+    })
+
+    // Chạy
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <AntApp>
+          <RouterProvider router={router} />
+        </AntApp>
+      </QueryClientProvider>,
+    )
+
+    // Kiểm tra kết quả
+    expect(await screen.findByText('Không tải được dữ liệu. Vui lòng thử lại sau ít phút.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Thử lại' })).toBeInTheDocument()
+  })
 })

@@ -6,6 +6,7 @@ import { Button, Card, DatePicker, Flex, Form, Select, Table, Typography } from 
 import type { TableColumnsType } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import CodeText from '../../components/CodeText.tsx'
+import LoadErrorAlert from '../../components/LoadErrorAlert.tsx'
 import PageHeading from '../../components/PageHeading.tsx'
 import { formatDate } from '../catalog/format.ts'
 import { EMPLOYEES_QUERY_KEY, fetchEmployees, type Employee } from '../employee/employeeApi.ts'
@@ -57,6 +58,7 @@ function AuditLogPage() {
         title="Audit log"
         description="Mọi thao tác ghi dữ liệu, chỉ đọc — không sửa, không xóa"
       />
+      {auditLogsQuery.isError && <LoadErrorAlert onRetry={() => void auditLogsQuery.refetch()} />}
       <Card>
         <FilterBar
           key={filterBarKey}

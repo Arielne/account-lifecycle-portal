@@ -27,13 +27,16 @@
         SELECT status FROM app.account WHERE id = #{accountId} FOR UPDATE
     </select>
 
-    <!-- Trong một câu UPDATE, mọi biểu thức bên phải dấu = đọc giá trị cũ của dòng: "opened_at IS NULL" ở cả 2 dòng
-         dưới đều là trước khi đổi, nên ngày giao dịch gần nhất chỉ đặt lại khi tài khoản mở lần đầu. -->
+    <!-- Trong một câu UPDATE, mọi biểu thức bên phải dấu = đọc giá trị cũ của dòng: "opened_at IS NULL" và
+         "status = 'DORMANT'" ở dưới đều là trước khi đổi. Ngày giao dịch gần nhất đặt lại trong 2 trường hợp sang
+         Hoạt động: tài khoản mở lần đầu, và tài khoản Ngủ đông được kích hoạt lại. Không đặt lại khi kích hoạt lại thì
+         ngày cũ vẫn quá hạn, job Ngủ đông chuyển tài khoản về Ngủ đông ngay đêm đó (spec phiếu mục 5).
+         Gỡ phong tỏa (Phong tỏa sang Hoạt động) giữ ngày cũ. -->
     <update id="updateStatus">
         UPDATE app.account
         SET status = #{status},
             opened_at = CASE WHEN #{activating} AND opened_at IS NULL THEN #{today} ELSE opened_at END,
-            last_transaction_at = CASE WHEN #{activating} AND opened_at IS NULL THEN #{today}
+            last_transaction_at = CASE WHEN #{activating} AND (opened_at IS NULL OR status = 'DORMANT') THEN #{today}
                                        ELSE last_transaction_at END,
             closed_at = CASE WHEN #{closing} THEN #{today} ELSE closed_at END,
             updated_at = now()

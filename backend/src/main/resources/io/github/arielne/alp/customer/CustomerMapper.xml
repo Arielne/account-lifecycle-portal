@@ -53,6 +53,18 @@
         WHERE c.id = #{id}
     </select>
 
+    <!-- FOR UPDATE: khóa dòng hồ sơ tới hết transaction. 2 request tạo phiếu Mở tài khoản cho cùng một hồ sơ đến
+         cùng lúc: request sau đứng chờ ở câu này tới khi request trước commit, rồi mới kiểm trạng thái hồ sơ, nên thấy
+         hồ sơ đã đang chờ duyệt (D5). Chưa có hồ sơ thì không có dòng để khóa; khi đó cột UNIQUE của cccd
+         chặn trùng. -->
+    <select id="lockProfileByCccd" resultType="long">
+        SELECT id FROM app.customer WHERE cccd = #{cccd} FOR UPDATE
+    </select>
+
+    <select id="lockProfileById" resultType="long">
+        SELECT id FROM app.customer WHERE id = #{customerId} FOR UPDATE
+    </select>
+
     <!-- useGeneratedKeys: MyBatis đọc id database vừa sinh (IDENTITY) rồi gán vào record.id. -->
     <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
         INSERT INTO app.customer (cccd, full_name, date_of_birth, gender, id_issue_date, id_issue_place, phone,
