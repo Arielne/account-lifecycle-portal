@@ -116,6 +116,8 @@ services:
       KEYCLOAK_BACKCHANNEL_URL: http://keycloak:8080
       # Session lưu ở Redis; trong mạng Docker, Redis có tên là redis.
       SPRING_DATA_REDIS_HOST: redis
+      # Kafka: container khác gọi Kafka qua cổng DOCKER (kafka:19092), không phải localhost:9092.
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
       # Giấy tờ của phiếu lưu trên Supabase Storage qua API S3 (bucket giay-to).
       STORAGE_S3_ENDPOINT: ${STORAGE_S3_ENDPOINT}
       STORAGE_S3_REGION: ${STORAGE_S3_REGION}
@@ -125,6 +127,8 @@ services:
       keycloak:
         condition: service_started
       redis:
+        condition: service_started
+      kafka:
         condition: service_started
     healthcheck:
       # Gọi /actuator/health bên trong container; trả về UP thì Compose đánh dấu backend là healthy.

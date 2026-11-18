@@ -161,6 +161,10 @@
         UPDATE app.ticket SET status = 'CANCELLED', updated_at = now() WHERE id = #{id}
     </update>
 
+    <update id="completeTicket">
+        UPDATE app.ticket SET status = 'COMPLETED', updated_at = now() WHERE id = #{id}
+    </update>
+
     <!-- Bỏ mềm giấy tờ khi sửa phiếu (D3): dòng và file vẫn còn, chỉ ghi lúc và người bỏ.
          = ANY(mảng): id nằm trong danh sách; chỉ đụng giấy tờ đang dùng của đúng phiếu này. -->
     <update id="removeAttachments">

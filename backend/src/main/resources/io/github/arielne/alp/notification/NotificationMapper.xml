@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- SQL cho NotificationMapper (CN-05, CN-24): chỉ đọc chéo bảng ticket, ticket_history, account, customer, employee
+     để gửi mail. -->
+<mapper namespace="io.github.arielne.alp.notification.NotificationMapper">
+
+    <!-- LEFT JOIN account, customer: phiếu lô không gắn tài khoản. reject_reason: ghi chú của dòng REJECTED mới nhất
+         trong lịch sử xử lý, vì người tạo có thể đã sửa và gửi lại (ticket.reject_reason về rỗng) trước khi mail đi
+         (spec phiếu mục 9.1). -->
+    <select id="findTicketMail" resultType="TicketMailData">
+        SELECT tk.id, tk.code, tk.type, tk.status, tk.from_status, tk.to_status, a.account_number,
+               c.full_name AS customer_name, c.email AS customer_email,
+               creator.full_name AS creator_name, creator.email AS creator_email,
+               (SELECT h.note
+                FROM app.ticket_history h
+                WHERE h.ticket_id = tk.id AND h.action = 'REJECTED'
+                ORDER BY h.id DESC
+                LIMIT 1) AS reject_reason
+        FROM app.ticket tk
+        JOIN app.employee creator ON creator.id = tk.created_by
+        LEFT JOIN app.account a ON a.id = tk.account_id
+        LEFT JOIN app.customer c ON c.id = a.customer_id
+        WHERE tk.id = #{ticketId}
+    </select>
+
+    <select id="findEmployeeMail" resultType="EmployeeMailData">
+        SELECT full_name, email FROM app.employee WHERE id = #{employeeId}
+    </select>
+</mapper>

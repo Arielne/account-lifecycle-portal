@@ -17,9 +17,11 @@ import static org.mockito.Mockito.when;
 
 import io.github.arielne.alp.common.AuditNote;
 import io.github.arielne.alp.common.BusinessException;
-import io.github.arielne.alp.notification.AccountActivationMailer;
+import io.github.arielne.alp.common.OutboxEvents;
+import io.github.arielne.alp.common.OutboxWriter;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,7 +43,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Test nhanh cho nghiệp vụ màn Nhân viên (spec admin mục 8, test 4–7). Không dựng Spring:
- * EmployeeMapper, KeycloakUserClient, AccountActivationMailer là mock của Mockito (CI không có KeyCloak, Mailpit).
+ * EmployeeMapper, KeycloakUserClient, OutboxWriter là mock của Mockito (CI không có KeyCloak, database).
  * Không có transaction thật: test tự bật danh sách việc chờ transaction kết thúc, rồi gọi commit() hoặc rollBack()
  * để chạy các việc đó như Spring làm sau khi commit hoặc rollback.
  * OutputCaptureExtension của Spring Boot bắt những gì in ra console, test nhận qua tham số CapturedOutput
@@ -55,7 +57,7 @@ class EmployeeManagementServiceTest {
 
     private EmployeeMapper employeeMapper;
     private KeycloakUserClient keycloakUserClient;
-    private AccountActivationMailer accountActivationMailer;
+    private OutboxWriter outboxWriter;
     private AuditNote auditNote;
     private EmployeeManagementService service;
 
@@ -63,9 +65,9 @@ class EmployeeManagementServiceTest {
     void setUp() {
         employeeMapper = mock(EmployeeMapper.class);
         keycloakUserClient = mock(KeycloakUserClient.class);
-        accountActivationMailer = mock(AccountActivationMailer.class);
+        outboxWriter = mock(OutboxWriter.class);
         auditNote = new AuditNote();
-        service = new EmployeeManagementService(employeeMapper, keycloakUserClient, accountActivationMailer, auditNote);
+        service = new EmployeeManagementService(employeeMapper, keycloakUserClient, outboxWriter, auditNote);
         TransactionSynchronizationManager.initSynchronization();
     }
 
@@ -250,8 +252,8 @@ class EmployeeManagementServiceTest {
     }
 
     @Test
-    @DisplayName("Gán role đầu tiên cho người Chờ cấp quyền thì gửi mail kích hoạt, sau khi transaction commit")
-    void firstRoleSendsActivationMail() {
+    @DisplayName("Gán role đầu tiên cho người Chờ cấp quyền thì ghi sự kiện kích hoạt vào outbox để gửi mail sau")
+    void firstRoleWritesActivationEvent() {
         // Chuẩn bị: người tự đăng ký, đã được gán chi nhánh, chưa có role
         when(employeeMapper.findById(7L)).thenReturn(employee(7L, NEW_KEYCLOAK_ID, 4L));
         when(employeeMapper.findBranchNameById(4L)).thenReturn("Chi nhánh Tân Phú");
@@ -260,20 +262,18 @@ class EmployeeManagementServiceTest {
         // Chạy
         service.assignRoles(7L, List.of("MAKER"), ADMIN_KEYCLOAK_ID);
 
-        // Kiểm tra kết quả: chưa commit thì chưa gửi, commit xong mới gửi
+        // Kiểm tra kết quả: sự kiện chỉ có id nhân viên và tên role, không có email, họ tên
         verify(keycloakUserClient).addRoles(NEW_KEYCLOAK_ID, List.of("MAKER"));
-        verify(accountActivationMailer, never()).sendAccountActivated(anyString(), anyString(), anyString());
-        commit();
-        verify(accountActivationMailer).sendAccountActivated("thu.dangky@nhdemo.local", "Bắc Đẩu Thu",
-                "Giao dịch viên");
+        verify(outboxWriter).write(OutboxEvents.EMPLOYEE, "7", OutboxEvents.EMPLOYEE_ACTIVATED,
+                Map.of("employeeId", 7L, "roleLabels", "Giao dịch viên"));
         assertEquals("Thêm Giao dịch viên", auditNote.getDescription());
         // Chỉ thêm role, không bỏ role nào: phiên đang mở không bị thu hồi.
         verify(employeeMapper, never()).updateSessionsInvalidBefore(any(), any());
     }
 
     @Test
-    @DisplayName("Gán role đầu tiên mà transaction bị hủy thì không gửi mail kích hoạt, role trên KeyCloak được bỏ lại")
-    void firstRoleSendsNoMailWhenTransactionRollsBack() {
+    @DisplayName("Gán role đầu tiên mà transaction bị hủy thì role trên KeyCloak được bỏ lại")
+    void firstRoleUndoesKeycloakRoleWhenTransactionRollsBack() {
         // Chuẩn bị: người Chờ cấp quyền, đã có chi nhánh
         when(employeeMapper.findById(7L)).thenReturn(employee(7L, NEW_KEYCLOAK_ID, 4L));
         when(employeeMapper.findBranchNameById(4L)).thenReturn("Chi nhánh Tân Phú");
@@ -283,9 +283,11 @@ class EmployeeManagementServiceTest {
         service.assignRoles(7L, List.of("MAKER"), ADMIN_KEYCLOAK_ID);
         rollBack();
 
-        // Kiểm tra kết quả
-        verify(accountActivationMailer, never()).sendAccountActivated(anyString(), anyString(), anyString());
+        // Kiểm tra kết quả: sự kiện kích hoạt ghi qua OutboxWriter, tức trong transaction vừa hủy, nên mất theo và
+        // không có mail (MailFlowIT kiểm tra trên database thật)
         verify(keycloakUserClient).removeRoles(NEW_KEYCLOAK_ID, List.of("MAKER"));
+        verify(outboxWriter, times(1)).write(eq(OutboxEvents.EMPLOYEE), eq("7"), eq(OutboxEvents.EMPLOYEE_ACTIVATED),
+                any());
     }
 
     @Test
@@ -362,7 +364,7 @@ class EmployeeManagementServiceTest {
         // Kiểm tra kết quả
         verify(keycloakUserClient).addRoles(NEW_KEYCLOAK_ID, List.of("CHECKER"));
         verify(keycloakUserClient).removeRoles(NEW_KEYCLOAK_ID, List.of("MAKER"));
-        verify(accountActivationMailer, never()).sendAccountActivated(anyString(), anyString(), anyString());
+        verify(outboxWriter, never()).write(anyString(), anyString(), anyString(), any());
         assertEquals("Thêm Kiểm soát viên, Bỏ Giao dịch viên", auditNote.getDescription());
     }
 

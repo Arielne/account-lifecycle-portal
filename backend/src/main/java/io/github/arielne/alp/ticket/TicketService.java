@@ -20,7 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Nghiệp vụ tạo phiếu (CN-11, spec phiếu mục 7.1) và kiểm trước khi tạo (eligibility, customer-check).
+ * Nghiệp vụ tạo phiếu (CN-11, spec phiếu mục 7.1), kiểm trước khi tạo (eligibility, customer-check), và chuyển
+ * phiếu sang Hoàn tất khi đã gửi xong mail kết quả (CN-24, spec phiếu mục 9).
  * Người tạo và chi nhánh của phiếu lấy từ hồ sơ người đang đăng nhập, không nhận từ request (QT-04).
  * Ghi bảng account, customer qua AccountService (ticket không tự ghi bảng của module khác).
  * Xem chi tiết phiếu và tải giấy tờ ở TicketQueryService.
@@ -59,6 +60,40 @@ public class TicketService {
         Long ticketId = insertTicket(request, subject, code, processInstanceId, creator);
         recordAudit(code, request.type(), subject);
         return new TicketCreated(ticketId, code);
+    }
+
+    /**
+     * Đã gửi xong mail kết quả duyệt (CN-24, spec phiếu mục 9 bước 3); notification gọi từ luồng đọc Kafka. Khóa
+     * phiếu; phiếu còn Đã duyệt thì sang Hoàn tất, ghi lịch sử với người làm rỗng (Hệ thống), báo Camunda đã gửi xong
+     * mail để quy trình kết thúc. Phiếu không còn Đã duyệt (sự kiện tới lần hai) thì 409 và không ghi gì.
+     * Không có người đăng nhập nên dòng audit có người làm là Hệ thống (spec phiếu T3).
+     */
+    @Transactional
+    @Audited(action = "COMPLETE", objectType = "TICKET")
+    public void markMailSent(Long ticketId) {
+        TicketReviewRow ticket = ticketMapper.lockForReview(ticketId);
+        if (ticket == null) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy phiếu");
+        }
+        if (!TicketStatus.APPROVED.name().equals(ticket.getStatus())) {
+            throw new BusinessException(HttpStatus.CONFLICT, "Phiếu " + ticket.getCode() + " không còn Đã duyệt");
+        }
+        ticketMapper.completeTicket(ticketId);
+        ticketMapper.insertHistory(ticketId, TicketAction.COMPLETED.name(), TicketStatus.APPROVED.name(),
+                TicketStatus.COMPLETED.name(), null, null);
+        ticketWorkflow.completeMailSent(ticket.getProcessInstanceId());
+        auditNote.setObjectId(ticket.getCode());
+        auditNote.setDescription(describeCompletion(ticket));
+    }
+
+    /** "Đã gửi mail kết quả · Phong tỏa · TK 1024118603 · Hoạt động → Phong tỏa"; phiếu lô chưa có tài khoản. */
+    private String describeCompletion(TicketReviewRow ticket) {
+        TicketType type = TicketType.valueOf(ticket.getType());
+        if (ticket.getFromStatus() == null) {
+            return "Đã gửi mail kết quả · " + type.labelFor(null);
+        }
+        return "Đã gửi mail kết quả · " + TicketDescriptions.accountChange(type, ticket.getAccountNumber(),
+                AccountStatus.valueOf(ticket.getFromStatus()), AccountStatus.valueOf(ticket.getToStatus()));
     }
 
     /** Bước 2 của màn Tạo phiếu: tài khoản có tạo được phiếu loại này không, kèm lý do nếu không (CN-11). */

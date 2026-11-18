@@ -3,7 +3,8 @@ package io.github.arielne.alp.employee;
 import io.github.arielne.alp.common.AuditNote;
 import io.github.arielne.alp.common.Audited;
 import io.github.arielne.alp.common.BusinessException;
-import io.github.arielne.alp.notification.AccountActivationMailer;
+import io.github.arielne.alp.common.OutboxEvents;
+import io.github.arielne.alp.common.OutboxWriter;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,7 +40,7 @@ public class EmployeeManagementService {
 
     private final EmployeeMapper employeeMapper;
     private final KeycloakUserClient keycloakUserClient;
-    private final AccountActivationMailer accountActivationMailer;
+    private final OutboxWriter outboxWriter;
     private final AuditNote auditNote;
 
     /** Mọi nhân viên kèm role: 3 lần gọi KeyCloak (mỗi role một lần) rồi ghép theo keycloak_id. Không lưu bản sao role. */
@@ -144,7 +145,7 @@ public class EmployeeManagementService {
         auditNote.addChangeIfDifferent("Role", AppRoles.labels(currentRoles), AppRoles.labels(newRoles));
         auditNote.setDescription(describeRoleChange(rolesToAdd, rolesToRemove));
         if (currentRoles.isEmpty()) {
-            sendActivationMailAfterCommit(employee, newRoles);
+            writeActivationEvent(employee, newRoles);
         }
     }
 
@@ -166,17 +167,17 @@ public class EmployeeManagementService {
     }
 
     /**
-     * Mail "Tài khoản đã được kích hoạt" chỉ gửi khi transaction đã commit: commit lỗi thì role trên KeyCloak
-     * được trả lại (undoOnRollback), nên gửi trước đó là báo sai. Gửi lỗi thì mailer chỉ ghi log.
+     * Mail "Tài khoản đã được kích hoạt" đi theo Outbox như mail kết quả phiếu (spec admin B2, spec phiếu mục 9.1):
+     * ghi sự kiện trong transaction này, notification nhận từ Kafka rồi mới gửi. Transaction hủy thì sự kiện mất theo
+     * (role trên KeyCloak cũng được trả lại), nên không có mail báo sai; Mailpit tắt thì mail được gửi lại sau.
+     * Payload không có email, họ tên: notification tự đọc từ hồ sơ khi gửi.
      */
-    private void sendActivationMailAfterCommit(Employee employee, List<String> roles) {
-        String roleLabels = AppRoles.labels(roles);
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                accountActivationMailer.sendAccountActivated(employee.getEmail(), employee.getFullName(), roleLabels);
-            }
-        });
+    private void writeActivationEvent(Employee employee, List<String> roles) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("employeeId", employee.getId());
+        payload.put("roleLabels", AppRoles.labels(roles));
+        outboxWriter.write(OutboxEvents.EMPLOYEE, String.valueOf(employee.getId()), OutboxEvents.EMPLOYEE_ACTIVATED,
+                payload);
     }
 
     /**

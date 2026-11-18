@@ -13,6 +13,7 @@ Làm:
 - Quy trình Camunda cho mọi phiếu, kể cả nhánh của phiếu lô (mục 4).
 - State pattern đổi trạng thái tài khoản và bảng lịch sử trạng thái (mục 5).
 - Mail kết quả qua Outbox, Kafka, Mailpit (CN-24, mục 9).
+- Mail "Tài khoản đã được kích hoạt" (CN-05, CN-22) chuyển sang cùng đường Outbox + Kafka (mục 9.1), để không module nào gọi thẳng `notification` (spec admin, B2). Ban đầu để Pull Request riêng; người dùng chốt gộp vào PR 4 ngày 18/11/2026.
 - Lưu giấy tờ trên Supabase Storage qua `FileStorage` (QT-10, mục 11.1).
 - Nối 4 chỗ đang để trống ở chi tiết khách hàng và chi tiết tài khoản (mục 10.6).
 - Sửa cách ghi log lỗi database để không lộ số CCCD (mục 11.3).
@@ -22,7 +23,6 @@ Không làm:
 - Import và phiếu lô (CN-18): kiểm tra file, tạo cả lô khi duyệt, mail tổng kết, bảng khách trong lô ở trang 2.4. Spec này chỉ chừa chỗ nối: loại phiếu, nhánh BPMN gọi bean của `importbatch`, cột phải màn Chờ duyệt chỉ có số dòng và nút mở trang 2.4.
 - Màn Tổng quan (CN-06): làm theo spec riêng. Spec này tạo hàm "quá 24 giờ" (mục 3.2) để Tổng quan gọi lại, không tự định nghĩa lần nữa.
 - Job Ngủ đông (CN-25): làm cùng các việc chạy nền; job đó phải ghi bảng lịch sử trạng thái ở mục 3.3 và bỏ qua tài khoản có phiếu Chờ duyệt (D7).
-- Đổi mail "Tài khoản đã được kích hoạt" sang Outbox: Pull Request riêng sau khi đã có Kafka (spec admin, B2).
 
 ## 2. File mới và file sửa
 
@@ -300,6 +300,19 @@ Phần `data` của request:
 - Phiếu lô dùng cùng đường này với loại sự kiện riêng (spec importbatch).
 - Xem kết quả: Kafka UI (cổng 8090) có sự kiện trong topic; giao diện web của Mailpit (cổng 8025) có mail.
 
+### 9.1 Cách làm cụ thể (chốt khi làm PR 4, 18/11/2026)
+
+- Message trên Kafka là chuỗi JSON `{ "eventType": "TICKET_APPROVED", "payload": { "ticketId": 12, "ticketCode": "PYC-2026-0012" } }`: `eventType` lấy từ cột `event_type`, `payload` là cột `payload` giữ nguyên. Gói loại sự kiện vào message để consumer biết phải gửi mail nào mà không đọc thêm database, và Kafka UI xem được ngay.
+- Topic chọn theo `aggregate_type`: `TICKET` vào `ticket-events` (key là id phiếu), `EMPLOYEE` vào `employee-events` (key là id nhân viên). Mỗi topic 1 partition, 1 bản sao.
+- Producer chờ Kafka tối đa vài giây (`max.block.ms`, `delivery.timeout.ms`), để Kafka tắt thì `OutboxPublisher` dừng lượt đó nhanh, dòng chưa gửi giữ nguyên `published_at` rỗng, lượt sau gửi lại.
+- Consumer đọc từ đầu topic khi group chạy lần đầu (`auto-offset-reset: earliest`), để sự kiện gửi trước lúc backend khởi động xong vẫn được nhận.
+- `TICKET_APPROVED`: consumer đọc phiếu trước; phiếu không còn Đã duyệt (đã Hoàn tất vì sự kiện tới lần hai) thì bỏ qua, không gửi mail. Gửi 2 mail rồi gọi `markMailSent`; trong đó phiếu đã đổi trạng thái thì trả 409 và consumer bỏ qua, không thử lại.
+- `TICKET_REJECTED`: lý do lấy từ dòng `REJECTED` mới nhất của `ticket_history`, không lấy `ticket.reject_reason`, vì người tạo có thể đã sửa và gửi lại (cột này về rỗng) trước khi mail đi.
+- Mail kích hoạt: gán role đầu tiên cho người Chờ cấp quyền thì ghi sự kiện `EMPLOYEE_ACTIVATED` (aggregate `EMPLOYEE`, payload `{ "employeeId": 7, "roleLabels": "Giao dịch viên" }`) trong cùng transaction; commit lỗi thì không có sự kiện nên không có mail. Consumer đọc email, họ tên từ bảng `employee`. `roleLabels` chỉ là chữ in trong mail tại thời điểm gán, không dùng để phân quyền: role vẫn chỉ nằm ở KeyCloak.
+- Gửi mail lỗi thì ném lỗi; `DefaultErrorHandler` của Spring Kafka thử lại, chờ 1 giây rồi nhân đôi, tối đa 1 phút một lần, không giới hạn số lần. Dữ liệu sai (JSON hỏng, không có phiếu hay nhân viên) thì ghi log rồi bỏ qua, để không chặn các sự kiện xếp sau.
+- Test: `backend/src/test/resources/application.properties` tắt phần Kafka (đẩy outbox, consumer, tạo topic) cho mọi test, vì phần lớn test không có Kafka và Spring sẽ đứng chờ Kafka ở mỗi lần khởi động. Test của luồng mail bật lại bằng `@SpringBootTest(properties = ...)` và chạy Kafka của Testcontainers.
+- T3: `AuditAspect` đổi sang `@Around`: mỗi lần gọi method `@Audited` thì `AuditNote` có một bản ghi chú mới, giữ trong `ThreadLocal`, trả lại bản cũ trong `finally`. Không có request (luồng Kafka) thì người làm, IP, mã request để rỗng, màn 3.5 hiện "Hệ thống".
+
 ## 10. Màn hình
 
 ### 10.1 Route
@@ -434,7 +447,7 @@ Backend, test chậm (`*IT`, Testcontainers Postgres, MinIO, Kafka):
 17. Danh sách Chờ duyệt không có phiếu của chính mình, của chi nhánh khác, phiếu không ở Chờ duyệt (QT-01, QT-04).
 18. Tải giấy tờ: id giấy tờ của phiếu khác → 404; có `nosniff` và đúng `Content-Type` (QT-10).
 19. Trạng thái tài khoản đã đổi sau khi tạo phiếu (cập nhật thẳng bằng SQL trong test) → duyệt nhận 409, không đổi gì.
-20. Outbox tới mail: duyệt → publisher đẩy sang Kafka → consumer gửi 2 mail (JavaMailSender thay bằng mock) → phiếu Hoàn tất, quy trình kết thúc. Gửi cùng sự kiện 2 lần → mail chỉ gửi 1 lần. Kafka chưa sẵn sàng → `published_at` vẫn rỗng, lượt sau gửi được.
+20. Outbox tới mail (Kafka của Testcontainers, JavaMailSender thay bằng mock): duyệt → publisher đẩy sang Kafka → consumer gửi 2 mail → phiếu Hoàn tất, quy trình kết thúc ở bước Hoàn tất, lịch sử và audit ghi người làm là Hệ thống. Gửi cùng sự kiện 2 lần → mail chỉ gửi 1 lần. Từ chối → người tạo nhận 1 mail kèm lý do. Gửi mail lỗi lần đầu → Spring Kafka gửi lại, phiếu vẫn sang Hoàn tất. Gán role đầu tiên → mail kích hoạt tới đúng người. Kafka chưa sẵn sàng → `published_at` vẫn rỗng, lượt sau gửi được (test nhanh của `OutboxPublisher`, vì tắt rồi bật lại Kafka của Testcontainers thì đổi cổng).
 21. Lỗi database không lộ CCCD: tạo 2 khách trùng CCCD trên Postgres thật, đọc log bằng `OutputCaptureExtension`: không có chuỗi 12 số đó; API trả 409 "Số CCCD đã có hồ sơ khách hàng".
 22. 4 chỗ nối: `GET /api/tickets?customerId=`, `?accountId=` ra đúng phiếu; `status-history` đúng thứ tự; chi tiết tài khoản có Mở bởi, Duyệt mở bởi.
 
@@ -459,7 +472,7 @@ Chia 5 Pull Request, nhánh sau tạo khi PR trước đã merge:
 1. `feature/ticket-tao-phieu`: Camunda (T1) và BPMN đủ các bước, V12, `FileStorage`, `TextNormalizer`, sửa log lỗi database (mục 11.3), API tạo phiếu, `eligibility`, `customer-check`, chi tiết phiếu, tải giấy tờ, `SecurityConfig`, Nginx; màn Tạo phiếu, trang 2.4 chỉ xem, `TicketStatusTag`, `CccdInput`.
 2. `feature/ticket-duyet`: State pattern, V13, V14, V15, duyệt, từ chối (ghi outbox, chưa đẩy sang Kafka), màn Chờ duyệt, nút Duyệt, Từ chối ở trang 2.4.
 3. `feature/ticket-sua-huy`: sửa và gửi lại, `edit-data`, hủy, màn Tất cả phiếu, 4 chỗ nối (mục 10.6), lịch sử trạng thái của tài khoản mẫu.
-4. `feature/ticket-mail`: Kafka, `OutboxPublisher`, consumer và mail trong `notification`, Hoàn tất phiếu, message `mailSent`, audit cho bước hệ thống (T3).
+4. `feature/ticket-mail`: Kafka, `OutboxPublisher`, consumer và mail trong `notification`, Hoàn tất phiếu, message `mailSent`, audit cho bước hệ thống (T3), mail kích hoạt tài khoản qua Outbox (mục 9.1). Thực tế làm tiếp trên nhánh `feature/ticket-tao-phieu` như PR 2, PR 3.
 5. `feature/ticket-du-lieu-mau`: phiếu mẫu cho profile `demo`, tạo bằng code Java gọi đúng Service tạo và duyệt phiếu (`docs/modules/setup.md`), chỉ chạy khi chưa có phiếu nào; hỏi người dùng trước khi chạy trên Supabase.
 
 - Giữa PR 2 và PR 4, phiếu được duyệt dừng ở Đã duyệt vì chưa có phần gửi mail; tài khoản vẫn đổi trạng thái đúng.
