@@ -1,8 +1,8 @@
-# Module auth: đăng nhập (tuần 3)
+# Module auth: đăng nhập
 
 Mục tiêu là mốc M2 ngày 7/11/2026 trong roadmap: đăng nhập, đăng xuất qua KeyCloak chạy trọn; menu đúng theo role. Điều kiện cụ thể ở mục 10. Module này làm CN-01 đến CN-05 và `GET /api/me`.
 
-Thiết kế nằm ở `docs/02-auth.md`; file này ghi tuần 3 làm phần nào và làm thế nào. Chỗ nào file này ghi cụ thể hơn hoặc khác `docs/02-auth.md` thì làm theo file này, và sửa `docs/02-auth.md` cho khớp trong cùng Pull Request.
+Thiết kế nằm ở `docs/02-auth.md`; file này ghi phần đăng nhập làm những gì và làm thế nào. Chỗ nào file này ghi cụ thể hơn hoặc khác `docs/02-auth.md` thì làm theo file này, và sửa `docs/02-auth.md` cho khớp trong cùng Pull Request.
 
 ## 1. Làm và không làm
 
@@ -16,13 +16,13 @@ Làm:
 - Đăng ký và quên mật khẩu: chỉ bật trong realm, dùng trang của KeyCloak, không viết code.
 - Test theo mục 8.
 
-Không làm, để đúng tuần của nó:
+Không làm, để đúng phần của nó:
 
-- Màn Nhân viên, code gọi Admin API của KeyCloak, gán role, gán chi nhánh, khóa nhân viên kể cả bộ lọc chặn người bị khóa (tuần 4, A1).
-- Mail báo tài khoản đã được kích hoạt (tuần 4, đi cùng thao tác gán role).
-- Nội dung màn Tổng quan và các màn nghiệp vụ; số đếm trên menu (Chờ duyệt, Nhân viên) thêm ở tuần có API tương ứng.
-- Các trạng thái còn lại của màn 3.13: bảng rỗng, đang tải, lỗi 500 (tuần 10).
-- Đổi logo và màu trang đăng nhập KeyCloak (tuần 10, A2).
+- Màn Nhân viên, code gọi Admin API của KeyCloak, gán role, gán chi nhánh, khóa nhân viên kể cả bộ lọc chặn người bị khóa (phần quản trị, A1).
+- Mail báo tài khoản đã được kích hoạt (phần quản trị, đi cùng thao tác gán role).
+- Nội dung màn Tổng quan và các màn nghiệp vụ; số đếm trên menu (Chờ duyệt, Nhân viên) thêm khi có API tương ứng.
+- Các trạng thái còn lại của màn 3.13: bảng rỗng, đang tải, lỗi 500 (phần hoàn thiện giao diện).
+- Đổi logo và màu trang đăng nhập KeyCloak (phần hoàn thiện giao diện, A2).
 
 ## 2. File mới và file sửa
 
@@ -37,12 +37,12 @@ frontend/src/
 ├── api/         axios dùng chung, xử lý 401
 ├── layout/      AppLayout (Sider + Header), danh sách mục menu
 ├── pages/auth/  người đang đăng nhập (React Context), màn Chờ cấp quyền
-└── components/  chặn route theo role, trang 403, trang 404, trang "màn làm ở tuần N"
+└── components/  chặn route theo role, trang 403, trang 404, trang chờ cho màn chưa làm
 docs/02-auth.md                         sửa cho khớp file này
 ```
 
 - `auth` gọi `employee`, một chiều theo bảng module trong `CLAUDE.md`. Mapper của `employee` JOIN bảng `branch` để đọc tên chi nhánh.
-- Bỏ trang tạm `pages/setup/SetupCheckPage` của tuần 2.
+- Bỏ trang tạm `pages/setup/SetupCheckPage` của phần nền móng.
 
 ## 3. Realm `alp`
 
@@ -59,7 +59,7 @@ Cấu hình realm nằm hết trong `alp-realm.json`, không bấm tay trong Adm
 | Gửi mail | Host `mailpit`, port 1025, người gửi `no-reply@nhdemo.local`, tên người gửi "Ngân hàng Demo" |
 | Realm role | `MAKER`, `CHECKER`, `ADMIN`. Default roles của realm không gồm 3 role này |
 | Client `alp-portal` | Có secret `${KC_PORTAL_CLIENT_SECRET}`; bật Standard flow; tắt Direct access grants. Redirect URI: `http://localhost/login/oauth2/code/keycloak` và `http://localhost:5173/login/oauth2/code/keycloak`. Post logout redirect URI: `http://localhost/` và `http://localhost:5173/`. Có mapper đưa realm role vào ID token, tên claim `realm_access.roles` |
-| Client `alp-admin` | Bật Service accounts, tắt Standard flow; gán role `manage-users` và `view-users` của client `realm-management`; secret `${KC_ADMIN_CLIENT_SECRET}`. Tuần 3 chưa có code gọi tới (A3) |
+| Client `alp-admin` | Bật Service accounts, tắt Standard flow; gán role `manage-users` và `view-users` của client `realm-management`; secret `${KC_ADMIN_CLIENT_SECRET}`. Phần đăng nhập chưa có code gọi tới (A3) |
 
 Tài khoản demo, `id` phải đúng bằng `keycloak_id` trong seed:
 
@@ -93,7 +93,7 @@ Biến mới trong `.env.example`; người dùng tự điền giá trị vào `
 | Biến | Dùng cho | Cách điền |
 | --- | --- | --- |
 | `KC_PORTAL_CLIENT_SECRET` | Secret của client `alp-portal`; KeyCloak và backend cùng đọc | Chuỗi ngẫu nhiên, ví dụ chạy `[guid]::NewGuid().ToString('N')` trong PowerShell |
-| `KC_ADMIN_CLIENT_SECRET` | Secret của client `alp-admin`; KeyCloak đọc từ tuần 3, backend dùng từ tuần 4 | Như trên |
+| `KC_ADMIN_CLIENT_SECRET` | Secret của client `alp-admin`; KeyCloak đọc từ phần đăng nhập, backend dùng từ phần quản trị | Như trên |
 | `DEMO_PASSWORD` | Mật khẩu chung của 4 tài khoản demo | Tự đặt, đúng chính sách mật khẩu ở mục 3 |
 
 Compose:
@@ -110,7 +110,7 @@ Cả hai cách chạy đều phải đăng nhập được:
 
 ### Thư viện
 
-`spring-boot-starter-security`, `spring-boot-starter-oauth2-client`, `spring-session-data-redis`, `spring-boot-starter-data-redis`; cho test thêm `spring-security-test`. Chưa thêm `keycloak-admin-client` (tuần 4).
+`spring-boot-starter-security`, `spring-boot-starter-oauth2-client`, `spring-session-data-redis`, `spring-boot-starter-data-redis`; cho test thêm `spring-security-test`. Chưa thêm `keycloak-admin-client` (phần quản trị).
 
 ### Cấu hình
 
@@ -129,7 +129,7 @@ Cả hai cách chạy đều phải đăng nhập được:
 - Chưa đăng nhập gọi `/api/**` thì trả 401 dạng JSON, không chuyển hướng.
 - Role lấy từ `realm_access.roles` trong ID token, đổi thành `ROLE_MAKER`, `ROLE_CHECKER`, `ROLE_ADMIN`.
 - CSRF đúng mẫu "Single-Page Applications" của Spring Security 6.5: `CookieCsrfTokenRepository.withHttpOnlyFalse()` cùng `SpaCsrfTokenRequestHandler`.
-- Phân quyền riêng cho từng API (ví dụ duyệt phiếu cần `CHECKER`) thêm vào ở tuần làm API đó.
+- Phân quyền riêng cho từng API (ví dụ duyệt phiếu cần `CHECKER`) thêm cùng lúc với API đó.
 
 ### Sau khi đăng nhập
 
@@ -156,7 +156,7 @@ Ngay khi đăng nhập thành công, `auth` gọi `EmployeeService` thêm hoặc
 
 ### Bộ lọc chặn nhân viên bị khóa
 
-Không làm ở tuần 3 (A1). Tuần 4 làm cùng thao tác Khóa trên màn Nhân viên.
+Không làm ở phần đăng nhập (A1). Phần quản trị làm cùng thao tác Khóa trên màn Nhân viên.
 
 ## 6. Frontend
 
@@ -184,20 +184,20 @@ Không làm ở tuần 3 (A1). Tuần 4 làm cùng thao tác Khóa trên màn Nh
 
 Một mảng mục menu, mỗi mục có route và danh sách role được thấy; người giữ nhiều role thấy hợp các role. Route theo mục 3 của `docs/01-chuc-nang.md`:
 
-| Mục | Route | `MAKER` | `CHECKER` | `ADMIN` | Màn thật làm ở |
+| Mục | Route | `MAKER` | `CHECKER` | `ADMIN` | Màn thật làm cùng |
 | --- | --- | --- | --- | --- | --- |
-| Tổng quan | `/` | Có | Có | Có | Tuần 5 |
-| Khách hàng | `/khach-hang` | Có | Có | | Tuần 5 |
-| Tài khoản | `/tai-khoan` | Có | Có | | Tuần 5 |
-| Phiếu yêu cầu › Tạo phiếu | `/phieu/tao-moi` | Có | | | Tuần 6 |
-| Phiếu yêu cầu › Chờ duyệt | `/phieu/cho-duyet` | | Có | | Tuần 6 |
-| Phiếu yêu cầu › Tất cả phiếu | `/phieu` | Có | Có | | Tuần 6 |
-| Danh mục › Loại tài khoản | `/danh-muc/loai-tai-khoan` | | | Có | Tuần 4 |
-| Danh mục › Chi nhánh | `/danh-muc/chi-nhanh` | | | Có | Tuần 4 |
-| Nhân viên | `/nhan-vien` | | | Có | Tuần 4 |
-| Báo cáo & Import › Import Excel | `/bao-cao/import` | Có | | | Tuần 8 |
-| Báo cáo & Import › Xuất báo cáo | `/bao-cao/export` | Có | Có | | Tuần 8 |
-| Audit log | `/audit-log` | | | Có | Tuần 4 |
+| Tổng quan | `/` | Có | Có | Có | Phần Tổng quan, khách hàng, tài khoản |
+| Khách hàng | `/khach-hang` | Có | Có | | Phần Tổng quan, khách hàng, tài khoản |
+| Tài khoản | `/tai-khoan` | Có | Có | | Phần Tổng quan, khách hàng, tài khoản |
+| Phiếu yêu cầu › Tạo phiếu | `/phieu/tao-moi` | Có | | | Phần phiếu |
+| Phiếu yêu cầu › Chờ duyệt | `/phieu/cho-duyet` | | Có | | Phần phiếu |
+| Phiếu yêu cầu › Tất cả phiếu | `/phieu` | Có | Có | | Phần phiếu |
+| Danh mục › Loại tài khoản | `/danh-muc/loai-tai-khoan` | | | Có | Phần quản trị |
+| Danh mục › Chi nhánh | `/danh-muc/chi-nhanh` | | | Có | Phần quản trị |
+| Nhân viên | `/nhan-vien` | | | Có | Phần quản trị |
+| Báo cáo & Import › Import Excel | `/bao-cao/import` | Có | | | Phần import và báo cáo |
+| Báo cáo & Import › Xuất báo cáo | `/bao-cao/export` | Có | Có | | Phần import và báo cáo |
+| Audit log | `/audit-log` | | | Có | Phần quản trị |
 
 Bản thiết kế ghi một route `/bao-cao` cho "Báo cáo & Import"; làm theo 2 route của `docs/01-chuc-nang.md` vì đó là nguồn chuẩn.
 
@@ -207,7 +207,7 @@ Bản thiết kế ghi một route `/bao-cao` cho "Báo cáo & Import"; làm the
 
 - Mỗi route bọc bằng một component kiểm role, dùng chung mảng role với menu. Không đủ role thì hiện trang 403: Result 403, câu "Bạn không có quyền truy cập trang này.", nút "Về Tổng quan".
 - Route không tồn tại: trang 404 đơn giản (Result 404).
-- Màn chưa làm: hiện trang "Màn này làm ở tuần N", lấy N ở cột cuối của bảng menu (A5).
+- Màn chưa làm: hiện trang chờ "Màn này đang được xây dựng." (A5).
 - Không đặt route `/login`, `/logout`, `/oauth2`.
 
 ## 7. Thứ tự làm
@@ -265,8 +265,8 @@ Phần cho Claude Code trên máy, không lên Git: thêm vào mục "Lệnh" c�
 
 ## 11. Đã chốt (28/10/2026)
 
-1. A1: bộ lọc chặn nhân viên bị khóa làm ở tuần 4, cùng thao tác Khóa. Khóa chỉ trọn vẹn khi cùng lúc đổi `status`, tắt tài khoản trên KeyCloak và đăng xuất các phiên KeyCloak; hai việc sau cần Admin API. Làm riêng bộ lọc thì khi thử, trình duyệt chạy vòng: bị 401 → về KeyCloak → phiên KeyCloak còn nên vào lại ngay → lại bị 401.
-2. A2: tuần 3 dùng giao diện mặc định của KeyCloak, chữ tiếng Việt, tên "Ngân hàng Demo"; đổi logo và màu (màn 3.1) ở tuần 10. Quick Theme trong KeyCloak 26.8.1 vẫn là tính năng thử nghiệm và là phần trang trí; bản dịch tiếng Việt có sẵn.
-3. A3: client `alp-admin` khai báo luôn trong `alp-realm.json` ở tuần 3. KeyCloak chỉ nạp file realm khi realm chưa có; để tuần 4 mới thêm thì phải xóa realm rồi nạp lại (mất user tự đăng ký) hoặc bấm tay, làm file JSON lệch với KeyCloak.
+1. A1: bộ lọc chặn nhân viên bị khóa làm ở phần quản trị, cùng thao tác Khóa. Khóa chỉ trọn vẹn khi cùng lúc đổi `status`, tắt tài khoản trên KeyCloak và đăng xuất các phiên KeyCloak; hai việc sau cần Admin API. Làm riêng bộ lọc thì khi thử, trình duyệt chạy vòng: bị 401 → về KeyCloak → phiên KeyCloak còn nên vào lại ngay → lại bị 401.
+2. A2: phần đăng nhập dùng giao diện mặc định của KeyCloak, chữ tiếng Việt, tên "Ngân hàng Demo"; đổi logo và màu (màn 3.1) ở phần hoàn thiện giao diện. Quick Theme trong KeyCloak 26.8.1 vẫn là tính năng thử nghiệm và là phần trang trí; bản dịch tiếng Việt có sẵn.
+3. A3: client `alp-admin` khai báo luôn trong `alp-realm.json` ở phần đăng nhập. KeyCloak chỉ nạp file realm khi realm chưa có; để phần quản trị mới thêm thì phải xóa realm rồi nạp lại (mất user tự đăng ký) hoặc bấm tay, làm file JSON lệch với KeyCloak.
 4. A4: chia 2 Pull Request, backend trước, frontend sau. Mỗi PR nhỏ, đọc và giải thích được trước khi merge; backend kiểm được riêng trước khi có giao diện.
-5. A5: menu hiện đủ mục theo role; màn chưa làm hiện trang "Màn này làm ở tuần N". Kiểm được "menu đúng theo role" của M2 ngay ở tuần 3 với cả 3 role; các tuần sau chỉ thay trang chờ bằng màn thật.
+5. A5: menu hiện đủ mục theo role; màn chưa làm hiện trang chờ "Màn này đang được xây dựng.". Kiểm được "menu đúng theo role" của M2 ngay từ phần đăng nhập với cả 3 role; các phần sau chỉ thay trang chờ bằng màn thật.

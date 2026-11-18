@@ -250,4 +250,25 @@ describe('PendingReviewPage', () => {
     // Kiểm tra kết quả
     expect(await screen.findByText('Không còn phiếu nào chờ bạn duyệt')).toBeInTheDocument()
   })
+
+  it('Tải lỗi thì báo lỗi kèm nút Thử lại, không báo "Không còn phiếu nào"; bấm Thử lại thì tải lại', async () => {
+    // Chuẩn bị: lần đầu backend lỗi, lần sau trả 1 phiếu
+    vi.mocked(fetchPendingReview)
+      .mockRejectedValueOnce(new Error('Network Error'))
+      .mockResolvedValue([pending(1, 1, false)])
+
+    // Chạy
+    renderAt('/phieu/cho-duyet')
+
+    // Kiểm tra kết quả: có thông báo lỗi, không có câu "hết phiếu"
+    expect(await screen.findByText('Không tải được dữ liệu. Vui lòng thử lại sau ít phút.')).toBeInTheDocument()
+    expect(screen.queryByText('Không còn phiếu nào chờ bạn duyệt')).not.toBeInTheDocument()
+
+    // Chạy tiếp: bấm Thử lại
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }))
+
+    // Kiểm tra kết quả: danh sách hiện phiếu, thông báo lỗi mất
+    expect((await screen.findAllByText('PYC-2026-0001')).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Không tải được dữ liệu. Vui lòng thử lại sau ít phút.')).not.toBeInTheDocument()
+  })
 })

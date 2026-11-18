@@ -1,6 +1,7 @@
 // Gọi API phiếu (CN-11, CN-14, CN-15, CN-16, CN-17). Backend tự kiểm quyền (QT-07), lấy chi nhánh từ hồ sơ người
 // đang đăng nhập (QT-04)
 // và che CCCD trước khi trả về (QT-06).
+import axios from 'axios'
 import { httpClient } from '../../api/httpClient.ts'
 import type { AccountStatus } from '../../components/accountStatus.ts'
 import type { TicketStatus } from '../../components/ticketStatus.ts'
@@ -299,8 +300,33 @@ export async function rejectTicket(id: number, reason: string): Promise<void> {
   await httpClient.post(`/api/tickets/${id}/reject`, { reason })
 }
 
-/** Đường dẫn xem (mở tab mới) hoặc tải một giấy tờ; file chỉ đi qua backend (QT-10). */
-export function attachmentUrl(ticketId: number, attachmentId: number, download: boolean): string {
-  const url = `/api/tickets/${ticketId}/attachments/${attachmentId}`
-  return download ? `${url}?download=true` : url
+/**
+ * Nội dung một giấy tờ, tải qua backend như mọi API khác (QT-10), nên hết phiên thì interceptor của httpClient hiện
+ * hộp thoại "Phiên đăng nhập đã hết hạn". responseType 'blob': axios trả nội dung file dạng Blob (dữ liệu nhị phân
+ * kèm loại file) thay vì đọc thành chữ. Khi đó backend trả lỗi thì thân lỗi cũng là Blob, nên đổi lại thành JSON để
+ * readApiError đọc được câu báo lỗi (ví dụ "Không tìm thấy giấy tờ").
+ */
+export async function fetchAttachment(ticketId: number, attachmentId: number): Promise<Blob> {
+  try {
+    const response = await httpClient.get<Blob>(`/api/tickets/${ticketId}/attachments/${attachmentId}`, {
+      responseType: 'blob',
+    })
+    return response.data
+  } catch (error) {
+    await readJsonErrorBody(error)
+    throw error
+  }
+}
+
+/** Thân lỗi đang là Blob thì đọc chữ trong đó, đổi thành JSON rồi gán lại; không phải JSON thì để nguyên. */
+async function readJsonErrorBody(error: unknown) {
+  if (!axios.isAxiosError(error) || !(error.response?.data instanceof Blob)) {
+    return
+  }
+  const text = await error.response.data.text()
+  try {
+    error.response.data = JSON.parse(text)
+  } catch {
+    // Không phải JSON (ví dụ trang lỗi HTML của Nginx): giữ nguyên, readApiError trả null và màn hiện câu chung.
+  }
 }

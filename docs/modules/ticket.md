@@ -148,7 +148,7 @@ Bảng `app.account_status_history`:
   1. Khóa dòng tài khoản (`SELECT ... FOR UPDATE`).
   2. Trạng thái hiện tại khác `expectedFrom` (ví dụ job vừa chuyển Ngủ đông trong lúc phiếu Phong tỏa chờ duyệt) → 409 "Trạng thái tài khoản đã đổi từ <A> sang <B> sau khi tạo phiếu. Hãy từ chối phiếu này." (D7).
   3. Lớp trạng thái không cho → 409 "Không chuyển được tài khoản từ <A> sang <B>".
-  4. UPDATE `status`; sang Hoạt động lần đầu thì đặt `opened_at` và `last_transaction_at` là hôm nay (theo giờ Việt Nam); sang Đã đóng thì đặt `closed_at`. Ghi 1 dòng `account_status_history`.
+  4. UPDATE `status`; sang Hoạt động lần đầu thì đặt `opened_at` và `last_transaction_at` là hôm nay (theo giờ Việt Nam); Ngủ đông sang Hoạt động (Kích hoạt lại) thì đặt `last_transaction_at` là hôm nay, để job Ngủ đông không chuyển lại ngay đêm đó (chốt 13/11/2026); sang Đã đóng thì đặt `closed_at`. Ghi 1 dòng `account_status_history`.
 - `openPending(...)`: nhận id khách đã có hoặc hồ sơ khách mới (khách mới thì gọi `customer` tạo hồ sơ trước), lấy số tài khoản từ `app.account_number_seq`, tạo tài khoản Chờ mở ở chi nhánh của người tạo (`last_transaction_at` tạm là hôm nay vì cột bắt buộc), ghi dòng lịch sử rỗng → Chờ mở.
 - Chỉ `ticket` gọi `changeStatus` và `openPending` (cùng job CN-25 chạy trong database). Không có API nào đổi trạng thái tài khoản trực tiếp.
 
@@ -223,10 +223,11 @@ Phần `data` của request:
   1. Kiểm: khách mới thì CCCD chưa có hồ sơ, hoặc hồ sơ có số đó chưa từng mở được tài khoản (D6); khách đã có thì hồ sơ không đang chờ duyệt (D5); 3 loại còn lại thì tài khoản đúng trạng thái theo bảng ở mục 5 và không có phiếu Chờ duyệt hoặc Bị từ chối (QT-03).
   2. Lưu file lên Storage (mục 11.1).
   3. Phiếu Mở tài khoản: `AccountService.openPending` (mục 5). Khách mới có hồ sơ cũ chưa từng mở được tài khoản thì `account` gọi `customer` ghi đè hồ sơ đó bằng dữ liệu mới (giữ `id`, nên các tài khoản Đã đóng cũ vẫn gắn đúng hồ sơ), thay vì tạo hồ sơ mới.
-  4. Lấy mã phiếu: `PYC-<năm theo giờ Việt Nam>-<số từ app.ticket_code_seq, đủ 4 chữ số>`.
+  4. Lấy mã phiếu: `PYC-<năm theo giờ Việt Nam>-<số từ app.ticket_code_seq, đủ 4 chữ số>`. Sequence không đếm lại theo năm; số vượt 4 chữ số thì mã dài hơn, nên cột `ticket.code` là `varchar(20)` (V16, chốt 13/11/2026: cột cũ 14 ký tự sẽ lỗi từ phiếu thứ 100.000).
   5. Bắt đầu process instance với business key là mã phiếu. Cột `process_instance_id` bắt buộc nên phải bắt đầu trước khi INSERT; quy trình dừng ngay ở `review`, chưa chạy service task nào.
   6. INSERT `ticket` (`PENDING_APPROVAL`, `submit_count` 1, `last_submitted_at` bằng `created_at`, chi nhánh của người tạo, `from_status`, `to_status`, `new_customer`), `attachment`, `ticket_history` `SUBMITTED`; audit `CREATE`.
 - 2 request tạo phiếu cho cùng tài khoản đến cùng lúc có thể cùng qua bước 1; index `uq_ticket_open_per_account` chặn ở bước 6 và trả 409 cùng câu báo (mục 11.3). Không khóa dòng `account` từ `ticket`.
+- Phiếu Mở tài khoản thì index trên không chặn được, vì mỗi phiếu tạo một tài khoản mới: 2 request cho cùng một hồ sơ (cùng số CCCD của hồ sơ chưa từng mở tài khoản, hoặc cùng khách đã có) đến cùng lúc sẽ cùng qua bước 1 và phá D5. Vì vậy bước 1 khóa dòng hồ sơ (`SELECT ... FOR UPDATE` trong `customer`, gọi qua `account`) trước khi đọc trạng thái CCCD; request sau chờ request trước commit rồi thấy `PENDING` và nhận 409 (chốt 13/11/2026). Chưa có hồ sơ thì không có dòng để khóa, cột UNIQUE của `cccd` chặn trùng.
 - Người tạo chưa có chi nhánh thì 409 (bình thường không xảy ra vì Admin chỉ gán `MAKER` khi đã có chi nhánh).
 - Trạng thái CCCD (dùng chung cho `customer-check` và bước 1), đọc bảng `customer`, `account`, `ticket`:
   - `NEW`: chưa có hồ sơ.
@@ -352,6 +353,7 @@ Phần `data` của request:
   - Steps: Tạo phiếu → Kiểm soát viên duyệt → Gửi mail → Hoàn tất. Bị từ chối, Đã hủy: bước đang dừng hiện trạng thái lỗi kèm chữ "Bị từ chối" hoặc "Đã hủy".
   - Nội dung yêu cầu: "Tài khoản <số> sẽ chuyển <A> → <B> khi phiếu được duyệt" (đã duyệt thì "đã chuyển"; đã hủy thì "Tài khoản <số> không chuyển <A> → <B> vì phiếu đã hủy", người dùng chốt 11/11/2026); Descriptions: Loại phiếu, Loại tài khoản, Chủ tài khoản (link sang chi tiết khách hàng), Số CCCD (đã che), Người tạo, Chi nhánh tạo, Ngày tạo, Số lần gửi, Lý do; phiếu Bị từ chối có thêm Lý do từ chối.
   - Giấy tờ đính kèm: chỉ giấy tờ đang dùng (`removed_at` rỗng); tên, dung lượng, nút Xem (mở tab mới) và Tải; không có nút xóa. Giấy tờ đã bỏ chỉ còn tên trong Lịch sử xử lý.
+  - Hai nút Xem, Tải không phải link thẳng tới API: React tải file qua `httpClient` (axios, `responseType: 'blob'`) rồi mới hiện trong tab mới hoặc lưu bằng tên gốc. Nhờ vậy hết phiên thì hiện hộp thoại "Phiên đăng nhập đã hết hạn" như mọi API khác, giấy tờ không có thì báo lỗi ngay trong app; link thẳng thì tab chỉ hiện chữ JSON của backend, và nút Tải còn thay mất trang đang mở. Nút Xem mở tab trống ngay lúc bấm rồi mới tải file, vì trình duyệt chặn cửa sổ mở sau một lần chờ (chốt 18/11/2026).
   - Lịch sử xử lý: Timeline từ `ticket_history`, mới nhất ở trên; phiếu đang chờ thì dòng đầu là "Hiện tại: Chờ kiểm soát viên duyệt".
 - Tên loại `GO_PHONG_TOA` theo `from_status` của phiếu: Ngủ đông thì "Kích hoạt lại", Phong tỏa thì "Gỡ phong tỏa". Ở chi tiết tài khoản, tên này vẫn theo trạng thái hiện tại của tài khoản.
 
@@ -517,3 +519,4 @@ Làm theo file này:
 7. Badge số phiếu ở menu "Chờ duyệt": bản thiết kế có, file chức năng chưa ghi: theo D9.
 8. Trang 2.4 (bản thiết kế chưa cập nhật từ 20/10) luôn ghi Breadcrumb "Chờ duyệt"; file này ghi theo nơi người dùng đi tới.
 9. Cho spec Tổng quan, không làm ở đây: bản thiết kế 31/10 ghi "thời gian chờ tính ở frontend từ lúc gửi", file chức năng chốt backend tính sẵn từ lần gửi gần nhất (mục 3.2); thẻ "Phiếu bị trả lại" có thêm nút "Hủy phiếu" mà CN-06 chỉ ghi nút "Sửa và gửi lại".
+10. Audit log khi duyệt phiếu: bản thiết kế 3.5 và ví dụ ở CN-23 có thêm một dòng riêng "Hệ thống · Đổi trạng thái · Tài khoản"; file này ghi 1 dòng cho mỗi API, việc đổi trạng thái nằm trong mô tả của dòng Duyệt phiếu, chi tiết từng tài khoản ở `account_status_history` (mục 12).

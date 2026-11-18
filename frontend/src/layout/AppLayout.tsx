@@ -5,6 +5,8 @@ import { Flex, Layout, Menu, Spin } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useCurrentUser } from '../pages/auth/useCurrentUser.ts'
+import { EMPLOYEES_QUERY_KEY, fetchEmployees } from '../pages/employee/employeeApi.ts'
+import { countPendingEmployees } from '../pages/employee/employeeState.ts'
 import { fetchPendingReviewSummary, PENDING_REVIEW_SUMMARY_QUERY_KEY } from '../pages/ticket/ticketApi.ts'
 import AppHeader from './AppHeader.tsx'
 import { buildMenuItems, MENU_GROUPS } from './menuItems.tsx'
@@ -21,6 +23,14 @@ function AppLayout() {
     queryFn: fetchPendingReviewSummary,
     enabled: currentUser.roles.includes('CHECKER'),
   })
+  // Badge số nhân viên Chờ cấp quyền (CN-22): chỉ hỏi khi là ADMIN. Dùng chung khóa cache với màn Nhân viên, nên
+  // gán role xong màn đó tải lại danh sách thì số ở menu cũng đổi theo, không cần API đếm riêng.
+  const employeesQuery = useQuery({
+    queryKey: EMPLOYEES_QUERY_KEY,
+    queryFn: fetchEmployees,
+    enabled: currentUser.roles.includes('ADMIN'),
+  })
+  const pendingRoleCount = countPendingEmployees(employeesQuery.data ?? [])
 
   return (
     <Layout className={styles.layout}>
@@ -32,7 +42,7 @@ function AppLayout() {
         <Menu
           theme="dark"
           mode="inline"
-          items={buildMenuItems(currentUser.roles, pendingSummaryQuery.data?.pendingCount)}
+          items={buildMenuItems(currentUser.roles, pendingSummaryQuery.data?.pendingCount, pendingRoleCount)}
           selectedKeys={[location.pathname]}
           defaultOpenKeys={MENU_GROUPS}
           onClick={(item) => navigate(item.key)}

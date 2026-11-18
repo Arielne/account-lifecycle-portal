@@ -90,7 +90,7 @@ App không có nút đổi người dùng. Muốn đổi tài khoản thì bấm
 | --- | --- | --- |
 | Realm | Realm riêng cho project | Không dùng realm `master`, realm đó để quản trị KeyCloak |
 | Client `alp-portal` cho backend | Bật Client authentication (có secret), bật Standard flow, tắt Direct access grants | Valid redirect URIs: `/login/oauth2/code/keycloak` của portal; Post logout redirect URIs: trang chủ portal |
-| Client `alp-admin` quản lý user | Client riêng, bật Service accounts, gán role `manage-users`, `view-users` và `view-realm` (để đọc role và thành viên của role) của client `realm-management` | Backend dùng client này gọi Admin API (từ tuần 4) |
+| Client `alp-admin` quản lý user | Client riêng, bật Service accounts, gán role `manage-users`, `view-users` và `view-realm` (để đọc role và thành viên của role) của client `realm-management` | Backend dùng client này gọi Admin API (từ phần quản trị) |
 | Ngôn ngữ | Bật Internationalization, chỉ tiếng Việt (`vi`) | KeyCloak có sẵn bản dịch tiếng Việt |
 | Realm roles | `MAKER`, `CHECKER`, `ADMIN` | Bật mapper "realm roles" thêm role vào ID token để backend đọc được ngay lúc đăng nhập |
 | Đăng ký, quên mật khẩu | Realm settings → Login: bật User registration, Forgot password và Remember me; tắt Verify email | Default roles không gồm 3 role trên |
@@ -99,7 +99,7 @@ App không có nút đổi người dùng. Muốn đổi tài khoản thì bấm
 | Thời gian phiên | Realm settings → Sessions: SSO Session Idle 30 phút | Khớp với 30 phút của Spring Session; đổi một bên thì đổi cả bên kia |
 | Gửi mail | Realm settings → Email: host `mailpit`, port `1025`, người gửi `no-reply@nhdemo.local` tên "Ngân hàng Demo" | Mailpit chỉ giữ mail để xem, không gửi ra ngoài |
 | Mật khẩu | Authentication → Policies: độ dài tối thiểu, chữ hoa, chữ số | Hash mặc định là Argon2 có salt |
-| Giao diện | Tuần 3 dùng giao diện mặc định của KeyCloak, chữ tiếng Việt, tên hiển thị "Ngân hàng Demo"; đổi logo và màu (màn 3.1) ở tuần 10 | Quick Theme của KeyCloak 26.8.1 vẫn là tính năng thử nghiệm |
+| Giao diện | Phần đăng nhập dùng giao diện mặc định của KeyCloak, chữ tiếng Việt, tên hiển thị "Ngân hàng Demo"; đổi logo và màu (màn 3.1) ở phần hoàn thiện giao diện | Quick Theme của KeyCloak 26.8.1 vẫn là tính năng thử nghiệm |
 | Đường dẫn | KeyCloak chạy ở cổng riêng `http://localhost:8080` | Xem lỗi "issuer không khớp" ở mục 4 |
 
 - Lưu cấu hình: realm viết hết trong `docker/keycloak/import/alp-realm.json`, không bấm tay trong Admin Console; container khởi động với `--import-realm` để tự dựng lại realm. KeyCloak chỉ nạp khi realm chưa có: sửa file thì xóa realm `alp` trong Admin Console rồi `docker compose restart keycloak` (chi tiết ở mục 3 của `docs/modules/auth.md`).
@@ -183,7 +183,7 @@ Trước khi báo Camunda hoàn thành task Duyệt phiếu hoặc Từ chối p
 - Không dùng `keycloak-js`, không lưu token ở đâu cả.
 - Gọi API bằng axios với đường dẫn tương đối (`/api/...`), bọc bằng TanStack Query. Cùng domain nên cookie phiên tự được gửi.
 - CSRF: axios mặc định đọc cookie `XSRF-TOKEN` và gắn header `X-XSRF-TOKEN` cho request cùng domain, khớp với cấu hình Spring ở mục 4.
-- Interceptor phản hồi: gặp 401 thì chuyển trình duyệt tới `/oauth2/authorization/keycloak`.
+- Interceptor phản hồi, gặp 401: lúc mở app (`GET /api/me`) thì chuyển thẳng trình duyệt tới `/oauth2/authorization/keycloak`; ở API khác (phiên hết hạn khi đang dùng) thì hiện hộp thoại "Phiên đăng nhập đã hết hạn", bấm "Đăng nhập lại" mới chuyển, để người dùng không bị đẩy đi giữa chừng (`docs/modules/auth.md` mục 6).
 - Khi mở app: gọi `/api/me`, lưu người dùng, role và chi nhánh vào React Context. Menu dựng từ một mảng mục, mỗi mục có danh sách role; route cũng chặn theo role, vào URL trái quyền thì hiện trang 403.
 - Ẩn nút theo role chỉ để giao diện gọn; quyền thật kiểm tra ở backend.
 - Đăng xuất: gọi `POST /logout`, nhận địa chỉ đăng xuất của KeyCloak, rồi chuyển trình duyệt tới địa chỉ đó.

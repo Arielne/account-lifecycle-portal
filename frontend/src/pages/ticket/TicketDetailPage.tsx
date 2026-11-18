@@ -2,9 +2,8 @@
 // lại, Hủy phiếu cho giao dịch viên (CN-12, CN-13). Giao dịch viên, kiểm soát viên xem được phiếu của mọi chi nhánh
 // (QT-04). Đi tới từ màn Chờ duyệt (màn hẹp) thì Breadcrumb ghi "Chờ duyệt", duyệt xong quay về màn đó.
 import { useLocation, useNavigate, useParams } from 'react-router'
-import { Alert, Flex, Spin } from 'antd'
+import { Flex, Spin } from 'antd'
 import { useQuery } from '@tanstack/react-query'
-import { readApiError } from '../../api/apiError.ts'
 import PageHeading from '../../components/PageHeading.tsx'
 import TicketStatusTag from '../../components/TicketStatusTag.tsx'
 import { ticketTypeLabel } from '../../components/ticketType.ts'
@@ -13,6 +12,7 @@ import ReviewActions from './ReviewActions.tsx'
 import RevisionActions from './RevisionActions.tsx'
 import { fetchTicket, TICKET_QUERY_KEY } from './ticketApi.ts'
 import TicketDetailBody from './TicketDetailBody.tsx'
+import TicketLoadError from './TicketLoadError.tsx'
 import { FROM_PENDING_REVIEW_STATE, PENDING_REVIEW_ROUTE, type TicketDetailState } from './ticketRoutes.ts'
 
 function TicketDetailPage() {
@@ -38,8 +38,7 @@ function TicketDetailPage() {
   }
 
   if (!Number.isInteger(id) || ticketQuery.isError) {
-    const message = readApiError(ticketQuery.error)?.message ?? 'Không tìm thấy phiếu'
-    return <Alert type="error" showIcon title={message} />
+    return <TicketLoadError error={ticketQuery.error} />
   }
   if (ticketQuery.isPending) {
     return (

@@ -2,16 +2,16 @@
 // Dùng ở trang 2.4 và cột phải của màn Chờ duyệt. CCCD đã che từ backend (QT-06); giấy tờ chỉ xem và tải qua
 // backend, không có nút xóa (QT-10).
 import { Link } from 'react-router'
-import { Button, Card, Descriptions, Flex, List, Steps, Timeline, Typography } from 'antd'
+import { Card, Descriptions, Flex, Steps, Timeline, Typography } from 'antd'
 import type { StepsProps } from 'antd'
-import { DownloadOutlined, EyeOutlined, FileOutlined } from '@ant-design/icons'
 import AccountStatusTag from '../../components/AccountStatusTag.tsx'
 import CodeText from '../../components/CodeText.tsx'
 import type { TicketStatus } from '../../components/ticketStatus.ts'
 import { ticketTypeLabel } from '../../components/ticketType.ts'
 import { formatDateTime } from '../catalog/format.ts'
-import { attachmentUrl, type TicketDetail } from './ticketApi.ts'
-import { formatFileSize, HISTORY_ACTION_TEXTS, historyNoteText } from './ticketFormat.ts'
+import TicketAttachments from './TicketAttachments.tsx'
+import type { TicketDetail } from './ticketApi.ts'
+import { HISTORY_ACTION_TEXTS, historyNoteText } from './ticketFormat.ts'
 
 interface TicketDetailBodyProps {
   ticket: TicketDetail
@@ -26,7 +26,7 @@ function TicketDetailBody({ ticket, compact = false }: TicketDetailBodyProps) {
         <TicketSteps ticket={ticket} compact={compact} />
       </Card>
       <RequestContent ticket={ticket} />
-      <Attachments ticket={ticket} />
+      <TicketAttachments ticketId={ticket.id} attachments={ticket.attachments} />
       <History ticket={ticket} />
     </Flex>
   )
@@ -119,43 +119,6 @@ function contentItems(ticket: TicketDetail) {
     items.push({ key: 'rejectReason', label: 'Lý do từ chối', span: 'filled' as const, children: ticket.rejectReason })
   }
   return items
-}
-
-/** Giấy tờ đang dùng: Xem mở tab mới, Tải tải về; không có nút xóa (QT-10). */
-function Attachments({ ticket }: { ticket: TicketDetail }) {
-  return (
-    <Card title="Giấy tờ đính kèm" extra={<Typography.Text type="secondary">{ticket.attachments.length} tệp</Typography.Text>}>
-      <List
-        dataSource={ticket.attachments}
-        locale={{ emptyText: 'Không có giấy tờ' }}
-        renderItem={(attachment) => (
-          <List.Item
-            actions={[
-              <Button
-                key="view"
-                type="link"
-                icon={<EyeOutlined />}
-                href={attachmentUrl(ticket.id, attachment.id, false)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Xem
-              </Button>,
-              <Button key="download" type="link" icon={<DownloadOutlined />} href={attachmentUrl(ticket.id, attachment.id, true)}>
-                Tải
-              </Button>,
-            ]}
-          >
-            <List.Item.Meta
-              avatar={<FileOutlined />}
-              title={attachment.originalName}
-              description={formatFileSize(attachment.sizeBytes)}
-            />
-          </List.Item>
-        )}
-      />
-    </Card>
-  )
 }
 
 /** Lịch sử xử lý, mới nhất ở trên; phiếu đang chờ thì dòng đầu là bước hiện tại. */

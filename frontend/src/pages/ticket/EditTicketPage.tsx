@@ -35,6 +35,7 @@ import {
   type TicketEditData,
 } from './ticketApi.ts'
 import { formatFileSize } from './ticketFormat.ts'
+import TicketLoadError from './TicketLoadError.tsx'
 
 const LAST_STEP = EDIT_STEP_TITLES.length - 1
 
@@ -63,7 +64,7 @@ function EditTicketPage() {
     )
   }
   if (!Number.isInteger(id) || editQuery.isError) {
-    return <Alert type="error" showIcon title={apiError?.message ?? 'Không tìm thấy phiếu'} />
+    return <TicketLoadError error={editQuery.error} />
   }
   if (editQuery.isPending) {
     return (

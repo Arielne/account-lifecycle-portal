@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<!-- SQL cho TicketMapper (CN-11, CN-15). Ghi bảng ticket, attachment, ticket_history; đọc chéo bảng account, customer,
-     account_type, employee, branch. -->
+<!-- SQL cho TicketMapper (CN-11 đến CN-17). Ghi bảng ticket, attachment, ticket_history; đọc chéo bảng account,
+     customer, account_type, employee, branch. -->
 <mapper namespace="io.github.arielne.alp.ticket.TicketMapper">
 
     <select id="nextCodeNumber" resultType="long">

@@ -91,6 +91,19 @@ class DatabaseMigrationIT {
     }
 
     @Test
+    @DisplayName("V16: mã phiếu dài 15 ký tự (phiếu thứ 100.000 trở đi, PYC-2026-100000) vẫn lưu được")
+    void ticketCodeLongerThanFourteenCharactersCanBeSaved() {
+        // Chuẩn bị
+        long branchId = createBranch();
+        long accountId = createAccount(createCustomer(branchId), createAccountType(), branchId, "ACTIVE");
+        long employeeId = createEmployee(branchId);
+
+        // Chạy và kiểm tra kết quả: trước V16 cột code là varchar(14) nên câu INSERT này bị lỗi
+        assertDoesNotThrow(
+                () -> createTicket("PYC-2026-100000", accountId, branchId, employeeId, "PENDING_APPROVAL"));
+    }
+
+    @Test
     @DisplayName("Dòng import bị lỗi, thiếu dữ liệu từ Excel, vẫn lưu được kèm lý do lỗi")
     void importErrorRowWithMissingDataCanBeSaved() {
         // Chuẩn bị: 1 lô import do nhân viên tạo

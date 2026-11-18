@@ -6,7 +6,7 @@ Admin Portal quản lý vòng đời tài khoản ngân hàng của khách hàng
 
 ## Trạng thái
 
-Tuần 1 (21–24/10/2026): làm tài liệu và sơ đồ. Chưa có code.
+Đã có: đăng nhập, danh mục, nhân viên, audit log, khách hàng, tài khoản và phiếu yêu cầu (tạo, duyệt, từ chối, sửa, hủy). Chưa có: gửi mail kết quả, Tổng quan, job Ngủ đông, import theo lô, xuất báo cáo.
 
 ## Thư mục
 

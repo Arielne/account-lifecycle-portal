@@ -14,7 +14,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 public record TicketListQuery(
         List<TicketStatus> statuses,
 
-        @Pattern(regexp = "[A-Za-z0-9-]{0,14}", message = "Mã phiếu chỉ gồm chữ, số và dấu -")
+        @Pattern(regexp = "[A-Za-z0-9-]{0,20}", message = "Mã phiếu chỉ gồm chữ, số và dấu -")
         String code,
 
         TicketType type,

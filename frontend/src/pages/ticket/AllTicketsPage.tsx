@@ -7,6 +7,7 @@ import { Button, Card, DatePicker, Flex, Form, Input, Segmented, Select } from '
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
 import { useQuery } from '@tanstack/react-query'
+import LoadErrorAlert from '../../components/LoadErrorAlert.tsx'
 import PageHeading from '../../components/PageHeading.tsx'
 import { TICKET_STATUS_LABELS, type TicketStatus } from '../../components/ticketStatus.ts'
 import { SINGLE_TICKET_TYPES, ticketTypeLabel, type TicketType } from '../../components/ticketType.ts'
@@ -23,7 +24,7 @@ const FROM_PARAM = 'tu'
 const TO_PARAM = 'den'
 const PAGE_PARAM = 'trang'
 
-const CODE_PATTERN = /^[A-Za-z0-9-]{1,14}$/
+const CODE_PATTERN = /^[A-Za-z0-9-]{1,20}$/
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const ALL = 'ALL'
 const STATUS_ORDER: TicketStatus[] = ['PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED']
@@ -58,6 +59,7 @@ function AllTicketsPage() {
         title="Tất cả phiếu"
         description="Phiếu của mọi chi nhánh, mới cập nhật ở trên"
       />
+      {ticketsQuery.isError && <LoadErrorAlert onRetry={() => void ticketsQuery.refetch()} />}
       <Card>
         <Flex vertical gap={16}>
           <Segmented

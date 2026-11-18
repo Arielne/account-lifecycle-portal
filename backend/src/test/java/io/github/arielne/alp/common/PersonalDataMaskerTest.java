@@ -1,6 +1,7 @@
 package io.github.arielne.alp.common;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,5 +55,16 @@ class PersonalDataMaskerTest {
         assertEquals("a***@nhdemo.local", PersonalDataMasker.maskEmail(shortLocalPart));
         assertEquals("***", PersonalDataMasker.maskEmail(withoutAt));
         assertEquals("***", PersonalDataMasker.maskEmail(emptyLocalPart));
+    }
+
+    @Test
+    @DisplayName("Không có giá trị (phiếu lô không gắn tài khoản nên không có CCCD) thì trả null, không ném lỗi")
+    void nullStaysNull() {
+        // Chuẩn bị: không có giá trị nào để che
+
+        // Chạy, kiểm tra kết quả
+        assertNull(PersonalDataMasker.maskCccd(null));
+        assertNull(PersonalDataMasker.maskPhone(null));
+        assertNull(PersonalDataMasker.maskEmail(null));
     }
 }

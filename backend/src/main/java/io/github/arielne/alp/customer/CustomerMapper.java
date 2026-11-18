@@ -23,6 +23,15 @@ public interface CustomerMapper {
     /** Một khách theo id; không có thì trả null. */
     CustomerRow findById(Long id);
 
+    /**
+     * Khóa dòng hồ sơ có số CCCD này tới hết transaction (SELECT ... FOR UPDATE). Trả id hồ sơ; chưa có hồ sơ thì
+     * null và không khóa gì.
+     */
+    Long lockProfileByCccd(String cccd);
+
+    /** Như lockProfileByCccd, tìm hồ sơ theo id. */
+    Long lockProfileById(Long customerId);
+
     /** Thêm hồ sơ mới; id do database sinh được gán lại vào record. */
     int insert(CustomerRecord record);
 

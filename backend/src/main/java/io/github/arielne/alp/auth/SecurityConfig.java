@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
 import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
@@ -15,7 +16,7 @@ import org.springframework.security.web.servlet.util.matcher.PathPatternRequestM
 /**
  * Cấu hình Spring Security cho đăng nhập, đăng xuất và phân quyền chung (CN-01 đến CN-05).
  * Mọi request đi qua chuỗi filter này trước khi tới Controller.
- * Phân quyền riêng của từng API (ví dụ duyệt phiếu cần CHECKER) thêm ở tuần làm API đó.
+ * Phân quyền riêng của từng API (ví dụ duyệt phiếu cần CHECKER) thêm cùng lúc với API đó.
  */
 @Configuration
 @RequiredArgsConstructor
@@ -31,31 +32,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // Ai gọi được đường dẫn nào. Luật xét từ trên xuống, gặp luật khớp đầu tiên thì dừng.
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/actuator/health", "/error").permitAll()
-                        .requestMatchers("/api/me").authenticated()
-                        // Danh mục (CN-20, CN-21): mọi role đọc được để chọn và lọc ở các màn khác; chỉ ADMIN ghi.
-                        .requestMatchers(HttpMethod.GET, "/api/account-types/**", "/api/branches/**")
-                        .hasAnyRole("MAKER", "CHECKER", "ADMIN")
-                        .requestMatchers("/api/account-types/**", "/api/branches/**").hasRole("ADMIN")
-                        // Nhân viên (CN-22) và Audit log (CN-23): chỉ ADMIN, kể cả đọc.
-                        .requestMatchers("/api/employees/**", "/api/audit-logs/**").hasRole("ADMIN")
-                        // Khách hàng, tài khoản (CN-07 đến CN-10): Admin không được xem (docs/01-chuc-nang.md mục 1).
-                        .requestMatchers("/api/customers/**", "/api/accounts/**").hasAnyRole("MAKER", "CHECKER")
-                        // Phiếu (CN-11 đến CN-17, spec phiếu mục 6): duyệt, từ chối, màn Chờ duyệt chỉ CHECKER;
-                        // tạo, sửa, hủy và các API kiểm trước khi tạo chỉ MAKER; xem phiếu cho cả hai. Admin không vào.
-                        // "Người tạo", "cùng chi nhánh" kiểm trong Service vì phải đọc phiếu.
-                        .requestMatchers("/api/tickets/pending-review/**", "/api/tickets/*/approve",
-                                "/api/tickets/*/reject").hasRole("CHECKER")
-                        .requestMatchers(HttpMethod.POST, "/api/tickets", "/api/tickets/customer-check",
-                                "/api/tickets/*/cancel").hasRole("MAKER")
-                        .requestMatchers(HttpMethod.PUT, "/api/tickets/*").hasRole("MAKER")
-                        .requestMatchers(HttpMethod.GET, "/api/tickets/eligibility", "/api/tickets/*/edit-data")
-                        .hasRole("MAKER")
-                        .requestMatchers("/api/tickets/**").hasAnyRole("MAKER", "CHECKER")
-                        .requestMatchers("/api/**").hasAnyRole("MAKER", "CHECKER", "ADMIN")
-                        .anyRequest().authenticated())
+                // Ai gọi được đường dẫn nào: xem configureAccessRules ở dưới.
+                .authorizeHttpRequests(this::configureAccessRules)
                 // OAuth2 Login: tự có /oauth2/authorization/keycloak và /login/oauth2/code/keycloak.
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.userAuthoritiesMapper(keycloakRoleMapper))
@@ -80,5 +58,38 @@ public class SecurityConfig {
                 // Ghi giờ bắt đầu đổi code lấy token, trước filter đăng nhập OAuth2 của Spring.
                 .addFilterBefore(new LoginStartTimeFilter(), OAuth2LoginAuthenticationFilter.class);
         return http.build();
+    }
+
+    /**
+     * Ai gọi được đường dẫn nào (QT-07). Luật xét từ trên xuống, gặp luật khớp đầu tiên thì dừng, nên luật riêng
+     * của từng nhóm API phải đứng trước luật chung /api/**. Tách khỏi securityFilterChain cho hàm đó ngắn lại.
+     * Kiểu tham số dài là kiểu Spring Security đưa vào khi gọi authorizeHttpRequests.
+     */
+    private void configureAccessRules(
+            AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry authorize) {
+        authorize
+                .requestMatchers("/actuator/health", "/error").permitAll()
+                .requestMatchers("/api/me").authenticated()
+                // Danh mục (CN-20, CN-21): mọi role đọc được để chọn và lọc ở các màn khác; chỉ ADMIN ghi.
+                .requestMatchers(HttpMethod.GET, "/api/account-types/**", "/api/branches/**")
+                .hasAnyRole("MAKER", "CHECKER", "ADMIN")
+                .requestMatchers("/api/account-types/**", "/api/branches/**").hasRole("ADMIN")
+                // Nhân viên (CN-22) và Audit log (CN-23): chỉ ADMIN, kể cả đọc.
+                .requestMatchers("/api/employees/**", "/api/audit-logs/**").hasRole("ADMIN")
+                // Khách hàng, tài khoản (CN-07 đến CN-10): Admin không được xem (docs/01-chuc-nang.md mục 1).
+                .requestMatchers("/api/customers/**", "/api/accounts/**").hasAnyRole("MAKER", "CHECKER")
+                // Phiếu (CN-11 đến CN-17, spec phiếu mục 6): duyệt, từ chối, màn Chờ duyệt chỉ CHECKER;
+                // tạo, sửa, hủy và các API kiểm trước khi tạo chỉ MAKER; xem phiếu cho cả hai. Admin không vào.
+                // "Người tạo", "cùng chi nhánh" kiểm trong Service vì phải đọc phiếu.
+                .requestMatchers("/api/tickets/pending-review/**", "/api/tickets/*/approve",
+                        "/api/tickets/*/reject").hasRole("CHECKER")
+                .requestMatchers(HttpMethod.POST, "/api/tickets", "/api/tickets/customer-check",
+                        "/api/tickets/*/cancel").hasRole("MAKER")
+                .requestMatchers(HttpMethod.PUT, "/api/tickets/*").hasRole("MAKER")
+                .requestMatchers(HttpMethod.GET, "/api/tickets/eligibility", "/api/tickets/*/edit-data")
+                .hasRole("MAKER")
+                .requestMatchers("/api/tickets/**").hasAnyRole("MAKER", "CHECKER")
+                .requestMatchers("/api/**").hasAnyRole("MAKER", "CHECKER", "ADMIN")
+                .anyRequest().authenticated();
     }
 }

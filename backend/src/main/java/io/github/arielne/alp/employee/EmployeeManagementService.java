@@ -126,6 +126,7 @@ public class EmployeeManagementService {
         List<String> currentRoles = keycloakUserClient.findAppRoles(employee.getKeycloakId());
         List<String> rolesToAdd = rolesNotIn(newRoles, currentRoles);
         List<String> rolesToRemove = rolesNotIn(currentRoles, newRoles);
+        checkNoOpenTicketsWhenRemovingMaker(employee, rolesToRemove);
         String keycloakId = employee.getKeycloakId();
         keycloakUserClient.addRoles(keycloakId, rolesToAdd);
         undoOnRollback("bỏ role " + rolesToAdd + " vừa thêm của user " + keycloakId,
@@ -144,6 +145,23 @@ public class EmployeeManagementService {
         auditNote.setDescription(describeRoleChange(rolesToAdd, rolesToRemove));
         if (currentRoles.isEmpty()) {
             sendActivationMailAfterCommit(employee, newRoles);
+        }
+    }
+
+    /**
+     * Không bỏ role Giao dịch viên của người còn phiếu Chờ duyệt hoặc Bị từ chối (409, kiểm trước khi gọi KeyCloak).
+     * Người hết role không hủy được phiếu của mình, và người khác chỉ hủy thay được khi người tạo bị khóa, nên bỏ role
+     * lúc này làm phiếu kẹt mãi và tài khoản bị coi là "có phiếu mở" (QT-03).
+     */
+    private void checkNoOpenTicketsWhenRemovingMaker(Employee employee, List<String> rolesToRemove) {
+        if (!rolesToRemove.contains("MAKER")) {
+            return;
+        }
+        int openTicketCount = employeeMapper.countOpenTicketsCreatedBy(employee.getId());
+        if (openTicketCount > 0) {
+            throw new BusinessException(HttpStatus.CONFLICT, employee.getFullName() + " còn " + openTicketCount
+                    + " phiếu đang Chờ duyệt hoặc Bị từ chối. Hãy xử lý xong các phiếu này trước khi bỏ role"
+                    + " Giao dịch viên.");
         }
     }
 

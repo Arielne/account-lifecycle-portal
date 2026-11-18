@@ -28,6 +28,7 @@ public interface AccountMapper {
      * Đổi trạng thái. activating: đang sang Hoạt động, lần đầu thì đặt ngày mở và ngày giao dịch gần nhất là today;
      * closing: đang sang Đã đóng, đặt ngày đóng là today.
      */
+    // Tài khoản Ngủ đông được kích hoạt lại cũng đặt lại ngày giao dịch gần nhất là today (xem câu SQL).
     int updateStatus(@Param("accountId") Long accountId, @Param("status") String status,
                      @Param("activating") boolean activating, @Param("closing") boolean closing,
                      @Param("today") LocalDate today);

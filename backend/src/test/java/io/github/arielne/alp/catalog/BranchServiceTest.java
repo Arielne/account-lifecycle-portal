@@ -34,7 +34,7 @@ class BranchServiceTest {
     }
 
     @Test
-    @DisplayName("Xóa chi nhánh còn nhân viên và tài khoản thì báo 409 nói rõ còn gì, không xóa")
+    @DisplayName("QT-08: xóa chi nhánh còn nhân viên và tài khoản thì báo 409 nói rõ còn gì, không xóa")
     void deleteBranchInUseThrowsConflict() {
         // Chuẩn bị: Chi nhánh Quận 1 còn 14 nhân viên, 812 tài khoản
         when(branchMapper.findById(2L)).thenReturn(branch("CN-Q1", "Chi nhánh Quận 1", "45 Lê Thánh Tôn", "02838234510"));

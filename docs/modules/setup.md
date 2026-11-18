@@ -1,4 +1,4 @@
-# Module setup: nền móng (tuần 2)
+# Module setup: nền móng
 
 Mục tiêu là mốc M1 ngày 31/10/2026 (mốc đầu tiên trong roadmap của dự án; roadmap không nằm trong repo): đạt đủ điều kiện ở mục 12. Module này không làm chức năng `CN-xx` nào; nó dựng khung để các module sau chỉ việc thêm code vào đúng chỗ.
 
@@ -15,11 +15,11 @@ Làm:
 - GitHub Actions + JaCoCo; branch protection cho `main` và `develop`.
 - Phần cho Claude Code trên máy (mục 10).
 
-Không làm, để đúng tuần của nó:
+Không làm, để đúng phần của nó:
 
-- Realm KeyCloak, đăng nhập, Spring Security, Spring Session (tuần 3). Tuần này KeyCloak chỉ cần chạy được.
-- Function cho Tổng quan (tuần 5); Camunda (tuần 6); Stored Procedure và pg_cron (tuần 7); POI, Jasper (tuần 8); Kafka producer, consumer, Redis cache (tuần 9).
-- Thư viện chưa dùng tới. Tuần nào cần thư viện nào thì thêm tuần đó.
+- Realm KeyCloak, đăng nhập, Spring Security, Spring Session (phần đăng nhập). Phần này KeyCloak chỉ cần chạy được.
+- Function cho Tổng quan (phần Tổng quan, khách hàng, tài khoản); Camunda (phần phiếu); Stored Procedure và pg_cron (phần việc chạy nền); POI, Jasper (phần import và báo cáo); Kafka producer, consumer, Redis cache (phần Kafka và cache).
+- Thư viện chưa dùng tới. Phần nào cần thư viện nào thì thêm ở phần đó.
 
 ## 2. Cấu trúc repo
 
@@ -30,13 +30,13 @@ account-lifecycle-portal/
 ├── backend/                Spring Boot, Maven Wrapper (mvnw)
 │   └── src/main/java/io/github/arielne/alp/
 │       ├── common/         cấu hình dùng chung
-│       └── catalog/        tuần này chỉ có Branch + BranchMapper
+│       └── catalog/        phần này chỉ có Branch + BranchMapper
 ├── frontend/               React + Vite
 ├── db/
 │   ├── migrations/         script Flyway V<số>__<mô_tả>.sql
 │   └── seeds/              dữ liệu mẫu giả
 ├── docker/
-│   └── nginx/              cấu hình Nginx (realm và theme KeyCloak thêm ở tuần 3)
+│   └── nginx/              cấu hình Nginx (realm và theme KeyCloak thêm ở phần đăng nhập)
 └── docs/
 ```
 
@@ -62,17 +62,17 @@ Package của các module khác (bảng module trong `CLAUDE.md`) tạo khi bắ
 
 ## 4. Cấu hình và biến môi trường
 
-- `.env` ở gốc repo (đã có trong `.gitignore`); `.env.example` ghi tên biến, không ghi giá trị. Biến tuần này:
+- `.env` ở gốc repo (đã có trong `.gitignore`); `.env.example` ghi tên biến, không ghi giá trị. Biến phần này:
   - `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`: Supabase Session pooler.
   - `KC_BOOTSTRAP_ADMIN_USERNAME`, `KC_BOOTSTRAP_ADMIN_PASSWORD`.
-  - Biến của các tuần sau (secret client KeyCloak, khóa S3, `DEMO_PASSWORD`) thêm khi cần.
+  - Biến của các phần sau (secret client KeyCloak, khóa S3, `DEMO_PASSWORD`) thêm khi cần.
 - Compose tự đọc `.env`. Spring Boot nạp `.env` bằng `spring.config.import` kèm gợi ý kiểu `[.properties]`; đường dẫn chốt khi dựng.
-- Profile Spring: mặc định (chạy trên máy, nối Supabase), `test` (Testcontainers), `demo` (bật nạp dữ liệu mẫu).
+- Profile Spring: mặc định (chạy trên máy, nối Supabase) và `demo` (bật nạp dữ liệu mẫu). Test không có profile riêng: mỗi lớp `*IT` tự `@Import` cấu hình Testcontainers (Postgres, Redis, MinIO).
 - Người dùng tự điền giá trị vào `.env`. Claude Code không đọc, không in giá trị trong `.env`.
 
 ## 5. Database và Flyway
 
-- Flyway chỉ quản lý schema `app` và tự tạo schema nếu chưa có; bảng lịch sử của Flyway nằm trong `app`. Bảng của Camunda không do Flyway tạo.
+- Flyway chỉ quản lý schema `app` và tự tạo schema nếu chưa có; bảng lịch sử của Flyway nằm trong `app`. Bảng của Camunda không do Flyway tạo; từ phần phiếu, Flyway tạo thêm schema rỗng `camunda` để Camunda tự tạo bảng trong đó (spec phiếu, T1).
 - Script ở `db/migrations/` (gốc repo). Backend trỏ tới bằng `spring.flyway.locations`; Dockerfile của backend chép thư mục này vào image.
 - Chia script theo thứ tự khóa ngoại:
 
@@ -89,24 +89,24 @@ Package của các module khác (bảng module trong `CLAUDE.md`) tạo khi bắ
 - Cột, kiểu, khóa, cột được rỗng: đúng như `erd.drawio`. Cột trạng thái có ràng buộc CHECK theo danh sách giá trị ghi trong ERD.
 - Index: `account.status`, `ticket.status`; `cccd`, `account_number` đã có index nhờ UNIQUE.
 - Không sửa script đã chạy; muốn đổi bảng thì thêm script mới.
-- Ghi chú cho tuần 7: Postgres trong Testcontainers không có pg_cron, nên test của job Ngủ đông gọi thẳng Stored Procedure.
+- Ghi chú cho phần việc chạy nền: Postgres trong Testcontainers không có pg_cron, nên test của job Ngủ đông gọi thẳng Stored Procedure.
 
 ## 6. Dữ liệu mẫu
 
 - Tách khỏi migration, chỉ chạy ở profile `demo`. Profile này thêm `db/seeds/` vào `spring.flyway.locations`; file đặt tên `R__<mô_tả>.sql` (repeatable: Flyway chạy lại khi nội dung file đổi). Viết bằng `INSERT ... ON CONFLICT DO NOTHING`, chạy lại nhiều lần không trùng.
 - Supabase là một database dùng cho cả chạy thường và demo. Đặt `spring.flyway.ignore-migration-patterns: "*:future,repeatable:missing"` để database đã chạy seed ở `demo`, khi chạy lại profile thường (không có `db/seeds/`), Flyway không báo lỗi "Detected applied migration not resolved locally".
-- Tuần này có:
+- Phần này có:
   - Chi nhánh và loại tài khoản lấy theo bản thiết kế (màn 3.2, 3.3).
-  - 4 nhân viên demo (`lan.nt`, `khoa.tm`, `anh.vd`, `phuc.lh`) với `keycloak_id` cố định. Tuần 3 dùng lại đúng các id này trong realm JSON. Role không lưu ở đây.
+  - 4 nhân viên demo (`lan.nt`, `khoa.tm`, `anh.vd`, `phuc.lh`) với `keycloak_id` cố định. Phần đăng nhập dùng lại đúng các id này trong realm JSON. Role không lưu ở đây.
   - Khoảng 30 khách hàng và 60 tài khoản ở trạng thái Hoạt động, Ngủ đông, Đã đóng. Một số tài khoản Hoạt động có `last_transaction_at` cũ để demo job Ngủ đông.
-- Tài khoản Chờ mở, Phong tỏa và các phiếu không chèn bằng SQL. Chúng được tạo bằng code Java ở profile `demo`, gọi đúng service tạo và duyệt phiếu, khi đã có Camunda (tuần 7).
+- Tài khoản Chờ mở, Phong tỏa và các phiếu không chèn bằng SQL. Chúng được tạo bằng code Java ở profile `demo`, gọi đúng service tạo và duyệt phiếu, khi đã có Camunda (phần phiếu, Pull Request phiếu mẫu ở spec phiếu mục 14).
 - Toàn bộ là dữ liệu giả: tên giả, số CCCD giả đủ 12 chữ số, email đuôi `nhdemo.local`.
 
 ## 7. Backend
 
 - Spring Boot 3.5.16, Java 21, Maven Wrapper (máy không cần cài Maven). Package gốc `io.github.arielne.alp`.
 - Maven Wrapper kiểm tra SHA-256 của bản Maven tải về (`distributionSha256Sum` trong `backend/.mvn/wrapper/maven-wrapper.properties`); sai thì dừng, không chạy. Đổi phiên bản Maven thì cập nhật số này theo file `.sha512` Apache công bố.
-- Thư viện tuần này: web, validation, actuator (kiểm tra sống cho Compose), JDBC + driver PostgreSQL, MyBatis starter, Flyway (kèm module PostgreSQL), Lombok. Test: spring-boot-starter-test, Testcontainers (PostgreSQL). Plugin JaCoCo.
+- Thư viện phần này: web, validation, actuator (kiểm tra sống cho Compose), JDBC + driver PostgreSQL, MyBatis starter, Flyway (kèm module PostgreSQL), Lombok. Test: spring-boot-starter-test, Testcontainers (PostgreSQL). Plugin JaCoCo.
 - `catalog`: `Branch`, `BranchMapper` + `BranchMapper.xml` với `findAll`. Chưa cần Controller.
 - MyBatis: `map-underscore-to-camel-case: true`, `type-aliases-package`, `mapper-locations` trỏ tới file XML.
 
@@ -114,7 +114,7 @@ Package của các module khác (bảng module trong `CLAUDE.md`) tạo khi bắ
 
 - Vite + React 19 + TypeScript; Ant Design 6 + `@ant-design/icons`; React Router; TanStack Query; axios; SCSS.
 - `ConfigProvider` với locale tiếng Việt và theme token; màu chính lấy theo Design System trong bản thiết kế.
-- Một trang tạm để chắc mọi thứ chạy. Layout thật (menu theo role, header) làm ở tuần 3.
+- Một trang tạm để chắc mọi thứ chạy. Layout thật (menu theo role, header) làm ở phần đăng nhập.
 - Vitest + React Testing Library, 1 test mẫu.
 
 ## 9. Test, CI, coverage
@@ -122,7 +122,7 @@ Package của các module khác (bảng module trong `CLAUDE.md`) tạo khi bắ
 - Test nhanh: unit và API, không cần Docker, tên lớp kết thúc bằng `Test`. Test chậm: dùng Testcontainers, tên lớp kết thúc bằng `IT`. `mvnw test` chỉ chạy test nhanh; `mvnw verify` chạy tất cả và tạo báo cáo JaCoCo.
 - GitHub Actions (`.github/workflows/ci.yml`) chạy khi có Pull Request vào `develop`, `main` và khi push lên `develop`:
   - Backend: JDK 21, `./mvnw verify`, tải báo cáo JaCoCo lên làm artifact. Runner Ubuntu của GitHub có Docker nên Testcontainers chạy được.
-  - JaCoCo tuần này chỉ đo, chưa đặt ngưỡng tối thiểu. Tuần 5 có số thật mới đặt.
+  - JaCoCo phần này chỉ đo, chưa đặt ngưỡng tối thiểu. Phần Tổng quan, khách hàng, tài khoản có số thật mới đặt.
   - Frontend: Node 24, `npm ci`, `npm run build`, `npm test`.
 - Branch protection, bật sau khi workflow đã chạy ít nhất 1 lần để chọn được tên check: `main` và `develop` bắt buộc Pull Request và bắt buộc CI xanh.
 
@@ -151,6 +151,6 @@ Package của các module khác (bảng module trong `CLAUDE.md`) tạo khi bắ
 
 1. Package gốc Java: `io.github.arielne.alp`.
 2. Dữ liệu mẫu: Flyway chạy thêm `db/seeds/`, chỉ ở profile `demo`, file `R__`.
-3. JaCoCo: tuần 2 chỉ đo, chưa đặt ngưỡng.
+3. JaCoCo: phần nền móng chỉ đo, chưa đặt ngưỡng.
 4. `LEARNING.md`: chỉ để trên máy, không lên Git.
 5. Cột trạng thái có ràng buộc CHECK (mục 5).

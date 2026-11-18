@@ -179,6 +179,27 @@ class TicketCreateIT {
     }
 
     @Test
+    @DisplayName("D5, D6: 2 phiếu khách mới cùng số CCCD của hồ sơ chưa từng mở tài khoản gửi cùng lúc thì chỉ 1 thành"
+            + " công, phiếu kia 409; hồ sơ chỉ có 1 phiếu đang mở")
+    void concurrentTicketsForReusableProfileLetOnlyOneWin() throws Exception {
+        // Chuẩn bị: hồ sơ cũ có 1 tài khoản Đã đóng, chưa bao giờ Hoạt động
+        String cccd = newCccd();
+        long customerId = createCustomer(cccd, "Tên Cũ Gõ Nhầm");
+        createAccount(customerId, "CLOSED", null);
+
+        // Chạy: 2 request cùng lúc, cùng số CCCD
+        List<Integer> statuses = sendTogether(newCustomerJson(cccd, "Trần Văn Một"),
+                newCustomerJson(cccd, "Trần Văn Hai"));
+
+        // Kiểm tra kết quả: không có 2 phiếu cùng ghi đè một hồ sơ
+        assertTrue(statuses.contains(201) && statuses.contains(409), "Kết quả 2 request cùng lúc: " + statuses);
+        assertEquals(1, count("SELECT count(*) FROM app.ticket t JOIN app.account a ON a.id = t.account_id"
+                + " WHERE a.customer_id = ? AND t.status = 'PENDING_APPROVAL'", customerId));
+        assertEquals(1, count("SELECT count(*) FROM app.account WHERE customer_id = ? AND status = 'PENDING_OPEN'",
+                customerId));
+    }
+
+    @Test
     @DisplayName("QT-03: tài khoản đã có phiếu chờ duyệt thì phiếu thứ 2 bị 409; 2 request cùng lúc chỉ 1 thành công")
     void accountGetsAtMostOneOpenTicket() throws Exception {
         // Chuẩn bị: 2 tài khoản Hoạt động
